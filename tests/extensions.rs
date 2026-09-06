@@ -15,7 +15,7 @@ fn script_and_screen_extensions_preserve_exact_values_and_rollback() {
     runtime.continue_story().unwrap();
     assert_eq!(
         runtime.variables()["value"],
-        Value::Integer(18014398509481986)
+        Value::Integer(18_014_398_509_481_986)
     );
     let saved = serde_json::to_vec(&runtime.snapshot()).unwrap();
     assert!(
@@ -28,13 +28,13 @@ fn script_and_screen_extensions_preserve_exact_values_and_rollback() {
     restored.rollback().unwrap();
     assert_eq!(
         restored.variables()["value"],
-        Value::Integer(9007199254740993)
+        Value::Integer(9_007_199_254_740_993)
     );
     restored
         .apply_extension_expression("value", "double", "value")
         .unwrap();
     assert_eq!(
         restored.variables()["value"],
-        Value::Integer(18014398509481986)
+        Value::Integer(18_014_398_509_481_986)
     );
 }

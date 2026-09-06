@@ -39,6 +39,9 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: site/package-lock.json
+      # Requires site/package-lock.json to stay in sync with package.json.
+      # If this fails with EUSAGE (missing packages), regenerate the lockfile
+      # with `npm install` in site/ and commit the result.
       - run: npm ci
         working-directory: site
       - run: npm run check

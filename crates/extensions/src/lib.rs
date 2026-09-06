@@ -68,6 +68,8 @@ impl Extensions {
     /// Invokes a fresh scope containing only immutable input; the result is story data.
     /// # Errors
     /// Reports missing extensions, execution limits and invalid result types.
+    /// # Panics
+    /// Panics if the extension engine has not been initialized.
     pub fn invoke(&self, name: &str, input: &Value) -> Result<Value, String> {
         input.validate_data().map_err(str::to_owned)?;
         let ast = self

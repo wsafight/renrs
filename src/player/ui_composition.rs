@@ -133,6 +133,7 @@ impl App {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_lines)]
     pub(super) fn draw_data_control(
         &mut self,
         kind: ScreenKind,

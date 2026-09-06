@@ -14,7 +14,7 @@ impl App {
         &self,
         image: &LayeredImage,
         transform: TransformState,
-        placement: Placement,
+        placement: &Placement,
     ) {
         let crop = transform.crop.map_or(
             Rect::new(0.0, 0.0, image.width as f32, image.height as f32),

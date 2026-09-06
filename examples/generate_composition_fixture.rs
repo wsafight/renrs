@@ -58,7 +58,7 @@ label departure:
     let mut blink = face.clone();
     for x in 170..250 {
         for y in 167..182 {
-            if (x < 190 || x > 230) && x < width && y < height {
+            if !(190..=230).contains(&x) && x < width && y < height {
                 blink.put_pixel(
                     x,
                     y,

@@ -62,6 +62,7 @@ fn containing_label(program: &Program, instruction: usize) -> Option<&str> {
         .map(|(name, _)| name.as_str())
 }
 
+#[allow(clippy::too_many_lines)]
 fn definite_assignment_diagnostics(
     program: &Program,
     graph: &ControlFlowGraph,

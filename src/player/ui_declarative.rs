@@ -88,8 +88,10 @@ impl App {
                 | Widget::Set { .. }
                 | Widget::Slider { .. }
                 | Widget::Toggle { .. }
-                | Widget::Input { .. } => count += 1,
-                Widget::Drag { .. } | Widget::Drop { .. } | Widget::Extension { .. } => count += 1,
+                | Widget::Input { .. }
+                | Widget::Drag { .. }
+                | Widget::Drop { .. }
+                | Widget::Extension { .. } => count += 1,
                 Widget::DataList {
                     item_height,
                     variable,
@@ -146,7 +148,7 @@ impl App {
             let mouse = if super::ui_composition::hit_clip(element, mouse) {
                 mouse
             } else {
-                vec2(-100000.0, -100000.0)
+                vec2(-100_000.0, -100_000.0)
             };
             let bounds = element.bounds;
             let rect = Rect::new(bounds.x, bounds.y, bounds.width, bounds.height);

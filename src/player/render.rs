@@ -125,6 +125,7 @@ impl App {
         self.draw_stage_on(stage, opacity, self.canvas_target.as_ref());
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn draw_stage_on(
         &self,
         stage: &StageState,
@@ -220,7 +221,7 @@ impl App {
                 self.draw_image_layers(
                     composition,
                     transform,
-                    super::image_layers::Placement {
+                    &super::image_layers::Placement {
                         position: vec2(x, y),
                         size: vec2(target_width, target_height),
                         pivot: anchor,
