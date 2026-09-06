@@ -1,0 +1,3 @@
+label start:
+    call ending
+    return

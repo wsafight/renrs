@@ -1,0 +1,52 @@
+{
+  "dialogue_font_size": 30,
+  "dialogue_line_height": 40.0,
+  "ui_font_size": 22,
+  "heading_font_size": 36,
+  "title_font_size": 64,
+  "text_color": "#F8FAFC",
+  "muted_text_color": "#CBD5E1",
+  "accent_color": "#E56F51",
+  "focus_color": "#F6C85F",
+  "panel_color": "#111318",
+  "surface_color": "#34383F",
+  "background_color": "#263238",
+  "danger_color": "#A94336",
+  "high_contrast": false,
+  "reduced_motion": false,
+  "layout": {
+    "main_menu_panel": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 470.0,
+      "height": 720.0
+    },
+    "main_menu_buttons": {
+      "x": 66.0,
+      "y": 252.0,
+      "width": 320.0,
+      "item_height": 52.0,
+      "gap": 14.0
+    },
+    "toolbar": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 1280.0,
+      "height": 54.0
+    },
+    "toolbar_buttons_x": 548.0,
+    "dialogue_rect": {
+      "x": 42.0,
+      "y": 488.0,
+      "width": 1196.0,
+      "height": 196.0
+    },
+    "slots": {
+      "x": 180.0,
+      "y": 116.0,
+      "width": 920.0,
+      "item_height": 66.0,
+      "gap": 12.0
+    }
+  }
+}

@@ -1,0 +1,207 @@
+---
+import Base from '../layouts/Base.astro';
+import BracketLink from '../components/BracketLink.astro';
+import T from '../components/T.astro';
+import {href} from '../catalog';
+import {pagesMeta, ui} from '../i18n';
+import '../styles/home.css';
+
+const startHref = href('start/quickstart');
+const docsHref = href('docs');
+const scriptingHref = href('guides/scripting');
+const imageBase = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<Base title={pagesMeta.home.title.en} titleZh={pagesMeta.home.title.zh} description={pagesMeta.home.description.en} descriptionZh={pagesMeta.home.description.zh} home>
+  <main id="main-content">
+    <section class="hero dark-section" id="top">
+      <div class="hero-sky" aria-hidden="true"></div>
+      <div class="hero-inner section-inner">
+        <div>
+          <p class="eyebrow"><T en="RenRS · A deterministic visual novel engine" zh="RenRS · 确定性视觉小说引擎" /></p>
+          <h1 class="hero-title">
+            <span class="i18n-en"><span class="title-line">You write the story</span><span class="title-line">RenRS runs it</span></span>
+            <span class="i18n-zh"><span class="title-line">你只管写故事</span><span class="title-line">RenRS 帮你跑起来</span></span>
+          </h1>
+        </div>
+        <div class="hero-bottom">
+          <div class="hero-cta">
+            <BracketLink href={startHref}><T en={ui.en.quickStart} zh={ui.zh.quickStart} /></BracketLink>
+            <a class="text-link" href={docsHref}><T en="Browse the docs" zh="浏览文档" /></a>
+          </div>
+          <div class="hero-copy">
+            <p><T en="Write dialogue, menus, camera, and audio in script-like <code>.rns</code>. Parse, check, and compile before runtime. No Python." zh="用接近剧本的 <code>.rns</code> 语法组织对白、菜单、镜头和音频。脚本先解析、校验、编译，再进入运行时，不执行 Python。" /></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="capabilities light-section" id="capabilities">
+      <div class="section-inner">
+        <div class="section-heading">
+          <p class="eyebrow"><T en="01 / From script to playable" zh="01 / 从剧本到可玩" /></p>
+          <h2><T en="Write the scene as it comes.<br>Checking, playback, and shipping stay with the engine" zh="想到情节，就写下来。<br>检查、运行和发行交给引擎" /></h2>
+          <p class="section-lede"><T en="RenRS is for independent authors and small teams: a low writing floor, with auditable state, static analysis, and native delivery." zh="RenRS 面向独立创作者与小型团队：低门槛写作，同时保留可审计的状态、静态分析和原生交付。" /></p>
+        </div>
+        <div class="capability-panels">
+          <article class="capability-panel is-active">
+            <div class="capability-surface">
+              <button class="capability-trigger" type="button"><T en="Declarative scripts" zh="声明式剧本" /></button>
+              <p><T en="Characters, dialogue, branches, camera, and audio live in <code>.rns</code>, closer to a screenplay than host-language code." zh="角色、对白、分支、镜头和音频都写在 <code>.rns</code> 里，语法接近剧本而不是宿主语言代码。" /></p>
+            </div>
+          </article>
+          <article class="capability-panel">
+            <div class="capability-surface">
+              <button class="capability-trigger" type="button"><T en="Check before run" zh="先检查再运行" /></button>
+              <p><T en="Parsing, asset refs, control flow, and definite assignment finish before startup, with explicit diagnostics." zh="解析、资源引用、控制流和确定赋值都在启动前完成，错误以明确诊断返回。" /></p>
+            </div>
+          </article>
+          <article class="capability-panel">
+            <div class="capability-surface">
+              <button class="capability-trigger" type="button"><T en="Recoverable state" zh="状态可恢复" /></button>
+              <p><T en="Execution, stage, audio, call stack, and rollback checkpoints serialize, and saves carry integrity checks." zh="执行位置、舞台、音频、调用栈和回滚检查点均可序列化，存档带完整性校验。" /></p>
+            </div>
+          </article>
+          <article class="capability-panel">
+            <div class="capability-surface">
+              <button class="capability-trigger" type="button"><T en="Native shipping" zh="原生发行" /></button>
+              <p><T en="One command emits a player and a read-only <code>.renrs</code> archive. Directory mode can hot-reload; archives stay deterministic." zh="一条命令生成播放器与只读 <code>.renrs</code> 归档，目录开发可热重载，归档保持确定性。" /></p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="script-section dark-section" id="script">
+      <div class="section-inner script-layout">
+        <div class="section-heading">
+          <p class="eyebrow"><T en="02 / Scripting language" zh="02 / 脚本语言" /></p>
+          <h2><T en="Dialogue, branches, and the stage<br>live in one script" zh="对白、分支和舞台<br>都写在同一份剧本里" /></h2>
+          <p class="section-lede"><T en="Multiple <code>.rns</code> files share characters, images, variables, and labels. A project must have exactly one <code>start</code> label." zh="多文件 <code>.rns</code> 共享角色、图片、变量和标签。项目必须有且只有一个 <code>start</code> 标签。" /></p>
+          <p style="margin-top:24px"><a class="text-link" href={scriptingHref}><T en="Read the scripting guide" zh="阅读脚本语言" /></a></p>
+        </div>
+        <pre class="code-frame"><div class="code-label">demo/script.rns</div><code>config title "Signal at Dusk"
+config id "org.renrs.signal-at-dusk"
+
+define m = character "Mira" color "#ef8b72"
+
+label start:
+    scene "images/studio.png"
+    show "images/mira.png" as mira at right
+    m "The receiver found another signal."
+    menu:
+        "Let Mira explain":
+            jump answer
+        "Leave it unanswered":
+            jump leave</code></pre>
+      </div>
+    </section>
+
+    <section class="tools-section dark-section" id="tools">
+      <div class="section-inner context-chapter">
+        <div class="context-stack">
+          <article class="context-card">
+            <span>01</span>
+            <h3><T en="Headless checks" zh="无窗口检查" /></h3>
+            <p><T en="<code>renrs-check</code> loads a directory or archive and runs asset, compile, and control-flow analysis." zh="<code>renrs-check</code> 加载目录或归档，完成资源、编译和控制流分析。" /></p>
+          </article>
+          <article class="context-card">
+            <span>02</span>
+            <h3><T en="Routes can replay" zh="剧情路线可回放" /></h3>
+            <p><T en="<code>renrs-debug</code> records, replays, and explores branches, and reports clearly when it truncates." zh="<code>renrs-debug</code> 记录、重放并探索分支，截断时给出明确报告。" /></p>
+          </article>
+          <article class="context-card">
+            <span>03</span>
+            <h3><T en="Stable translation IDs" zh="翻译保持稳定 ID" /></h3>
+            <p><T en="<code>renrs-i18n</code> extracts, updates, and checks JSON catalogs. The player can switch language immediately." zh="<code>renrs-i18n</code> 提取、更新和检查 JSON catalog，播放器可即时切语言。" /></p>
+          </article>
+          <article class="context-card">
+            <span>04</span>
+            <h3><T en="Finish shipping" zh="继续完成发行" /></h3>
+            <p><T en="Desktop folders, the web shell, and Capacitor projects all come from the same checked project." zh="桌面目录、Web shell 和 Capacitor 工程都从同一份检查过的项目生成。" /></p>
+          </article>
+        </div>
+        <div class="context-copy">
+          <p class="eyebrow"><T en="03 / Toolchain" zh="03 / 工具链" /></p>
+          <h2><T en="Don't retell<br>the same route" zh="不用把同一条路线<br>再讲一遍" /></h2>
+          <p><T en="Check, format, story graphs, localization, debug, and packing are all headless commands for editors, CI, and shipping." zh="检查、格式化、剧情图、本地化、调试和打包都是无窗口命令，可放进编辑器、CI 和发行流程。" /></p>
+          <span class="boundary-note"><T en="This version is not a stable release. Older scripts and saves are not guaranteed." zh="当前版本尚未发布稳定版，不保证旧脚本与旧存档兼容。" /></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="play-section light-section" id="play">
+      <div class="section-inner play-layout">
+        <div>
+          <p class="eyebrow"><T en="04 / Playback and UI" zh="04 / 播放与界面" /></p>
+          <h2><T en="Stage, dialogue, and saves<br>run as recoverable state" zh="舞台、对白和存档<br>都按可恢复状态运行" /></h2>
+          <ul class="feature-list">
+            <li><strong><T en="Stable typesetting" zh="稳定排版" /></strong><span><T en="Typewriter text, long-line paging, history scrolling, auto-forward, and skip-read." zh="打字机文字、长对白分页、历史滚动、自动播放和跳过已读。" /></span></li>
+            <li><strong><T en="Declarative screens" zh="声明式界面" /></strong><span><T en="<code>screens.json</code> can compose title, dialogue, save/load, preferences, and read-only HUDs." zh="<code>screens.json</code> 可组合标题、对白、存读档、偏好和只读 HUD。" /></span></li>
+            <li><strong><T en="Isolated project data" zh="项目数据隔离" /></strong><span><T en="<code>config id</code> writes settings, read state, and saves to the system user directory, not the project." zh="<code>config id</code> 把设置、已读和存档写到系统用户目录，不污染项目。" /></span></li>
+          </ul>
+        </div>
+        <div class="stage-frame" aria-hidden="true">
+          <img src={`${imageBase}/images/studio.png`} alt="" width="1280" height="720" />
+          <img class="stage-mira" src={`${imageBase}/images/mira.png`} alt="" />
+          <div class="dialogue-box">
+            <strong>Mira</strong>
+            <p>The receiver found another signal. Same time, same impossible frequency.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ship-section dark-section" id="ship">
+      <div class="section-inner">
+        <div class="section-heading">
+          <p class="eyebrow"><T en="05 / Build and ship" zh="05 / 构建与发行" /></p>
+          <h2><T en="One project,<br>three ways to ship" zh="同一份项目，<br>三种交付方式" /></h2>
+        </div>
+        <div class="ship-grid" style="margin-top:48px">
+          <article class="ship-card">
+            <span class="ship-index"><T en="01 / Desktop" zh="01 / 桌面" /></span>
+            <h3><T en="Player + archive" zh="播放器 + 归档" /></h3>
+            <p><T en="<code>renrs-build</code> writes a runnable folder: native player, <code>game.renrs</code>, manifest, and licenses." zh="<code>renrs-build</code> 输出可运行目录：原生播放器、<code>game.renrs</code>、清单和许可证。" /></p>
+          </article>
+          <article class="ship-card">
+            <span class="ship-index"><T en="02 / Web" zh="02 / Web" /></span>
+            <h3><T en="WASM player" zh="WASM 播放器" /></h3>
+            <p><T en="The shared runtime compiles to the browser. Saves, read state, and UI use the same model as desktop." zh="共享运行时编译到浏览器，存档、已读和界面与桌面使用同一套模型。" /></p>
+          </article>
+          <article class="ship-card">
+            <span class="ship-index"><T en="03 / Mobile" zh="03 / 移动端" /></span>
+            <h3><T en="Capacitor project" zh="Capacitor 工程" /></h3>
+            <p><T en="Wrap the web player in Android / iOS projects. The desktop renderer is not ported to mobile." zh="把 Web 播放器装进 Android / iOS 项目；不把桌面渲染器移植到移动端。" /></p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="boundary-section light-section" id="boundary">
+      <div class="section-inner">
+        <div class="boundary-card">
+          <div>
+            <p class="eyebrow"><T en="06 / Boundaries" zh="06 / 能力边界" /></p>
+            <h2><T en="State the limits<br>up front" zh="先把边界<br>讲清楚" /></h2>
+          </div>
+          <div>
+            <p><T en="RenRS does not execute Python, run <code>.rpy</code> files, or read Ren’Py saves. Screen language, full ATL, Live2D, and cloud saves are out of scope. The migrator converts only the supported static subset." zh="RenRS 不执行 Python，不直接运行 <code>.rpy</code>，也不兼容 Ren’Py 存档。屏幕语言、完整 ATL、Live2D 和云存档不在当前范围。迁移器只转换明确支持的静态子集。" /></p>
+            <a class="text-link" href={href('project/comparison')}><T en="See the gap with Ren’Py" zh="查看与 Ren’Py 的差距" /></a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="final-cta dark-section">
+      <div class="section-inner final-cta-layout">
+        <div>
+          <p class="eyebrow">RenRS · 0.1.0</p>
+          <h2><T en="Write the first line now" zh="现在，写下第一句对白" /></h2>
+          <p><T en="Run the repo demo, or use <code>renrs-init</code> to scaffold a project with art, Chinese translations, and two endings." zh="从仓库示例运行，或用 <code>renrs-init</code> 生成带插图、中文翻译和双结局的项目。" /></p>
+          <BracketLink href={startHref}><T en="Open the quick start" zh="打开快速开始" /></BracketLink>
+          <span class="final-platforms">Rust 1.88 · macOS · Linux · Windows · Web</span>
+        </div>
+      </div>
+    </section>
+  </main>
+</Base>

@@ -1,0 +1,35 @@
+# Rust build output, including nested crates.
+target/
+
+# JavaScript dependencies and generated Web assets.
+node_modules/
+/web/dist/
+/web/public/engine/
+/site/.astro/
+/site/.generated/
+/site/dist/
+/site/public/source/
+/site/public/images/
+/site/public/version.json
+/site/test-results/
+/site/playwright-report/
+/site/previews/
+
+# Local distribution builds.
+/dist/
+
+# Browser and VS Code extension test output.
+/web/test-results/
+/web/playwright-report/
+/editors/vscode-renrs/.vscode-test/
+
+# Local editor and operating system files.
+/.idea/
+/.vscode/
+.DS_Store
+
+# Upstream projects are local research material, not RenRS source.
+/references/
+
+# RenRS runtime data and caches.
+**/.renrs/

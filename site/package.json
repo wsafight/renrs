@@ -1,0 +1,28 @@
+{
+  "name": "renrs-docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "dev": "node scripts/prepare.mjs && astro dev --host 127.0.0.1",
+    "check": "node scripts/prepare.mjs && astro check",
+    "build": "node scripts/prepare.mjs && astro build && pagefind --site dist && node scripts/check-links.mjs",
+    "preview": "astro preview --host 127.0.0.1",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "astro": "7.3.1",
+    "@lucide/astro": "1.41.0",
+    "@astrojs/sitemap": "3.7.3",
+    "unist-util-visit": "5.1.0",
+    "remark": "15.0.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@playwright/test": "1.63.0",
+    "pagefind": "1.5.2",
+    "typescript": "5.9.3",
+    "cheerio": "1.2.0"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "styles": {"accent": {"font_size": 22, "text_color": "#77D5BB"}, "title": {"font_size": 40}},
+  "main_menu": {
+    "bounds": {"x": 80, "y": 120, "width": 400, "height": 440},
+    "root": {"type": "column", "gap": 16, "children": [
+      {"type": "text", "style": "title", "text": "{title}", "size": 100},
+      {"type": "button", "text": "New game", "action": "new_game"},
+      {"type": "button", "text": "Continue", "action": "continue"},
+      {"type": "button", "text": "Settings", "action": "settings"}
+    ]}
+  },
+  "dialogue": {
+    "bounds": {"x": 40, "y": 400, "width": 1200, "height": 280},
+    "root": {"type": "column", "gap": 12, "children": [
+      {"type": "dialogue", "size": 200},
+      {"type": "row", "gap": 12, "children": [
+        {"type": "input", "text": "Name", "variable": "player_name", "max_length": 24, "size": 480},
+        {"type": "button", "text": "Save", "action": "save"},
+        {"type": "button", "text": "Load", "action": "load"},
+        {"type": "button", "text": "History", "action": "history"}
+      ]}
+    ]}
+  },
+  "choices": {
+    "bounds": {"x": 260, "y": 220, "width": 760, "height": 280},
+    "root": {"type": "column", "gap": 20, "children": [
+      {"type": "text", "style": "accent", "text": "{player_name}", "size": 60},
+      {"type": "choices"}
+    ]}
+  },
+  "settings": {
+    "bounds": {"x": 140, "y": 80, "width": 1000, "height": 550},
+    "root": {"type": "column", "gap": 12, "children": [
+      {"type": "slider", "text": "Music volume", "setting": "music_volume", "size": 72},
+      {"type": "slider", "text": "Sound volume", "setting": "sound_volume", "size": 72},
+      {"type": "slider", "text": "Voice volume", "setting": "voice_volume", "size": 72},
+      {"type": "toggle", "text": "High contrast", "setting": "high_contrast", "size": 52},
+      {"type": "set", "text": "Pack map", "variable": "bag", "expression": "push(bag, \"map\")", "size": 52},
+      {"type": "text", "text": "Bag: {bag}", "size": 40},
+      {"type": "list", "source": "languages", "item_height": 40, "gap": 4},
+      {"type": "button", "text": "Close", "action": "close", "size": 52}
+    ]}
+  }
+}

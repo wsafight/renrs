@@ -1,0 +1,249 @@
+import {langFromStorage, ui, type Lang} from '../i18n';
+
+const header = document.querySelector<HTMLElement>('#site-header');
+const menu = document.querySelector<HTMLElement>('#mobile-menu');
+const toggle = document.querySelector<HTMLButtonElement>('#menu-toggle');
+const dialog = document.querySelector<HTMLDialogElement>('#search-dialog');
+const searchInput = document.querySelector<HTMLInputElement>('[data-search-input]');
+const results = document.querySelector<HTMLElement>('[data-search-results]');
+const empty = document.querySelector<HTMLElement>('[data-search-empty]');
+const catalog = (window as Window & {__RENRS_SEARCH__?: {catalog: SearchItem[]; pagefindUrl: string}}).__RENRS_SEARCH__;
+
+type SearchItem = {title: {en: string; zh: string}; description: {en: string; zh: string}; url: string};
+let pagefind: {init(): Promise<void>; search(query: string): Promise<{results: Array<{data(): Promise<{url: string; meta: {title?: string}; excerpt?: string}>}>}>} | undefined;
+let lastScroll = window.scrollY;
+
+function currentLang(): Lang {
+  return langFromStorage(document.documentElement.dataset.lang || localStorage.getItem('renrs-lang'));
+}
+
+function copy(lang = currentLang()) {
+  return ui[lang];
+}
+
+function applyLang(lang: Lang, persist = true) {
+  const root = document.documentElement;
+  root.dataset.lang = lang;
+  root.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  if (persist) {
+    localStorage.setItem('renrs-lang', lang);
+    const url = new URL(location.href);
+    if (lang === 'zh') url.searchParams.set('lang', 'zh');
+    else url.searchParams.delete('lang');
+    history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+  const text = ui[lang];
+  const title = root.getAttribute(lang === 'zh' ? 'data-title-zh' : 'data-title-en');
+  const description = root.getAttribute(lang === 'zh' ? 'data-desc-zh' : 'data-desc-en');
+  if (title) document.title = title;
+  const meta = document.querySelector('meta[name="description"]');
+  if (meta && description) meta.setAttribute('content', description);
+  document.querySelectorAll<HTMLElement>('[data-i18n-aria]').forEach(node => {
+    const key = node.dataset.i18nAria as keyof typeof text | undefined;
+    if (key && text[key]) node.setAttribute('aria-label', text[key]);
+  });
+  document.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]').forEach(node => {
+    const key = node.dataset.i18nPlaceholder as keyof typeof text | undefined;
+    if (key && text[key]) node.setAttribute('placeholder', text[key]);
+  });
+  if (toggle && !menu?.classList.contains('is-open')) toggle.setAttribute('aria-label', text.menuOpen);
+  document.querySelectorAll<HTMLButtonElement>('.copy-code').forEach(button => {
+    if (button.textContent !== text.copied) button.textContent = text.copy;
+  });
+  if (dialog?.open && searchInput?.value) void search(searchInput.value);
+  watchToc();
+}
+
+function setMenu(open: boolean) {
+  if (!menu || !toggle) return;
+  const text = copy();
+  menu.classList.toggle('is-open', open);
+  menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  toggle.setAttribute('aria-label', open ? text.menuClose : text.menuOpen);
+  document.body.classList.toggle('menu-open', open);
+}
+
+function setTheme(theme: 'light' | 'dark') {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem('renrs-theme', theme);
+}
+
+function moveIndicator(target?: HTMLElement | null) {
+  const nav = document.querySelector<HTMLElement>('.desktop-nav');
+  const indicator = document.querySelector<HTMLElement>('.nav-indicator');
+  if (!nav || !indicator || !target) {
+    indicator?.style.setProperty('opacity', '0');
+    return;
+  }
+  const navBox = nav.getBoundingClientRect();
+  const box = target.getBoundingClientRect();
+  indicator.style.width = `${box.width}px`;
+  indicator.style.transform = `translateX(${box.left - navBox.left}px)`;
+  indicator.style.opacity = '1';
+}
+
+async function loadPagefind() {
+  if (pagefind || !catalog) return;
+  try {
+    const loaded = await Promise.race([
+      import(/* @vite-ignore */ catalog.pagefindUrl),
+      new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('pagefind timeout')), 1500)),
+    ]);
+    pagefind = loaded;
+    await pagefind?.init();
+  } catch {
+    pagefind = undefined;
+  }
+}
+
+function renderItems(items: SearchItem[]) {
+  if (!results || !empty) return;
+  results.replaceChildren();
+  empty.hidden = items.length > 0 || !searchInput?.value.trim();
+  for (const item of items.slice(0, 8)) {
+    const link = document.createElement('a');
+    const title = document.createElement('strong');
+    const excerpt = document.createElement('small');
+    const lang = currentLang();
+    link.href = item.url;
+    title.textContent = item.title[lang];
+    excerpt.textContent = item.description[lang];
+    link.append(title, excerpt);
+    results.append(link);
+  }
+}
+
+async function search(query: string) {
+  const value = query.trim();
+  if (!value) {
+    renderItems([]);
+    if (empty) empty.hidden = true;
+    return;
+  }
+  if (pagefind) {
+    const found = await pagefind.search(value);
+    const items = await Promise.all(found.results.slice(0, 8).map(async result => {
+      const data = await result.data();
+      return {
+        title: {en: data.meta.title || data.url, zh: data.meta.title || data.url},
+        description: {en: data.excerpt?.replace(/<[^>]+>/g, '') || '', zh: data.excerpt?.replace(/<[^>]+>/g, '') || ''},
+        url: data.url,
+      };
+    }));
+    if (items.length) {
+      renderItems(items);
+      return;
+    }
+  }
+  const items = (catalog?.catalog || []).filter(item =>
+    `${item.title.en} ${item.title.zh} ${item.description.en} ${item.description.zh}`.toLowerCase().includes(value.toLowerCase()));
+  renderItems(items);
+}
+
+header?.querySelectorAll('.desktop-nav a').forEach(link => {
+  link.addEventListener('mouseenter', () => moveIndicator(link as HTMLElement));
+});
+header?.querySelector('.desktop-nav')?.addEventListener('mouseleave', () => {
+  moveIndicator(header.querySelector('.desktop-nav a[aria-current="page"]') as HTMLElement | null);
+});
+moveIndicator(header?.querySelector('.desktop-nav a[aria-current="page"]') as HTMLElement | null);
+
+window.addEventListener('scroll', () => {
+  if (!header) return;
+  const current = window.scrollY;
+  header.classList.toggle('is-scrolled', current > 16);
+  header.classList.toggle('is-hidden', current > lastScroll && current > 80 && !document.body.classList.contains('menu-open'));
+  lastScroll = current;
+}, {passive: true});
+
+toggle?.addEventListener('click', () => setMenu(!menu?.classList.contains('is-open')));
+menu?.querySelectorAll('a').forEach(link => link.addEventListener('click', () => setMenu(false)));
+
+document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]').forEach(button => {
+  button.addEventListener('click', () => {
+    setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  });
+});
+
+document.querySelectorAll<HTMLButtonElement>('[data-lang-toggle]').forEach(button => {
+  button.addEventListener('click', () => {
+    applyLang(currentLang() === 'zh' ? 'en' : 'zh');
+  });
+});
+applyLang(currentLang(), false);
+
+document.querySelectorAll<HTMLButtonElement>('[data-search-open]').forEach(button => {
+  button.addEventListener('click', async () => {
+    await loadPagefind();
+    dialog?.showModal();
+    searchInput?.focus();
+  });
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === '/' && !(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement)) {
+    event.preventDefault();
+    document.querySelector<HTMLButtonElement>('[data-search-open]')?.click();
+  }
+  if (event.key === 'Escape') setMenu(false);
+});
+
+searchInput?.addEventListener('input', () => {
+  void search(searchInput.value);
+});
+
+dialog?.addEventListener('click', event => {
+  if (event.target === dialog) dialog.close();
+});
+
+document.querySelectorAll<HTMLElement>('.capability-panel').forEach(panel => {
+  const activate = () => {
+    document.querySelectorAll('.capability-panel.is-active').forEach(item => item.classList.remove('is-active'));
+    panel.classList.add('is-active');
+  };
+  panel.addEventListener('mouseenter', activate);
+  panel.addEventListener('focusin', activate);
+  panel.querySelector('button')?.addEventListener('click', activate);
+});
+document.querySelector('.capability-panel')?.classList.add('is-active');
+
+document.querySelectorAll<HTMLElement>('.prose pre').forEach(block => {
+  if (block.querySelector('.copy-code')) return;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'copy-code';
+  button.textContent = copy().copy;
+  button.addEventListener('click', async () => {
+    const code = block.querySelector('code')?.textContent || block.textContent || '';
+    await navigator.clipboard.writeText(code);
+    button.textContent = copy().copied;
+    window.setTimeout(() => { button.textContent = copy().copy; }, 1600);
+  });
+  block.append(button);
+});
+
+document.querySelectorAll('.prose.i18n-zh :is(h2,h3,h4)[id]').forEach(heading => {
+  if (!heading.id.startsWith('zh-')) heading.id = `zh-${heading.id}`;
+});
+document.querySelectorAll('.docs-toc.i18n-zh a[href^="#"]').forEach(link => {
+  const hash = decodeURIComponent(link.getAttribute('href')?.slice(1) || '');
+  if (hash && !hash.startsWith('zh-')) link.setAttribute('href', `#zh-${hash}`);
+});
+
+let tocObserver: IntersectionObserver | undefined;
+function watchToc() {
+  tocObserver?.disconnect();
+  const tocLinks = [...document.querySelectorAll<HTMLAnchorElement>(`.docs-toc.i18n-${currentLang()} a`)];
+  const headings = tocLinks
+    .map(link => document.querySelector(decodeURIComponent(link.hash)))
+    .filter((node): node is HTMLElement => node instanceof HTMLElement);
+  if (!tocLinks.length || !headings.length) return;
+  tocObserver = new IntersectionObserver(entries => {
+    const visible = entries.filter(entry => entry.isIntersecting).at(-1);
+    if (!visible?.target.id) return;
+    tocLinks.forEach(link => link.classList.toggle('is-active', decodeURIComponent(link.hash) === `#${visible.target.id}`));
+  }, {rootMargin: '-20% 0px -70% 0px', threshold: 0.1});
+  headings.forEach(heading => tocObserver?.observe(heading));
+}
+watchToc();

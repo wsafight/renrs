@@ -1,0 +1,6 @@
+{
+  "achievements": [{"id":"first_signal","title":"A signal at dusk","label":"recording"}],
+  "gallery": [{"id":"rooftop","title":"Above the skyline","label":"answer","image":"images/rooftop.png"}],
+  "endings": [{"id":"answer","title":"An answer","label":"answer"},{"id":"silence","title":"Silence","label":"leave"}],
+  "rollback_barriers": []
+}

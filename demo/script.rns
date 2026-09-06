@@ -1,0 +1,50 @@
+config title "Signal at Dusk"
+config id "org.renrs.signal-at-dusk"
+
+define m = character "Mira" color "#ef8b72"
+
+label start:
+    scene "images/studio.png"
+    play music "audio/evening.wav" loop
+    show "images/mira.png" as mira at right layer 10
+    m "The receiver found another signal. Same time, same impossible frequency."
+    set trust = 0
+    menu:
+        "Let Mira explain":
+            set trust = trust + 1
+            m "Thank you. I recorded it from the roof just before sunset."
+        "Call it interference":
+            m "I checked every transmitter in the city. It is not interference."
+    call recording
+    scene "images/rooftop.png"
+    transition fade 0.6
+    show "images/mira.png" as mira at right layer 10
+    move mira to center over 0.45
+    if trust >= 1:
+        m "You came. I was hoping I would not have to answer it alone."
+    else:
+        m "You came after all. Listen before you decide I am wrong."
+    menu:
+        "Answer the signal":
+            jump answer
+        "Leave it unanswered":
+            jump leave
+
+label recording:
+    play sound "audio/signal.wav"
+    "A clean three-note pulse rises above the quiet room."
+    return
+
+label answer:
+    play sound "audio/signal.wav"
+    m "{b}There.{/b} It answered us before I touched the key."
+    "Above the skyline, a second light wakes in the evening sky."
+    stop music
+    return
+
+label leave:
+    m "Maybe silence is an answer too."
+    hide mira
+    "The receiver keeps blinking long after you walk downstairs."
+    stop music
+    return

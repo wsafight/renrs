@@ -1,0 +1,18 @@
+default inventory = list("Map", "Key", "Radio")
+default selected = ""
+default packed = ""
+default reward = 0
+
+label start:
+    scene "images/studio.png"
+    show "images/mira.png" as mira
+    "The journey begins."
+    menu:
+        "Depart":
+            jump departure
+        "Stay":
+            jump departure
+label departure:
+    "The travel bag contains {packed}."
+    "Collected rewards: {reward}."
+    return

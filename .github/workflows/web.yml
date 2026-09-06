@@ -1,0 +1,46 @@
+name: Web
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: sudo apt-get update && sudo apt-get install --yes libasound2-dev ffmpeg
+      - run: cargo install wasm-bindgen-cli --version 0.2.121 --locked --root target/web-tools
+      - run: npm ci
+        working-directory: web
+      - run: node scripts/build-web.mjs
+      - run: cargo run --bin renrs-web-build -- demo target/web-demo
+      - run: cargo build --bin renrs-video
+      - run: cargo run --example generate_product_fixture -- target/product-fixture
+      - run: cargo run --example generate_reading_fixture -- target/reading-fixture
+      - run: cargo run --bin renrs-web-build -- target/product-fixture target/web-demo/product
+      - run: cargo run --bin renrs-web-build -- target/reading-fixture target/web-demo/reading
+      - run: node scripts/validate-media.mjs target/media-fixture
+        env:
+          RENRS_FFMPEG: /usr/bin/ffmpeg
+      - run: cargo run --bin renrs-web-build -- target/media-fixture target/web-demo/media
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: node scripts/serve-web.mjs target/web-demo 4173 &
+      - run: npx playwright test
+        working-directory: web
+        env:
+          RENRS_MEDIA_TEST: '1'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: renrs-web
+          path: |
+            target/web-demo
+            web/test-results

@@ -1,0 +1,43 @@
+---
+import {getCollection} from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import DocSidebar from '../../components/DocSidebar.astro';
+import T from '../../components/T.astro';
+import {groupedPages, href, pages} from '../../catalog';
+import {pagesMeta} from '../../i18n';
+import '../../styles/docs.css';
+
+const docsEn = await getCollection('docsEn');
+const docsZh = await getCollection('docsZh');
+for (const page of pages) {
+  if (!docsEn.some(entry => entry.id === page.slug)) {
+    throw new Error(`Missing English documentation entry for ${page.source}`);
+  }
+  if (!docsZh.some(entry => entry.id === page.slug)) {
+    throw new Error(`Missing Chinese documentation entry for ${page.source}`);
+  }
+}
+---
+<Base title={pagesMeta.docs.title.en} titleZh={pagesMeta.docs.title.zh} description={pagesMeta.docs.description.en} descriptionZh={pagesMeta.docs.description.zh}>
+  <main id="main-content" class="docs-shell" data-pagefind-ignore>
+    <DocSidebar />
+    <article class="docs-main">
+      <p class="docs-kicker">RenRS / <T en="Docs" zh="文档" /></p>
+      <h1><T en="Guides and development records" zh="使用手册与开发记录" /></h1>
+      <p class="docs-lead"><T en="Start with the quick start, then read scripting, UI, tooling, and shipping notes by group. Historical records are labeled separately; current capability is in the manuals and status page." zh="从快速开始进入创作流程，或按分组阅读脚本、界面、工具链和发行说明。历史开发记录单独标注，当前能力以手册和进度页为准。" /></p>
+      <div class="docs-index">
+        {groupedPages.map(group => (
+          <article>
+            <h2>{group.number} / <T en={group.label.en} zh={group.label.zh} /></h2>
+            {group.pages.map(page => (
+              <a href={href(page.slug)}>
+                <strong><T en={page.title.en} zh={page.title.zh} /></strong>
+                <p><T en={page.description.en} zh={page.description.zh} /></p>
+              </a>
+            ))}
+          </article>
+        ))}
+      </div>
+    </article>
+  </main>
+</Base>

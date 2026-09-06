@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "styles": {
+    "title": { "font_size": 48, "text_color": "#FFFFFF" },
+    "primary": { "font_size": 24, "background_color": "#38594C" },
+    "hud": { "font_size": 20, "text_color": "#FFFFFF" }
+  },
+  "main_menu": {
+    "bounds": { "x": 70, "y": 94, "width": 430, "height": 550 },
+    "root": { "type": "column", "gap": 16, "children": [
+      { "size": 132, "type": "text", "style": "title", "text": "{title}" },
+      { "type": "button", "style": "primary", "text": "New game", "action": "new_game" },
+      { "type": "button", "text": "Continue", "action": "continue" },
+      { "type": "button", "text": "Load", "action": "load" },
+      { "type": "button", "text": "Settings", "action": "settings" },
+      { "type": "button", "text": "Quit", "action": "quit" }
+    ] }
+  },
+  "hud": {
+    "bounds": { "x": 940, "y": 78, "width": 270, "height": 56 },
+    "root": { "type": "text", "style": "hud", "text": "Trust: {trust}" }
+  }
+}

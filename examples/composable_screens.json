@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "styles": {"body": {"font_size": 22}, "accent": {"background_color": "#235246"}},
+  "settings": {
+    "bounds": {"x": 40, "y": 60, "width": 1200, "height": 610},
+    "root": {"type": "column", "style": "body", "gap": 16, "children": [
+      {"size": 48, "type": "text", "text": "Selected: {selected}; Packed: {packed}; Reward: {reward}"},
+      {"type": "row", "gap": 20, "children": [
+        {"size": 360, "type": "data_list", "variable": "inventory", "selected": "selected", "item_height": 56},
+        {"type": "viewport", "id": "journal", "content_height": 1100, "child": {
+          "type": "column", "gap": 20, "children": [
+            {"size": 70, "type": "drag", "text": "Pack selected item", "expression": "selected"},
+            {"size": 70, "type": "drop", "text": "Travel bag", "variable": "packed", "style": "accent"},
+            {"size": 48, "type": "extension", "text": "Collect reward", "name": "reward", "variable": "reward", "input": "reward"},
+            {"size": 220, "type": "viewport", "id": "notes", "content_height": 600, "child": {
+              "type": "column", "gap": 20, "children": [
+                {"size": 120, "type": "text", "text": "First record"},
+                {"size": 120, "type": "text", "text": "Second record"},
+                {"size": 120, "type": "text", "text": "Third record"},
+                {"type": "text", "text": "Last record"}
+              ]
+            }},
+            {"type": "image", "path": "images/rooftop.png"},
+            {"size": 60, "type": "text", "text": "End of journal"}
+          ]
+        }}
+      ]},
+      {"size": 48, "type": "button", "text": "Close", "action": "close"}
+    ]}
+  }
+}

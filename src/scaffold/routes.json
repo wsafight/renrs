@@ -1,0 +1,6 @@
+{
+  "routes": [
+    { "name": "answer", "choices": [0], "expect_label": "answer", "expect_variables": { "trust": 1 } },
+    { "name": "wait", "choices": [1], "expect_label": "wait", "expect_variables": { "trust": 0 } }
+  ]
+}

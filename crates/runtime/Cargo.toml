@@ -1,0 +1,17 @@
+[package]
+name = "renrs-runtime"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+
+[dependencies]
+renrs-compiler = { path = "../compiler" }
+renrs-extensions = { path = "../extensions" }
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+thiserror = "2"
+sha2 = "0.10"
+
+[lints]
+workspace = true

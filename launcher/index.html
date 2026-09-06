@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RenRS Launcher</title><link rel="stylesheet" href="/style.css"><script src="/lucide.js" defer></script><script src="/app.js" type="module"></script></head>
+<body>
+<header><strong>RenRS <span>Workspace</span></strong><button id="sdk-button" title="SDK 设置"><i data-lucide="settings-2"></i><span>SDK</span></button></header>
+<div class="workspace">
+<aside><div class="section-title"><h2>项目</h2><div class="tools"><button id="register" title="添加已有项目" aria-label="添加已有项目"><i data-lucide="folder-open"></i></button><button id="new" title="新建项目" aria-label="新建项目"><i data-lucide="plus"></i></button></div></div><input id="search" type="search" placeholder="搜索项目" aria-label="搜索项目"><div id="projects"></div></aside>
+<main>
+<div class="project-header"><div><h1 id="project-name">RenRS</h1><p id="project-path">项目工作区</p></div><div class="tools"><button id="check" title="检查项目"><i data-lucide="check-check"></i><span>检查</span></button><button id="run" class="primary" title="运行项目"><i data-lucide="play"></i><span>运行</span></button></div></div>
+<nav aria-label="项目视图"><button data-tab="overview" aria-selected="true">概览</button><button data-tab="script">脚本</button><button data-tab="build">构建</button><button data-tab="jobs">任务 <span id="job-count">0</span></button></nav>
+<section id="overview" class="view"><img id="preview" alt="项目场景" hidden><div class="details"><h2>项目文件</h2><div id="file-list"></div><button id="graph"><i data-lucide="workflow"></i>剧情图</button><button id="remove" class="subtle"><i data-lucide="folder-minus"></i>移出列表</button></div></section>
+<section id="script" class="view" hidden><div class="editor-tools"><select id="scripts" aria-label="脚本文件"></select><button id="reload-script" title="重新载入脚本" aria-label="重新载入脚本"><i data-lucide="rotate-cw"></i></button><button id="save-script" title="保存脚本" aria-label="保存脚本"><i data-lucide="save"></i></button><span id="dirty"></span></div><textarea id="source" spellcheck="false" aria-label="脚本内容"></textarea></section>
+<section id="build" class="view" hidden><h2>构建项目</h2><form id="build-form"><label>构建类型<select name="action"><option value="build">本机发行包</option><option value="web">Web 发行包</option><option value="pack">资源归档 .renrs</option></select></label><label>输出路径<input name="output" required placeholder="/path/to/new-output"></label><button class="primary"><i data-lucide="package"></i>构建</button></form></section>
+<section id="jobs" class="view" hidden><div id="jobs-list"></div></section>
+<p id="status" role="status"></p>
+</main></div>
+<dialog id="dialog"><form id="dialog-form"><div class="section-title"><h2 id="dialog-title"></h2><button id="dismiss" type="button" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div><div id="dialog-fields"></div><p id="dialog-error" role="alert"></p><button class="primary" id="dialog-submit">确定</button></form></dialog>
+</body></html>

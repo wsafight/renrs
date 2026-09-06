@@ -1,0 +1,123 @@
+{
+  "name": "renrs",
+  "displayName": "RenRS",
+  "description": "RenRS story diagnostics, language tools, resource preview, and desktop builds.",
+  "version": "0.1.0",
+  "publisher": "renrs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wsafight/renrs.git",
+    "directory": "editors/vscode-renrs"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Debuggers"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:renrs", "onView:renrs.project"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    }
+  },
+  "scripts": {
+    "check": "node --check extension.js",
+    "package": "vsce package --allow-missing-repository",
+    "test:host": "node test/run.cjs"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.6.0"
+  },
+  "contributes": {
+    "views": {"explorer": [{"id": "renrs.project", "name": "RenRS Project"}]},
+    "languages": [
+      {
+        "id": "renrs",
+        "aliases": [
+          "RenRS"
+        ],
+        "extensions": [
+          ".rns"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "renrs",
+        "scopeName": "source.renrs",
+        "path": "./syntaxes/renrs.json"
+      }
+    ],
+    "commands": [
+      {"command": "renrs.webBuild", "title": "RenRS: Build Web"},
+      {"command": "renrs.accept", "title": "RenRS: Release Acceptance"},
+      {"command": "renrs.checkSaves", "title": "RenRS: Check Saved Games"},
+      {"command": "renrs.openScreens", "title": "RenRS: Open Screens"},
+      {"command": "renrs.openTheme", "title": "RenRS: Open Theme"},
+      {
+        "command": "renrs.init",
+        "title": "RenRS: New Project"
+      },
+      {
+        "command": "renrs.check",
+        "title": "RenRS: Check Project"
+      },
+      {
+        "command": "renrs.run",
+        "title": "RenRS: Run Project"
+      },
+      {
+        "command": "renrs.build",
+        "title": "RenRS: Build Distribution"
+      },
+      {
+        "command": "renrs.preview",
+        "title": "RenRS: Preview Resource"
+      },
+      {
+        "command": "renrs.test",
+        "title": "RenRS: Test Story Routes"
+      },
+      {
+        "command": "renrs.explore",
+        "title": "RenRS: Explore Story Branches"
+      },
+      {
+        "command": "renrs.setup",
+        "title": "RenRS: Locate Tools"
+      }
+    ],
+    "configuration": {
+      "title": "RenRS",
+      "properties": {
+        "renrs.webShellPath": {"type": "string", "default": "", "description": "Built Web player shell. Empty uses web-shell beside the tools."},
+        "renrs.toolsPath": {
+          "type": "string",
+          "default": "",
+          "description": "Directory containing RenRS binaries. Empty uses PATH."
+        },
+        "renrs.projectPath": {
+          "type": "string",
+          "default": ".",
+          "description": "Project path relative to the workspace folder."
+        },
+        "renrs.checkOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run project and resource checks after saving a script."
+        }
+      }
+    }
+  }
+}

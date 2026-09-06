@@ -1,0 +1,13 @@
+[package]
+name = "renrs-extensions"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+
+[dependencies]
+renrs-syntax = { path = "../syntax" }
+rhai = { version = "1.23", default-features = false, features = ["std", "sync", "serde", "no_float", "no_time", "only_i64"] }
+
+[lints]
+workspace = true

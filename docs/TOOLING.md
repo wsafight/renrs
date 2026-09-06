@@ -1,0 +1,190 @@
+# RenRS 工具链
+
+除 `renrs` 播放器外，所有工具均为无窗口命令，可用于编辑器、CI 和发行流程。以下示例在源码
+仓库中用 `cargo run` 调用；发行包中可直接使用同名二进制。
+
+## 检查与格式化
+
+```sh
+cargo run --bin renrs-check -- game
+cargo run --bin renrs-check -- game.renrs
+cargo run --bin renrs-fmt -- game
+cargo run --bin renrs-fmt -- --check game
+```
+
+`renrs-check` 接受目录或 `.renrs`，执行加载、资源校验、编译和控制流分析。`renrs-fmt` 处理目录
+中的 `.rns`，规范行尾空白、连续空行和文件末尾换行，不改变四空格语义缩进或删除注释；
+`--check` 不写文件。
+
+## 创建项目与编辑器
+
+```sh
+cargo run --bin renrs-init -- my-story --title "My Story" --id org.example.my-story
+cargo run --bin renrs-debug -- test my-story my-story/routes.json
+```
+
+目标目录必须不存在。模板包含背景、立绘、两条路线、中文 catalog、主题和标题/HUD 界面。
+安装本地 [VS Code 扩展](../editors/vscode-renrs/README.md) 后，可使用 LSP、项目诊断、资源预览、
+运行、构建和路线测试命令；通过 `renrs.toolsPath` 指定工具目录。资源管理器中的 RenRS Project
+面板还提供界面/主题入口、Web 构建、发布验收和当前版本存档检查。
+
+剧情状态查看、录制、重放和有界分支探索见 [剧情调试](DEBUGGING.md)。
+中型项目生成与 `renrs-bench` 的测量范围见 [规模与运行验证](VALIDATION.md)。
+
+## LSP
+
+```sh
+cargo run --bin renrs-lsp
+```
+
+`renrs-lsp` 使用 stdio Language Server Protocol。初始化时加载工作区内非隐藏目录的 `.rns`，支持：
+
+- 完整文档同步和即时语法诊断。
+- 角色、标签、静态图片和变量文档符号。
+- 全文格式化。
+- 工作区定义、引用和重命名。
+- 关键字与工作区符号补全。
+
+发行前仍应运行 `renrs-check`，因为它会加载完整项目和资源并执行 CFG 分析。
+
+## 剧情图
+
+```sh
+cargo run --bin renrs-graph -- game story.dot
+```
+
+输出 Graphviz DOT，节点是标签，边区分静态 `jump` 与 `call`。省略输出路径时写到标准输出。
+
+## 本地化
+
+```sh
+cargo run --bin renrs-i18n -- extract game zh-Hans game/locales/zh-Hans.json
+cargo run --bin renrs-i18n -- update game game/locales/zh-Hans.json
+cargo run --bin renrs-i18n -- check game game/locales/zh-Hans.json
+```
+
+- `extract` 创建或重写指定语言的 catalog；重写前应由版本控制保护已有翻译。
+- `update` 添加新 ID 的空翻译并保留 obsolete 项，避免静默丢失人工内容。
+- `check` 列出缺失/空翻译和 obsolete 项；存在未翻译项时返回失败。
+
+三个命令均接受目录或归档项目。播放器自动加载项目内 `locales/*.json`。
+
+## 资源归档
+
+```sh
+cargo run --bin renrs-pack -- game game.renrs
+cargo run --bin renrs-unpack -- game.renrs extracted-game
+cargo run --bin renrs-check -- game.renrs
+```
+
+`.renrs` 包含版本化 JSON 清单和连续资源 payload。每项记录规范相对路径、偏移、长度和 SHA-256；
+读取与解包拒绝越界路径、重复路径、越界数据和校验失败。隐藏目录不会打包；解包不会覆盖已有文件，
+也拒绝目标目录、父目录或输出文件中的符号链接。
+
+归档不是只用于解包的容器。播放器、检查器、本地化工具和构建器都可直接读取它；播放器归档模式
+不启用热重载。
+
+## 构建发行目录
+
+```sh
+cargo build --bin renrs --bin renrs-build
+cargo run --bin renrs-build -- game dist/my-game
+```
+
+若 `renrs-build` 与播放器不在同一目录，可显式指定：
+
+```sh
+cargo run --bin renrs-build -- game dist/my-game --player target/debug/renrs
+```
+
+构建器先执行项目校验、编译和控制流分析，然后原子式生成：
+
+```text
+dist/my-game/
+  renrs              # Windows 为 renrs.exe
+  game.renrs
+  renrs-build.json
+  README.txt
+  LICENSE-renrs.txt
+  LICENSE-font-OFL.txt
+```
+
+目标目录必须不存在，建议放在项目目录外。生成的播放器从任意工作目录无参数启动时，
+优先打开与播放器相邻的 `game.renrs`；显式传入项目路径可覆盖这个默认值。
+
+## Web 与移动端
+
+```sh
+node scripts/build-web.mjs
+cargo run --bin renrs-web-build -- game dist/web --shell web/dist
+node scripts/mobile.mjs dist/web dist/mobile
+```
+
+Web shell 构建需要 Node.js、已安装的 `web/` 依赖、Rust WASM target 和匹配版本的
+`wasm-bindgen`。发行包已包含 `web-shell/`，可直接将它传给 `--shell`。
+VS Code 中通过 `renrs.webShellPath` 指向该目录；源码开发时指向构建后的 `web/dist`。
+
+移动端脚本生成 Capacitor 工程配置，随后在输出目录安装依赖并添加 Android/iOS 平台。
+输出目录必须不存在。移动端运行 Rust/WASM WebView，完整环境要求、构建步骤和验收边界见
+[移动端发行](MOBILE.md)。
+
+## 当前版本验收
+
+```sh
+cargo run --bin renrs-accept -- game
+cargo run --bin renrs-accept -- game --saves saved-games
+```
+
+验收器输出 JSON，检查路线断言和当前脚本版本的实际存档恢复；失败时返回非零状态。
+项目尚未上线，不要求旧版本兼容，也不接受 `--baseline`。测试存档应由当前构建生成；
+更改脚本后可以重新开始游戏。当前策略见 [产品改进记录](PRODUCT_UPGRADES.md)。
+
+## 角色预合成
+
+```sh
+cargo run --bin renrs-compose -- game character.json images/variants
+```
+
+按配置中的图层顺序生成命名 PNG 和 `images.rns`，目标是项目内尚不存在的资源目录。
+这是构建时预合成，配置示例和限制见 [产品改进记录](PRODUCT_UPGRADES.md#character-composition)。
+
+## Ren'Py 迁移
+
+```sh
+cargo run --bin renrs-migrate -- path/to/renpy/game migrated-game
+cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
+```
+
+迁移器不加载 Ren'Py、不执行 Python。它在转换后重新解析、校验、编译和分析，并把问题写入
+`migration-report.json`。`--strict` 在存在 assumption、unsupported 或后验证诊断时以失败退出，
+适合 CI。完整范围见 [迁移手册](MIGRATION.md)。
+
+## 跨平台发布包
+
+`.github/workflows/release.yml` 在 `v*` tag 或手动触发时构建 Linux x86-64、macOS arm64 和
+Windows x86-64 artifact。工具包包含：
+
+- `renrs`、`renrs-check`、`renrs-fmt`、`renrs-graph` 和 `renrs-lsp`。
+- `renrs-i18n`、`renrs-migrate`、`renrs-pack`、`renrs-unpack` 和 `renrs-build`。
+- `renrs-init`、`renrs-debug` 和 `renrs-bench`。
+- `renrs-accept`、`renrs-web-build`、`renrs-video`、`renrs-compose` 和 `renrs-update`。
+- `web-shell/`、`mobile.mjs` 和 VS Code 扩展 VSIX。
+- `demo/`、`demo.renrs`、文档、README、引擎及内置字体许可证。
+
+该 workflow 生成未签名 artifact，不包含 macOS 公证、Windows 签名、安装器或自动更新。
+
+## 工程质量门槛
+
+```sh
+cargo fmt --all -- --check
+cargo check --offline --workspace --all-targets
+cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
+cargo test --offline --workspace --all-targets
+```
+
+`tests/source_size.rs` 递归检查 `src/`、`tests/` 和各个 workspace crate 的源码，
+任何超过 500 行的 Rust 文件都会使测试失败。
+超过职责边界的模块应拆成同名目录下的子模块，并保持现有公共 API。
+
+CI 还配置了模板创建、路线断言、分支探索、VSIX 打包，以及 Linux Xvfb/Mesa 原生截图和
+从项目外目录启动发行包的检查。窗口自动验收用法和当前本地验证范围见 [验收记录](VALIDATION.md)。

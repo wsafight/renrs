@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "styles": {
+    "title": { "font_size": 48, "text_color": "#FFFFFF" },
+    "heading": { "font_size": 30 },
+    "primary": { "background_color": "#38594C" },
+    "hud": { "font_size": 20, "text_color": "#FFFFFF", "background_color": "#24312E" }
+  },
+  "main_menu": {
+    "bounds": { "x": 70, "y": 94, "width": 430, "height": 550 },
+    "root": { "type": "column", "gap": 16, "children": [
+      { "size": 132, "type": "text", "style": "title", "text": "{title}" },
+      { "type": "button", "style": "primary", "text": "New game", "action": "new_game" },
+      { "type": "button", "text": "Continue", "action": "continue" },
+      { "type": "button", "text": "Load", "action": "load" },
+      { "type": "button", "text": "Settings", "action": "settings" },
+      { "type": "button", "text": "Quit", "action": "quit" }
+    ] }
+  },
+  "hud": {
+    "bounds": { "x": 960, "y": 80, "width": 250, "height": 48 },
+    "root": { "type": "text", "style": "hud", "text": "Trust: {trust}" }
+  },
+  "settings": {
+    "bounds": { "x": 120, "y": 32, "width": 1040, "height": 650 },
+    "root": { "type": "column", "gap": 12, "children": [
+      { "size": 52, "type": "row", "gap": 24, "children": [
+        { "type": "text", "style": "heading", "text": "Settings" },
+        { "size": 180, "type": "button", "text": "Back", "action": "close" }
+      ] },
+      { "size": 64, "type": "slider", "text": "Text speed", "setting": "text_speed" },
+      { "size": 64, "type": "slider", "text": "Auto-play delay", "setting": "auto_delay" },
+      { "size": 64, "type": "slider", "text": "Music volume", "setting": "music_volume" },
+      { "size": 64, "type": "slider", "text": "Sound volume", "setting": "sound_volume" },
+      { "size": 64, "type": "slider", "text": "Voice volume", "setting": "voice_volume" },
+      { "size": 44, "type": "row", "gap": 24, "children": [
+        { "type": "toggle", "text": "High contrast", "setting": "high_contrast" },
+        { "type": "toggle", "text": "Reduced motion", "setting": "reduced_motion" }
+      ] },
+      { "size": 44, "type": "input", "text": "Name", "variable": "player_name", "max_length": 24 },
+      { "type": "list", "source": "languages", "item_height": 46, "gap": 10 }
+    ] }
+  },
+  "save": {
+    "bounds": { "x": 100, "y": 32, "width": 1080, "height": 650 },
+    "root": { "type": "column", "gap": 20, "children": [
+      { "size": 52, "type": "row", "gap": 24, "children": [
+        { "type": "text", "style": "heading", "text": "Save" },
+        { "size": 180, "type": "button", "text": "Back", "action": "close" }
+      ] },
+      { "type": "list", "source": "manual_saves", "item_height": 78, "gap": 16 }
+    ] }
+  },
+  "load": {
+    "bounds": { "x": 100, "y": 32, "width": 1080, "height": 650 },
+    "root": { "type": "column", "gap": 20, "children": [
+      { "size": 52, "type": "row", "gap": 16, "children": [
+        { "type": "text", "style": "heading", "text": "Load" },
+        { "size": 160, "type": "button", "text": "Manual", "action": "manual_saves" },
+        { "size": 160, "type": "button", "text": "Quick", "action": "quick_saves" },
+        { "size": 160, "type": "button", "text": "Auto", "action": "auto_saves" },
+        { "size": 160, "type": "button", "text": "Back", "action": "close" }
+      ] },
+      { "type": "list", "source": "saves", "item_height": 78, "gap": 16 }
+    ] }
+  },
+  "history": {
+    "bounds": { "x": 100, "y": 32, "width": 1080, "height": 650 },
+    "root": { "type": "column", "gap": 20, "children": [
+      { "size": 52, "type": "row", "gap": 24, "children": [
+        { "type": "text", "style": "heading", "text": "History" },
+        { "size": 180, "type": "button", "text": "Back", "action": "close" }
+      ] },
+      { "type": "list", "source": "history", "item_height": 38, "gap": 6 }
+    ] }
+  }
+}

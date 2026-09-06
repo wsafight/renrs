@@ -1,0 +1,30 @@
+---
+import {pages, href} from '../catalog';
+import {ui} from '../i18n';
+import T from './T.astro';
+const catalog = pages.map(page => ({
+  title: page.title,
+  description: page.description,
+  url: href(page.slug),
+}));
+---
+<dialog class="search-dialog" id="search-dialog" aria-labelledby="search-title">
+  <form class="search-panel" method="dialog" data-search-root>
+    <h2 id="search-title" class="visually-hidden"><T en={ui.en.searchDocs} zh={ui.zh.searchDocs} /></h2>
+    <input type="search" name="q" placeholder={ui.en.searchDocs} aria-label={ui.en.searchDocs} data-search-input data-i18n-aria="searchDocs" data-i18n-placeholder="searchDocs" autocomplete="off" />
+    <div class="search-results" data-search-results></div>
+    <p class="search-empty" data-search-empty hidden><span class="i18n-en">{ui.en.searchEmpty}</span><span class="i18n-zh">{ui.zh.searchEmpty}</span></p>
+  </form>
+</dialog>
+<script is:inline define:vars={{catalog, pagefindUrl: `${import.meta.env.BASE_URL}pagefind/pagefind.js`}}>
+  window.__RENRS_SEARCH__ = {catalog, pagefindUrl};
+</script>
+<style>
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+</style>

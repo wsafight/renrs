@@ -1,0 +1,38 @@
+---
+import BrandMark from './BrandMark.astro';
+import T from './T.astro';
+import {groupedPages, href, pages} from '../catalog';
+import {githubRepo, ui} from '../i18n';
+
+const homeHref = href();
+const start = groupedPages[0]?.pages ?? [];
+const scripting = pages.find(page => page.slug === 'guides/scripting');
+const cli = pages.find(page => page.slug === 'reference/cli');
+---
+<footer class="site-footer">
+  <div class="section-inner footer-layout">
+    <div class="footer-brand">
+      <BrandMark size={32} />
+      <strong>RenRS</strong>
+      <p><T en="Declarative scripts, deterministic playback. A visual novel engine written in Rust." zh="声明式剧本，确定性运行。用 Rust 独立实现的视觉小说引擎。" /></p>
+      <p class="footer-legal"><T en="© 2026 RenRS contributors · MIT License · version 0.1.0" zh="© 2026 RenRS contributors · MIT License · 版本 0.1.0" /></p>
+    </div>
+    <nav class="footer-nav" aria-label={ui.en.footerNav} data-i18n-aria="footerNav">
+      <a href={`${homeHref}#capabilities`}><T en={ui.en.capabilities} zh={ui.zh.capabilities} /></a>
+      <a href={`${homeHref}#tools`}><T en={ui.en.tools} zh={ui.zh.tools} /></a>
+      <a href={`${homeHref}#ship`}><T en={ui.en.ship} zh={ui.zh.ship} /></a>
+      <a href={href('docs')}><T en={ui.en.docs} zh={ui.zh.docs} /></a>
+      <a href={href('start/quickstart')}><T en={ui.en.quickStart} zh={ui.zh.quickStart} /></a>
+      <a href={href('project/status')}><T en={ui.en.status} zh={ui.zh.status} /></a>
+      <a href={githubRepo} target="_blank" rel="noopener noreferrer"><T en={ui.en.github} zh={ui.zh.github} /></a>
+    </nav>
+    <div class="footer-docs">
+      <span><T en={groupedPages[0]?.label.en ?? ''} zh={groupedPages[0]?.label.zh ?? ''} /></span>
+      {start.map(page => (
+        <a href={href(page.slug)}><T en={page.title.en} zh={page.title.zh} /></a>
+      ))}
+      {scripting && <a href={href(scripting.slug)}><T en={scripting.title.en} zh={scripting.title.zh} /></a>}
+      {cli && <a href={href(cli.slug)}><T en={cli.title.en} zh={cli.title.zh} /></a>}
+    </div>
+  </div>
+</footer>

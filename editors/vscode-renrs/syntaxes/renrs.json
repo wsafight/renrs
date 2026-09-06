@@ -1,0 +1,11 @@
+{
+  "scopeName": "source.renrs",
+  "patterns": [
+    { "name": "comment.line.number-sign.renrs", "match": "#.*$" },
+    { "name": "string.quoted.double.renrs", "begin": "\"", "end": "\"", "patterns": [{ "name": "constant.character.escape.renrs", "match": "\\\\." }, { "name": "variable.other.renrs", "match": "\\{[^}]+\\}" }] },
+    { "name": "keyword.control.renrs", "match": "\\b(config|define|default|image|label|menu|if|elif|else|jump|call|return|set|extend|scene|show|hide|move|transform|timeline|parallel|nvl|transition|video|voice|play|queue|stop|pause|with|at|as|layer|over|alias)\\b|@id\\b" },
+    { "name": "support.function.renrs", "match": "\\b(list|record|get|put|push|remove|len|contains)(?=\\s*\\()" },
+    { "name": "constant.language.renrs", "match": "\\b(true|false)\\b" },
+    { "name": "constant.numeric.renrs", "match": "\\b[0-9]+(\\.[0-9]+)?\\b" }
+  ]
+}

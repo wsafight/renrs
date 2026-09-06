@@ -1,0 +1,22 @@
+define guide = character "Mira" color "#F6C85F"
+default trust = 0
+
+label start:
+    scene "images/studio.png"
+    show "images/mira.png" as mira at right
+    @id "opening" guide "The signal is back. Shall we answer?"
+    menu:
+        "Answer the signal" id "choice.answer":
+            set trust = 1
+            jump answer
+        "Wait until morning" id "choice.wait":
+            jump wait
+
+label answer:
+    scene "images/rooftop.png"
+    @id "answer" guide "Someone answers from the other side of the city."
+    @id "answer.complete" return
+
+label wait:
+    @id "wait" guide "We leave the receiver on and watch the sky."
+    @id "wait.complete" return

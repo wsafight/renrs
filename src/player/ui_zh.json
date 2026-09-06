@@ -1,0 +1,23 @@
+{
+  "New game": "新游戏", "Continue": "继续游戏", "Load": "读取", "Save": "保存",
+  "Settings": "设置", "Quit": "退出", "Back": "返回", "Auto": "自动", "Skip": "快进",
+  "History": "历史", "Manual": "手动", "Quick": "快速", "Close": "关闭",
+  "Language": "语言", "Source text": "原文", "Text speed": "文字速度",
+  "Auto-play delay": "自动播放间隔", "Music volume": "音乐音量", "Sound volume": "音效音量",
+  "Voice volume": "语音音量", "Accessibility": "阅读与辅助设置", "Text size": "文字大小",
+  "High contrast": "高对比度", "Reduced motion": "减少动画", "Wait for voice": "等待语音结束",
+  "Cancel": "取消", "Confirm": "确认", "Note": "备注", "Delete": "删除", "Import": "导入",
+  "Export": "导出", "Import / export file": "导入或导出文件", "Empty": "空存档",
+  "Replace this save?": "覆盖这个存档？", "Load this save and replace current progress?": "读取存档并替换当前进度？",
+  "Delete this save?": "删除这个存档？", "Save current progress and quit?": "保存当前进度并退出？",
+  "Loading...": "正在加载", "Saved": "已保存", "Loaded": "已读取", "Replay voice": "重播语音",
+  "Collection": "收藏", "Locked": "未解锁", "The End": "故事结束", "Return to title": "返回标题",
+  "Saves": "存档", "Rollback": "回退", "Debugger": "调试器", "Player tools": "播放器工具",
+  "Story": "剧情", "Choices": "选项", "Resume": "继续", "Autosave": "自动存档",
+  "Achievements": "成就", "Gallery": "画廊", "Endings": "结局", "Play voice": "播放语音",
+  "Auto advance": "自动播放", "Slot": "存档槽", "note": "备注", "No empty manual slot": "没有空的手动存档槽",
+  "Start a new game?": "开始新游戏？", "Replace current progress?": "替换当前进度？",
+  "Choose an empty slot before importing": "请先选择空存档槽再导入", "Deleted": "已删除",
+  "Imported": "已导入", "Exported": "已导出", "Save belongs to another game": "存档属于另一个游戏",
+  "Self voicing": "界面朗读", "Name": "姓名", "No dialogue yet": "暂无对白"
+}
