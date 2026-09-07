@@ -24,6 +24,35 @@ writes ambiguous content into a report.
 - **Native delivery**: one command turns a directory project into a player plus a read-only `.renrs` archive.
 - **Diagnosable toolchain**: check, format, LSP, story graph, localization, and migration all run headless.
 
+### 3.1 Current positioning
+
+RenRS is differentiated by making visual-novel development checkable, testable, and
+reproducible, not by being "Ren'Py rewritten in Rust." External descriptions should lead
+with the author outcomes of static checks, route tests, deterministic state, and Git
+collaboration rather than the implementation language.
+
+The project is still prerelease. A shipped feature means its code, tests, and documentation
+have landed; it does not mean long-term validation in real productions or low-risk Ren'Py
+replacement. A more accurate current position is:
+
+> A Git-friendly visual novel engine for technical authors and small teams, with static
+> story checks and automated route testing.
+
+### 3.2 Current fit
+
+RenRS currently fits technical authors willing to validate an early product, experiments
+with complex branching, and teams that need headless checks, route replay, and auditable
+state. It is not yet low-risk infrastructure for:
+
+- existing projects that rely heavily on Ren'Py Python, plugins, full Screen Language, or ATL;
+- projects close to commercial release that require mature store, signing, notarization, and multi-platform support;
+- work that requires Live2D, complex shaders, particles, 3D, platform services, or cloud saves;
+- long projects that require durable script and old-save compatibility but cannot absorb prerelease format changes.
+
+The launcher and VS Code extension provide authoring entry points, but first install,
+asset management, instant preview, tutorials, and shipping for non-programmers still need
+validation with real users.
+
 ## 4. Current user flow
 
 1. Create a playable template with `renrs-init`, then write story in one or more `.rns` files with a stable `config id`.
@@ -138,3 +167,47 @@ Sequential optimization and evidence are in [Optimization notes](OPTIMIZATION.md
 [Local validation](VALIDATION.md). Later results are in [Product upgrades](PRODUCT_UPGRADES.md).
 Real projects, broader migration, and platform shipping still need more verification.
 Full capability bounds are in [Roadmap](ROADMAP.md) and [Gap with Ren’Py](RENPY_GAP_ANALYSIS.md).
+
+### 9.1 Product priorities
+
+1. **Close a real-work loop**: the owner or an external author should validate the full
+   workflow with a 30-to-60-minute work containing multiple endings, saves, localization,
+   audio/video, and custom screens, then record authoring time, build results, and platform
+   issues. Commercial projects, public release, and external cross-platform acceptance are
+   outside the current local-development scope and cannot be replaced by synthetic fixtures.
+2. **Lower first-use friction**: launcher and SDK assembly plus local end-to-end acceptance
+   are complete. Next steps are downloadable per-platform builds, fewer host dependencies,
+   and validated signing, notarization, and installation.
+3. **Productize the differentiators**: show source locations, uncovered routes, unreachable
+   endings, and localization gaps in the launcher or editor. Before/after route impact
+   analysis is not implemented and must not be presented as current capability.
+4. **Establish a stability window**: release candidates should state compatibility bounds
+   for scripts, structured protocols, and saves, publish upgrade notes, and use the docs
+   workflow plus versioned local full verification as release evidence.
+5. **Keep scope controlled**: do not prioritize Live2D, 3D, complex shaders, cloud accounts,
+   build farms, or a large online dashboard before real productions require them.
+
+### 9.2 Agent collaboration
+
+The deterministic runtime, headless checks, story graph, and route tests are suitable for
+agent use. Agent support extends the authoring toolchain; it does not replace basic authoring
+experience, engine reliability, or real-production validation. RenRS remains a visual novel
+engine first. The useful agent role is a verifiable technical production assistant, not an
+engine-level story generator.
+
+Existing machine-interface foundations are `renrs-check --json`, structured results from
+`renrs-debug inspect/test/explore`, JSON acceptance reports from `renrs-accept`, and Web
+engine `inspect()`. The next step is consistent exit codes, error codes, and versioned JSON
+Schemas across those existing binaries. Combining them into one `renrs <subcommand>` binary
+is not a prerequisite. Unimplemented commands and interfaces must be labeled as proposals.
+
+The ownership boundary is:
+
+- the agent interprets intent, proposes a change plan, and edits files;
+- RenRS returns real project state and analyzes an explicit project version, candidate patch, or Git diff;
+- checks, route tests, captures, and builds reuse core libraries or stable CLIs rather than diverging in editor or MCP layers;
+- mutating interfaces identify target files, return reviewable diffs, and preserve user approval boundaries.
+
+The target loop is "read real state -> plan and edit -> static check -> route tests -> captures
+and coverage report -> user review -> build." See the [roadmap](ROADMAP.md#agent-collaboration-proposal)
+for implementation order and capability bounds.

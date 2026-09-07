@@ -47,4 +47,5 @@ node scripts/package-sdk.mjs dist/renrs-sdk target/release
 `sdk.json` 记录版本、目标平台与文件校验值。它仍要求本机安装 Node.js 22 或更新版本，
 原生二进制对应构建机器的平台，不能当作全平台 SDK。
 
-Launcher 与 SDK 已有实现，完整端到端验收仍在推进，见 [当前开发进度](NEXT_PRODUCT_WORK.md)。
+Launcher 与 SDK 已有实现，并已通过打包后的本地端到端验收。公开下载、各平台分别构建、签名与
+公证仍需外部发行验证，见 [当前开发进度](NEXT_PRODUCT_WORK.md)。

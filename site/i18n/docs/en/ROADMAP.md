@@ -74,6 +74,35 @@ a real backend.
 4. Drive migrator expansion with real Ren'Py samples. Each new mapping needs a report, tests, and a fallback policy.
 5. Handle mobile, stores, and updates last. They depend on stable input, lifecycle, and shipping format.
 
+## Agent collaboration proposal
+
+This path builds on existing static checks, deterministic runtime, headless debugging, and
+route tests. It does not claim the capabilities below are implemented. Agent layers must
+reuse core libraries or stable CLIs: the engine supplies facts and verifies candidate
+changes, while the agent plans and edits.
+
+1. Standardize exit codes, error codes, and versioned JSON Schemas across the existing
+   binaries. `renrs-check --json`, `renrs-debug inspect/test/explore`, `renrs-accept`, and
+   Web `inspect()` are the current foundation.
+2. Add read-only project state for configuration, characters, variables, assets, story
+   graph, localization, script fingerprint, and capability version.
+3. Accept an explicit baseline and candidate patch or Git diff, then report affected routes,
+   endings, translations, and save structure. The engine must not guess an agent plan when
+   no proposed change was supplied.
+4. Publish `SKILL.md`, `llms.txt`, JSON Schemas, and a machine-interface version policy that
+   defines editing steps and mandatory checks.
+5. Close a local "edit -> check -> route tests -> preview captures -> coverage and
+   compatibility report -> build" demonstration.
+6. Once the interface is stable, provide a thin MCP server focused on reads and validation.
+   Mutations must return target files and diffs.
+7. Have the owner or an external author validate human-agent collaboration on a real work.
+   That external acceptance remains outside the current local-development scope.
+
+Cloud accounts, online asset storage, complex team permissions, hosted builds, model
+gateways, billing, and a large dashboard are not near-term parts of this path. Agent
+interfaces also do not replace non-programmer authoring experience, basic product quality,
+or real-work validation.
+
 ## Historical milestones
 
 - **v0.1**: script AST, validation, interpreter, basic stage, audio front-end, settings, saves, and a sample.

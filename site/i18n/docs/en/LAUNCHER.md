@@ -54,5 +54,6 @@ shell, editor extension sources, and docs. `sdk.json` records version, target
 platform, and file checksums. It still requires Node.js 22 or later on the host.
 Native binaries match the machine that built them; this is not a universal SDK.
 
-The launcher and SDK are implemented. Full end-to-end acceptance is still in
-progress; see [Current status](NEXT_PRODUCT_WORK.md).
+The launcher and SDK are implemented and pass packaged local end-to-end acceptance.
+Public downloads, per-platform builds, signing, and notarization still require external
+shipping validation; see [Current status](NEXT_PRODUCT_WORK.md).
