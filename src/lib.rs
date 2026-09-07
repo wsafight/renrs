@@ -10,8 +10,11 @@ pub mod audio;
 pub mod benchmark;
 pub mod composition;
 pub mod distribution;
+pub mod impact;
+pub mod inspection;
 pub mod migration;
 pub mod platform;
+pub mod protocol;
 pub mod save;
 pub mod scaffold;
 pub mod storage;
@@ -30,6 +33,7 @@ pub use platform::{
     DataDirectoryError, default_project_path, normalize_project_id, user_data_directory,
 };
 pub use project::load_project;
+pub use renrs_runtime::save_format;
 pub use runtime::{IdAliasResolution, ReloadReport, Runtime, RuntimeError, WaitState};
 pub use source::{ProjectSource, ProjectSourceError};
 pub use validator::validate;

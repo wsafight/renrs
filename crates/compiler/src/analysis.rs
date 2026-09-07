@@ -1,7 +1,7 @@
 #[path = "analysis/graph.rs"]
 mod graph;
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{BTreeSet, HashSet, VecDeque};
 
 use crate::compiler::{InstructionKind, Program, StatementId};
 use crate::diagnostic::Diagnostic;
@@ -19,6 +19,19 @@ pub fn analyze(program: &Program) -> Vec<Diagnostic> {
     diagnostics.extend(definite_assignment_diagnostics(program, &graph, &reachable));
     diagnostics.extend(immediate_cycle_diagnostics(program, &graph, &reachable));
     diagnostics
+}
+
+/// Returns labels whose entry instruction is reachable from `start`.
+#[must_use]
+pub fn reachable_labels(program: &Program) -> BTreeSet<String> {
+    let graph = ControlFlowGraph::new(program);
+    let reachable = graph.reachable(program.labels.get("start").copied());
+    program
+        .labels
+        .iter()
+        .filter(|(_, index)| reachable.get(**index).copied().unwrap_or(false))
+        .map(|(name, _)| name.clone())
+        .collect()
 }
 
 fn unreachable_diagnostics(program: &Program, reachable: &[bool]) -> Vec<Diagnostic> {

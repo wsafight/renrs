@@ -57,7 +57,9 @@ whether history contains the given text. The ending label is the last instructio
 that actually ran; a `return` that crosses a label boundary does not misreport.
 Missing choices, extra choices, failed assertions, fingerprint mismatch, or more
 than 10,000 interactions return a non-zero exit. The library API `run_route` can
-set a larger interaction cap.
+set a larger interaction cap. Except for interactive `record`, debugger commands use the
+[v1 machine protocol](MACHINE_PROTOCOL.md), and route results include the stable instruction
+IDs actually visited by that run.
 
 ## Bounded branch exploration
 

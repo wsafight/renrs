@@ -37,8 +37,10 @@ fn release_check_validates_current_routes_and_saves_without_end_anchors() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(report["passed"], true);
-    assert_eq!(report["checks"].as_array().unwrap().len(), 3);
+    assert_eq!(report["protocol_version"], 1);
+    assert_eq!(report["command"], "accept");
+    assert_eq!(report["data"]["passed"], true);
+    assert_eq!(report["data"]["checks"].as_array().unwrap().len(), 3);
 
     fs::write(
         project.join("script.rns"),
@@ -52,7 +54,7 @@ fn release_check_validates_current_routes_and_saves_without_end_anchors() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    let checks = report["checks"].as_array().unwrap();
+    let checks = report["data"]["checks"].as_array().unwrap();
     assert!(
         checks
             .iter()
@@ -69,7 +71,7 @@ fn release_check_validates_current_routes_and_saves_without_end_anchors() {
     assert!(output.status.success());
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(
-        report["checks"]
+        report["data"]["checks"]
             .as_array()
             .unwrap()
             .iter()
@@ -89,7 +91,8 @@ fn release_check_validates_current_routes_and_saves_without_end_anchors() {
     let output = accept(&project, &saves);
     assert!(!output.status.success());
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    let checks = report["checks"].as_array().unwrap();
+    assert_eq!(report["error"]["code"], "acceptance_failed");
+    let checks = report["data"]["checks"].as_array().unwrap();
     let dialogue = checks
         .iter()
         .find(|check| check["name"] == "dialogue")

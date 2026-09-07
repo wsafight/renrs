@@ -18,6 +18,24 @@ and control-flow analysis. `renrs-fmt` processes `.rns` in a directory: trailing
 whitespace, consecutive blank lines, and a final newline. It does not change
 four-space semantic indent or delete comments. `--check` writes nothing.
 
+`renrs-check --json game` uses the v1 machine protocol. See [Machine protocol](MACHINE_PROTOCOL.md)
+for every machine interface, error code, and exit code.
+
+## Project inspection and impact analysis
+
+```sh
+cargo run --bin renrs-inspect -- game
+cargo run --bin renrs-impact -- baseline-game candidate-game
+cargo run --bin renrs-impact -- --git game HEAD
+```
+
+`renrs-inspect` reports characters, variables, labels, endings, assets, localization,
+static reachability, and actual route coverage. `renrs-impact` compiles and compares two
+projects; Git mode creates a read-only baseline from a revision and compares the current
+candidate directory. The report covers route outcomes, endings, translations, and save
+structure risk. Static save risk is not a compatibility guarantee; validate real saves
+with `renrs-accept --saves`.
+
 ## Create a project and the editor
 
 ```sh
@@ -185,7 +203,7 @@ exist. Use it in CI. Full scope is in [Migrate from Ren’Py](MIGRATION.md).
 Build release binaries locally on each target platform, then use
 `scripts/package-sdk.mjs` to assemble that platform's SDK. A toolkit includes:
 
-- `renrs`, `renrs-check`, `renrs-fmt`, `renrs-graph`, and `renrs-lsp`.
+- `renrs`, `renrs-check`, `renrs-inspect`, `renrs-impact`, `renrs-fmt`, `renrs-graph`, and `renrs-lsp`.
 - `renrs-i18n`, `renrs-migrate`, `renrs-pack`, `renrs-unpack`, and `renrs-build`.
 - `renrs-init`, `renrs-debug`, and `renrs-bench`.
 - `renrs-accept`, `renrs-web-build`, `renrs-video`, `renrs-compose`, and `renrs-update`.

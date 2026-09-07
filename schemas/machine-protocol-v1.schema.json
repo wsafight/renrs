@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wsafight.github.io/renrs/schemas/machine-protocol-v1.schema.json",
+  "title": "RenRS machine protocol v1 envelope",
+  "type": "object",
+  "required": ["protocol_version", "command", "ok", "data", "diagnostics", "error"],
+  "properties": {
+    "protocol_version": { "const": 1 },
+    "command": { "type": "string", "minLength": 1 },
+    "ok": { "type": "boolean" },
+    "data": {},
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/error" }
+      ]
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "diagnostic": {
+      "type": "object",
+      "required": ["code", "severity", "file", "line", "column", "message", "hint"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["error", "warning"] },
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "message": { "type": "string" },
+        "hint": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

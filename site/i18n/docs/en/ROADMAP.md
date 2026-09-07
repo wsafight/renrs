@@ -81,18 +81,18 @@ route tests. It does not claim the capabilities below are implemented. Agent lay
 reuse core libraries or stable CLIs: the engine supplies facts and verifies candidate
 changes, while the agent plans and edits.
 
-1. Standardize exit codes, error codes, and versioned JSON Schemas across the existing
+1. [x] Standardize exit codes, error codes, and versioned JSON Schemas across the existing
    binaries. `renrs-check --json`, `renrs-debug inspect/test/explore`, `renrs-accept`, and
    Web `inspect()` are the current foundation.
-2. Add read-only project state for configuration, characters, variables, assets, story
+2. [x] Add read-only project state for configuration, characters, variables, assets, story
    graph, localization, script fingerprint, and capability version.
-3. Accept an explicit baseline and candidate patch or Git diff, then report affected routes,
+3. [x] Accept an explicit baseline and candidate project or Git revision, then report affected routes,
    endings, translations, and save structure. The engine must not guess an agent plan when
    no proposed change was supplied.
 4. Publish `SKILL.md`, `llms.txt`, JSON Schemas, and a machine-interface version policy that
    defines editing steps and mandatory checks.
-5. Close a local "edit -> check -> route tests -> preview captures -> coverage and
-   compatibility report -> build" demonstration.
+5. [-] The launcher now displays checks, route tests, coverage, and localization. Preview
+   captures and impact-report integration remain.
 6. Once the interface is stable, provide a thin MCP server focused on reads and validation.
    Mutations must return target files and diffs.
 7. Have the owner or an external author validate human-agent collaboration on a real work.

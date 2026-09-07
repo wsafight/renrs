@@ -10,6 +10,7 @@ excluded by the owner. Previous save formats need not remain compatible.
 - [x] P1: deterministic extension APIs with persistence/rollback semantics.
 - [x] P1: complex text layout, fallback fonts and localization rules.
 - [x] P2: project launcher, SDK workflow, templates and author documentation; local end-to-end verification passes.
+- [x] P2: v1 machine protocol, read-only project inspection, baseline/candidate impact analysis and Launcher quality reporting.
 - [ ] P2: media configuration, graphics extensions and platform-service adapters (named sprite layers and static per-track gain shipped; heavier backends remain).
 
 Each item requires implementation and focused verification before checking it.
@@ -17,8 +18,11 @@ External SDKs and services must remain explicitly identified when unavailable.
 
 The launcher is available with `node scripts/launcher.mjs`; SDK bundles are
 assembled with `node scripts/package-sdk.mjs <new-directory> <binary-directory>`.
-The launcher delegates check, run, graph, pack and build tasks to existing Rust
-tools, keeps bounded logs, detects stale script edits, and stores local paths only.
+The launcher delegates inspect, check, run, graph, pack and build tasks to existing
+Rust tools, keeps bounded logs, detects stale script edits, and stores local paths
+only. Its quality view separates static reachability from actual route coverage and
+shows diagnostics, route results and localization gaps. Machine-facing check,
+debug, acceptance, inspection and impact commands share the versioned v1 envelope.
 Theme files support fallback font families. Independent music, sound and voice
 volume defaults now combine with bounded per-track music/sound gain. This does not
 complete arbitrary mixers, media sync, graphics, or platform-service extensions. Live2D,

@@ -20,8 +20,21 @@ async function persist() { await mkdir(path.dirname(statePath), {recursive: true
 function binary(name, sdk = state.sdk) { return path.join(sdk, existsSync(path.join(sdk, 'bin')) ? 'bin' : '', `${name}${process.platform === 'win32' ? '.exe' : ''}`); }
 async function sdkStatus(sdk = state.sdk) {
   const tools = {};
-  for (const name of ['renrs', 'renrs-init', 'renrs-check', 'renrs-build', 'renrs-pack', 'renrs-web-build', 'renrs-graph']) tools[name] = existsSync(binary(name, sdk));
+  for (const name of ['renrs', 'renrs-init', 'renrs-check', 'renrs-inspect', 'renrs-build', 'renrs-pack', 'renrs-web-build', 'renrs-graph']) tools[name] = existsSync(binary(name, sdk));
   return {path: sdk, tools, ready: Object.values(tools).every(Boolean)};
+}
+function machine(executable, commandArguments, timeout = 60000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(executable, commandArguments, {cwd:root, shell:false, stdio:['ignore','pipe','pipe']});
+    let stdout = '', stderr = '', settled = false, timer;
+    const finish = callback => value => {if (!settled) {settled = true; clearTimeout(timer); callback(value);}};
+    const append = (current, chunk) => {const next = current + chunk.toString(); if (Buffer.byteLength(next) > 4 * 1024 * 1024) {child.kill('SIGTERM'); throw new Error('Machine report exceeds 4 MiB');} return next;};
+    child.stdout.on('data', chunk => {try {stdout = append(stdout, chunk);} catch (error) {finish(reject)(error);}});
+    child.stderr.on('data', chunk => {try {stderr = append(stderr, chunk);} catch (error) {finish(reject)(error);}});
+    child.once('error', finish(reject));
+    child.once('close', finish(() => {try {const report = JSON.parse(stdout); if (report.protocol_version !== 1) throw new Error('Unsupported machine protocol'); resolve(report);} catch (error) {reject(new Error(stderr.trim() || error.message));}}));
+    timer = setTimeout(() => {child.kill('SIGTERM'); finish(reject)(new Error('Machine inspection timed out'));}, timeout);
+  });
 }
 function project(id) { const project = state.projects.find(item => item.id === id); if (!project) throw new Error('Project not registered'); return project; }
 async function resource(project, name) {
@@ -54,6 +67,7 @@ async function api(request, url) {
     if (url.pathname === '/api/state') return {...state, sdk: await sdkStatus(), jobs: jobs.list()};
     if (url.pathname === '/api/scripts') return scripts(project(url.searchParams.get('id')).path);
     if (url.pathname === '/api/script') { const file = await resource(project(url.searchParams.get('id')), url.searchParams.get('file')); if (!file.endsWith('.rns')) throw new Error('Expected .rns'); const text = await readFile(file, 'utf8'); return {text, revision: digest(text)}; }
+    if (url.pathname === '/api/inspection') { const item = project(url.searchParams.get('id')); return machine(binary('renrs-inspect'), [item.path]); }
     throw new Error('Unknown endpoint');
   }
   if (request.method !== 'POST') throw new Error('Method not allowed');

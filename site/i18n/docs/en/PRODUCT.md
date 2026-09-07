@@ -178,9 +178,9 @@ Full capability bounds are in [Roadmap](ROADMAP.md) and [Gap with Ren’Py](RENP
 2. **Lower first-use friction**: launcher and SDK assembly plus local end-to-end acceptance
    are complete. Next steps are downloadable per-platform builds, fewer host dependencies,
    and validated signing, notarization, and installation.
-3. **Productize the differentiators**: show source locations, uncovered routes, unreachable
-   endings, and localization gaps in the launcher or editor. Before/after route impact
-   analysis is not implemented and must not be presented as current capability.
+3. **Productize the differentiators**: the launcher now shows source locations, uncovered
+   routes, unreachable labels, and localization gaps, with baseline/candidate impact
+   analysis. Next, calibrate risk reports on real work and add affected-scene captures.
 4. **Establish a stability window**: release candidates should state compatibility bounds
    for scripts, structured protocols, and saves, publish upgrade notes, and use the docs
    workflow plus versioned local full verification as release evidence.
@@ -197,9 +197,10 @@ engine-level story generator.
 
 Existing machine-interface foundations are `renrs-check --json`, structured results from
 `renrs-debug inspect/test/explore`, JSON acceptance reports from `renrs-accept`, and Web
-engine `inspect()`. The next step is consistent exit codes, error codes, and versioned JSON
-Schemas across those existing binaries. Combining them into one `renrs <subcommand>` binary
-is not a prerequisite. Unimplemented commands and interfaces must be labeled as proposals.
+engine `inspect()`. These entry points now share a v1 envelope, exit codes, and JSON Schema,
+with `renrs-inspect` and `renrs-impact` added. Combining them into one
+`renrs <subcommand>` binary is not a prerequisite. Unimplemented commands and interfaces
+must still be labeled as proposals.
 
 The ownership boundary is:
 

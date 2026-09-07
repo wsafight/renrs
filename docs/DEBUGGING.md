@@ -50,7 +50,8 @@ cargo run --bin renrs-debug -- test my-story my-story/routes.json
 `expect_variables` 检查指定变量的最终值；`expect_dialogue` 检查历史中是否包含给定文本。
 结局标签来自最后实际执行的指令，不会因 `return` 越过标签边界而误报。缺少选择、多余选择、
 断言失败、指纹不一致或超过 10,000 次交互都会返回非零退出码。库 API `run_route` 可以显式
-设置更大的交互上限。
+设置更大的交互上限。除交互式 `record` 外，调试命令使用 [v1 机器协议](MACHINE_PROTOCOL.md)，
+路线结果包含本次实际访问的稳定指令 ID。
 
 ## 有界分支探索
 

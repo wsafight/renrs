@@ -1,8 +1,8 @@
 # Workspace and SDK
 
 The launcher is a local project workspace. It reuses the Rust CLI for check, run,
-story graphs, and builds. It provides a project list, script editing, job logs, and
-SDK path configuration.
+story graphs, and builds. It provides a project list, script editing, quality reports,
+job logs, and SDK path configuration.
 
 ## Start from source
 
@@ -26,6 +26,11 @@ project files stay on disk.
 The script view reads `.rns` files. Save checks the fingerprint from load time: if
 the file was edited elsewhere, reload first so those edits are not overwritten.
 A successful save starts a project check.
+
+The Quality view calls `renrs-inspect` and shows route instruction coverage, passed
+routes, statically unreachable labels, missing translations, source diagnostics, and
+per-route results. Static reachability and actual route coverage remain separate. Refresh
+reads the current content from disk again.
 
 ## Build jobs
 

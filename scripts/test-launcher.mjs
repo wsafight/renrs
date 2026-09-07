@@ -77,6 +77,10 @@ try {
   const project = state.projects.find(item => item.path === canonicalProject);
   if (!project) throw new Error('Created project was not registered');
 
+  const inspection = await request(base, `/api/inspection?id=${encodeURIComponent(project.id)}`);
+  if (inspection.protocol_version !== 1 || !inspection.ok) throw new Error('Launcher inspection did not return a valid machine report');
+  if (inspection.data.routes.passed !== 2 || inspection.data.routes.coverage.uncovered_labels.length) throw new Error('Launcher inspection route coverage is incomplete');
+
   const files = await request(base, `/api/scripts?id=${encodeURIComponent(project.id)}`);
   const scriptFile = files.find(file => file.endsWith('.rns'));
   if (!scriptFile) throw new Error('Created project scripts were not indexed');

@@ -16,6 +16,22 @@ cargo run --bin renrs-fmt -- --check game
 中的 `.rns`，规范行尾空白、连续空行和文件末尾换行，不改变四空格语义缩进或删除注释；
 `--check` 不写文件。
 
+`renrs-check --json game` 使用 v1 机器协议。所有机器接口、错误码和退出码见
+[机器接口协议](MACHINE_PROTOCOL.md)。
+
+## 项目检查与影响分析
+
+```sh
+cargo run --bin renrs-inspect -- game
+cargo run --bin renrs-impact -- baseline-game candidate-game
+cargo run --bin renrs-impact -- --git game HEAD
+```
+
+`renrs-inspect` 输出角色、变量、标签、结局、资源、本地化、静态可达性和实际路线覆盖。
+`renrs-impact` 编译并比较两个项目；`--git` 模式从指定提交建立只读基线，与当前候选目录比较。
+报告覆盖路线结果、结局、翻译和存档结构风险。静态存档风险不是兼容保证，真实存档仍应使用
+`renrs-accept --saves` 验证。
+
 ## 创建项目与编辑器
 
 ```sh
@@ -165,7 +181,7 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 在每个目标平台本地构建 release 二进制，再用 `scripts/package-sdk.mjs` 组装该平台 SDK。
 工具包包含：
 
-- `renrs`、`renrs-check`、`renrs-fmt`、`renrs-graph` 和 `renrs-lsp`。
+- `renrs`、`renrs-check`、`renrs-inspect`、`renrs-impact`、`renrs-fmt`、`renrs-graph` 和 `renrs-lsp`。
 - `renrs-i18n`、`renrs-migrate`、`renrs-pack`、`renrs-unpack` 和 `renrs-build`。
 - `renrs-init`、`renrs-debug` 和 `renrs-bench`。
 - `renrs-accept`、`renrs-web-build`、`renrs-video`、`renrs-compose` 和 `renrs-update`。

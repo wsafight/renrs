@@ -26,13 +26,13 @@ pub struct Route {
     pub expect_dialogue: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RouteSuite {
     pub routes: Vec<Route>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RouteResult {
     pub name: String,
     pub label: Option<String>,
@@ -40,6 +40,7 @@ pub struct RouteResult {
     pub history_length: usize,
     pub variables: BTreeMap<String, Value>,
     pub visited_instructions: usize,
+    pub visited_instruction_ids: Vec<crate::InstructionId>,
 }
 
 pub(super) struct Walk {
@@ -92,13 +93,18 @@ pub fn run_route(
             route.name
         ));
     }
+    let visited_instruction_ids = runtime
+        .visited_instructions()
+        .filter_map(|index| program.instruction_id(index).cloned())
+        .collect::<Vec<_>>();
     Ok(RouteResult {
         name: route.name.clone(),
         label: runtime.current_label().map(ToOwned::to_owned),
         interactions: result.steps,
         history_length: runtime.history().len(),
         variables: runtime.variables().clone(),
-        visited_instructions: runtime.visited_instructions().count(),
+        visited_instructions: visited_instruction_ids.len(),
+        visited_instruction_ids,
     })
 }
 
