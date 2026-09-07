@@ -6,11 +6,11 @@ reuse the completion status of the earlier engineering or performance iterations
 ## Pre-release Policy
 
 The project has not shipped. Breaking changes to APIs, scripts and persisted
-formats are allowed; backward compatibility and old-version migration are not
-release criteria. Save loading accepts only the current container and snapshot
-formats with an identical compiled-script fingerprint. Desktop/Web exchange of
-current-build saves, checksums, rollback and transactional editor hot reload remain
-supported. Hot reload remaps a live development session; it is not a save upgrade API.
+formats are allowed; old-format migration is not a release criterion. Save loading
+accepts only the current container and snapshot formats. When content changes,
+active positions must resolve through explicit `@id`/`alias` mappings; automatic
+or removed positions are rejected. Desktop/Web exchange, checksums, rollback and
+transactional editor hot reload remain supported.
 
 ## P0
 
@@ -31,12 +31,15 @@ supported. Hot reload remaps a live development session; it is not a save upgrad
 
 - [x] Capacitor Android/iOS projects, local native builds and platform adapters.
 - [x] Lists/records, deterministic built-ins and controlled screen expressions.
+- [x] Named/default label arguments, dynamic parameter scope and static migration.
+- [x] Ordered named sprite layers, layer clearing, save/rollback and transactional reload.
+- [x] Static per-track music/sound gain across native/Web playback, queues, saves and migration.
 - [ ] Physical-device acceptance, platform services and store publication.
 
 ## External Acceptance
 
 - [ ] Owner-supplied real production project.
-- [ ] Remote Windows, macOS and Linux CI results.
+- [ ] Local packaged-player results on the publisher's target desktop systems.
 - [ ] Publisher signing, notarization and store credentials.
 
 Unchecked work remains open. Locally generated examples are regression fixtures,
@@ -86,8 +89,8 @@ The CLI and VS Code no longer expose previous-version comparison.
 - Android APK: `target/mobile-product-v1/android/app/build/outputs/apk/debug/app-debug.apk`.
 - iOS simulator app: `target/mobile-ios-build/Build/Products/Debug-iphonesimulator/App.app`;
   installed/launched on iPhone 17 simulator, screenshot `target/mobile-ios-screen.png`.
-- Current-build acceptance tests cover dialogue and finished saves without explicit
-  end anchors, plus rejection of different script fingerprints and malformed saves.
+- Acceptance tests cover current-build dialogue and finished saves, compatible
+  content edits at explicit anchors, and rejection of removed anchors and malformed saves.
 - Current product fixture acceptance passes both routes and all four native slots
   using `renrs-accept target/product-story-v3 --saves target/product-native-v2/data/saves`.
 
@@ -100,9 +103,9 @@ verification and measured comparison with Ren'Py.
 
 ## Remaining Boundaries
 
-No Python/Ren'Py plugin compatibility, complete ATL, camera, runtime layeredimage,
-drag/drop, nested viewports, RTL shaping, standalone launcher, cloud service or
-store integration has been added. Desktop pages and Web scroll areas differ;
+No Python/Ren'Py plugin compatibility, complete ATL, layer cameras, arbitrary displayables,
+dynamic runtime layeredimage, cloud service or store integration has been added.
+Desktop pages and Web scroll areas differ;
 save transfer preserves runtime progress, not identical text wrapping. Speech
 depends on installed OS/browser voices and does not replace a full accessibility tree.
 Mobile builds run Rust/WASM in WebView; physical devices and native share workflows

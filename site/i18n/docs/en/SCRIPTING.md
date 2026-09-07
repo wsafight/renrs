@@ -16,7 +16,7 @@ my-game/
 ```
 
 RenRS recursively reads `.rns` files in non-hidden directories, sorts them by relative
-path, and merges them. All files share config, characters, images, default variables,
+path, and merges them. All files share config, characters, images, display layers, default variables,
 and the label namespace. A project must define exactly one `start` label. Asset paths
 are relative to the project root. Absolute paths, `..`, and other escapes are rejected.
 
@@ -34,6 +34,7 @@ default score = 0
 default player_name = "Reader"
 image room = "images/room.png"
 image eileen = "images/eileen.png"
+layer effects order 50
 ```
 
 `config id` should be a stable ASCII reverse-domain or slug. It decides settings, read
@@ -43,7 +44,8 @@ for prototypes.
 
 `default` evaluates in declaration order at new-game start. Colors support `#RRGGBB`
 and `#RRGGBBAA`. A static `image` lets later commands use a name instead of a path:
-`scene room`, `show eileen`.
+`scene room`, `show eileen`. `master`, `transient`, `screens`, and `overlay` are built-in
+display layers. Declare a custom layer with `layer name order integer`; lower orders draw first.
 
 ## Dialogue, interpolation, and text tags
 
@@ -73,17 +75,22 @@ depend on what the system installed.
 ```text
 label start:
     scene room
-    show eileen as hero at right layer 10
+    show eileen as hero at right onlayer effects zorder 10
     move hero to center over 0.4
     transform hero x 24 y -12 scale 1.1 rotate 5 alpha 0.9 over 0.5 ease in_out
     transform hero anchor 0.5 1 crop 0 0 600 900
     transform hero uncrop
     hide hero
+    clear effects
 ```
 
 `scene` replaces the background and clears sprites. `show` accepts a static image name
-or a quoted path. Positions are `left`, `center`, `right`. Layer is a 32-bit integer;
-smaller values draw first. A sprite with the same alias is replaced.
+or a quoted path. Positions are `left`, `center`, `right`. `onlayer` selects a named
+sprite layer and `zorder` is a 32-bit order within it; smaller values draw first. The
+legacy `layer 10` spelling still means `zorder 10`. Sprite aliases remain unique across
+the stage. `clear name` removes only that sprite layer. Layer identity, order, sprites,
+and clears survive save and rollback. Hot reload refreshes changed layer orders and
+transactionally rejects deleting a custom layer that is still visible.
 
 `transform` can combine:
 
@@ -97,7 +104,8 @@ smaller values draw first. A sprite with the same alias is replaced.
 - `ease linear|in|out|in_out`: interpolation, default `linear`.
 
 Transforms, position tweens, fade, and dissolve enter snapshots, load, and rollback.
-Full Ren'Py ATL, camera, and arbitrary named layers are not supported.
+Full Ren'Py ATL, per-layer cameras, split background layers, and arbitrary displayables
+are not supported.
 
 A `timeline:` block can serialize transform, move, and pause. `transition dissolve seconds`
 blends the previous and next stage. `video "clips/name/clip.json" over seconds` accepts
@@ -179,32 +187,46 @@ produce booleans.
 
 ```text
 label start:
-    call add_score(score, 2)
+    call add_score(score, amount=2)
     e "New score: {_return}."
     return
 
-label add_score(current, amount):
+label add_score(current, amount=1):
     return current + amount
 ```
 
-Positional `call` arguments must match the label. Parameters bind in the current
-variable table. `return expr` writes the result to `_return` and returns to the
-caller. `return` without an expression leaves `_return` unchanged. An empty return
-stack ends the game. The end of a label also implicitly ends or returns.
+Required parameters must precede parameters with defaults, and positional arguments
+must precede named arguments. Named arguments may be reordered. The compiler rejects
+unknown, duplicate, missing, and excess arguments. A default expression is evaluated
+only when that parameter was not supplied.
+
+Every explicit argument and used default in one `call` is evaluated against the
+caller's current variable table before any parameter is bound. A later argument or
+default therefore cannot observe a parameter newly bound by the same call. Parameters
+dynamically shadow variables with the same names. Returning restores the prior values
+or their unassigned state. `start` cannot declare parameters, and `jump` cannot enter a
+parameterized label; use `call`.
+
+`return expr` is evaluated before parameters are restored, then writes the result to
+`_return` and returns to the caller. `return` without an expression leaves `_return`
+unchanged. An empty return stack ends the game. The end of a label also implicitly ends
+or returns.
 
 ## Audio and pause
 
 ```text
-play music "audio/theme.ogg" loop fadein 0.5
-queue music "audio/next.ogg" fadein 0.25
-play sound "audio/click.wav"
+play music "audio/theme.ogg" loop fadein 0.5 volume 0.7
+queue music "audio/next.ogg" volume 0.6 fadein 0.25
+play sound "audio/click.wav" volume 0.5
 voice "audio/line-001.wav"
 pause 0.5
 stop music fadeout 0.8
 ```
 
 Music, sound, and voice are independent channels. First-run defaults are `0.6`,
-`0.8`, and `1.0`. Put `voice` before the matching dialogue; it stops when dialogue
+`0.8`, and `1.0`. `play music`, `queue music`, and `play sound` accept one static
+`volume 0..1`; this relative gain multiplies the player's channel volume and music
+state preserves it in saves. It is not an arbitrary mixer. Put `voice` before the matching dialogue; it stops when dialogue
 advances. Non-looping WAV/Ogg music can advance the queue after the real duration is
 parsed. Duration is never invented when it cannot be determined. Audio state restores
 with saves and rollback. Current automated tests do not listen to sound.

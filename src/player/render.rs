@@ -170,7 +170,14 @@ impl App {
                     _ => None,
                 });
         let mut sprites = stage.sprites.iter().enumerate().collect::<Vec<_>>();
-        sprites.sort_by_key(|(index, sprite)| (sprite.layer, *index));
+        sprites.sort_by_key(|(index, sprite)| {
+            (
+                sprite.display_order,
+                sprite.display_layer.as_str(),
+                sprite.layer,
+                *index,
+            )
+        });
         for (_, sprite) in sprites {
             let texture = self.assets.textures.get(&sprite.path);
             let Some(dimensions) = sprite

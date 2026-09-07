@@ -16,6 +16,7 @@ function interpolate(from, to, progress) {
   return value;
 }
 const cameraStyle = camera => ({transform: `translate(${camera?.x || 0}px, ${camera?.y || 0}px) rotate(${-camera?.rotation || 0}deg) scale(${camera?.scale || 1})`, transformOrigin: '640px 360px', opacity: camera?.alpha ?? 1});
+const spriteOrder = (a, b) => (a.display_order - b.display_order) || (a.display_layer < b.display_layer ? -1 : a.display_layer > b.display_layer ? 1 : 0) || (a.layer - b.layer);
 function animateCamera(node, camera, effect, elapsed, frames) {
   Object.assign(node.style, cameraStyle(camera));
   let keys;
@@ -73,7 +74,7 @@ export async function renderStage(app, stage, elapsed = 0) {
   const sprites = app.$('sprites');
   sprites.hidden = !!effect?.Video;
   const parallel = effect?.Parallel && {frames: JSON.parse(app.engine.animation_frames()), seconds: effect.Parallel.seconds};
-  sprites.replaceChildren(...await Promise.all([...stage.sprites].sort((a,b) => a.layer - b.layer).map(sprite => spriteNode(app, sprite, effect?.Transform || effect?.Tween, elapsed, parallel))));
+  sprites.replaceChildren(...await Promise.all([...stage.sprites].sort(spriteOrder).map(sprite => spriteNode(app, sprite, effect?.Transform || effect?.Tween, elapsed, parallel))));
   startLayerClock(app);
   const cameraFrames = !app.settings.reduced && effect?.Parallel ? JSON.parse(app.engine.camera_frames()) : null;
   for (const node of [background, sprites]) animateCamera(node, stage.camera, app.settings.reduced ? null : effect, elapsed, cameraFrames);
@@ -83,7 +84,7 @@ export async function renderStage(app, stage, elapsed = 0) {
     const old = app.element('div', null, {className: 'old-stage'});
     Object.assign(old.style, cameraStyle(effect.Dissolve.from.camera));
     if (effect.Dissolve.from.background) old.append(app.element('img', null, {className: 'stage-background', src: app.asset(effect.Dissolve.from.background), alt: ''}));
-    old.append(...await Promise.all([...effect.Dissolve.from.sprites].sort((a,b) => a.layer - b.layer).map(sprite => spriteNode(app, sprite, null, 0))));
+    old.append(...await Promise.all([...effect.Dissolve.from.sprites].sort(spriteOrder).map(sprite => spriteNode(app, sprite, null, 0))));
     root.append(old);
     const animation = old.animate([{opacity: 1}, {opacity: 0}], {duration: effect.Dissolve.seconds * 1000, fill: 'forwards'});
     animation.currentTime = elapsed; animation.onfinish = () => old.remove();

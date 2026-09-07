@@ -48,7 +48,9 @@ pub struct Script {
     #[serde(default)]
     pub images: IndexMap<String, ImageDef>,
     #[serde(default)]
-    pub label_parameters: IndexMap<String, Vec<String>>,
+    pub display_layers: IndexMap<String, DisplayLayerDef>,
+    #[serde(default)]
+    pub label_parameters: IndexMap<String, Vec<LabelParameter>>,
     pub labels: IndexMap<String, Block>,
 }
 
@@ -58,10 +60,42 @@ pub struct DefaultDef {
     pub span: Span,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LabelParameter {
+    pub name: String,
+    #[serde(default)]
+    pub default: Option<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CallArgument {
+    #[serde(default)]
+    pub name: Option<String>,
+    pub value: Expr,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImageDef {
     pub path: String,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DisplayLayerDef {
+    pub order: i32,
+    pub span: Span,
+}
+
+#[must_use]
+pub fn builtin_display_layer_order(name: &str) -> Option<i32> {
+    match name {
+        "master" => Some(0),
+        "transient" => Some(100),
+        "screens" => Some(200),
+        "overlay" => Some(300),
+        _ => None,
+    }
 }
 
 pub type Block = Vec<Statement>;
@@ -108,9 +142,13 @@ pub enum StatementKind {
         alias: String,
         position: Position,
         layer: i32,
+        display_layer: String,
     },
     Hide {
         alias: String,
+    },
+    ClearLayer {
+        display_layer: String,
     },
     Menu {
         options: Vec<MenuOption>,
@@ -121,7 +159,7 @@ pub enum StatementKind {
     Call {
         label: String,
         #[serde(default)]
-        arguments: Vec<Expr>,
+        arguments: Vec<CallArgument>,
     },
     Return {
         value: Option<Expr>,
@@ -138,14 +176,17 @@ pub enum StatementKind {
         path: String,
         repeat: bool,
         fade_in: f32,
+        volume: f32,
     },
     QueueMusic {
         path: String,
         repeat: bool,
         fade_in: f32,
+        volume: f32,
     },
     PlaySound {
         path: String,
+        volume: f32,
     },
     PlayVoice {
         path: String,

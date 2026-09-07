@@ -52,7 +52,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_string_pretty(&json!({
             "project_id":program.project_id, "fingerprint":program.fingerprint,
             "platform":std::env::consts::OS, "passed":passed, "checks":checks,
-            "external_acceptance":{"real_project":false,"remote_platforms":false,"publisher_signing":false}
+            "external_acceptance":{"real_project":false,"target_platforms":false,"publisher_signing":false}
         }))?
     );
     if !passed {
@@ -87,12 +87,14 @@ fn check_saves(
             .map_err(|error| error.to_string())
             .and_then(|save| {
                 save.validate(&program.project_id)?;
-                Runtime::restore(program.clone(), save.snapshot)
-                    .map(|_| ())
+                Runtime::restore_compatible(program.clone(), save.snapshot)
+                    .map(|(_, report)| report)
                     .map_err(|error| error.to_string())
             });
         checks.push(match result {
-            Ok(()) => json!({"kind":"save", "name":slot.name, "passed":true}),
+            Ok(report) => {
+                json!({"kind":"save", "name":slot.name, "passed":true, "compatibility":report})
+            }
             Err(error) => json!({"kind":"save", "name":slot.name, "passed":false, "error":error}),
         });
     }

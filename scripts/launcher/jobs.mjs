@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 
 export class Jobs {
   jobs = [];
-  start(name, executable, args, cwd, timeout = 600000) {
+  start(name, executable, args, cwd, timeout = 600000, afterSuccess) {
     if (this.jobs.some(job => job.code === null)) throw new Error('A task is already running');
     const child = spawn(executable, args, {cwd, shell:false, stdio:['ignore','pipe','pipe']});
     const job = {id:randomUUID(), name, log:'', code:null, started:new Date().toISOString(), child};
@@ -14,7 +14,12 @@ export class Jobs {
       let timer;
       if (timeout) timer = setTimeout(() => {append('\nTask timed out'); this.cancel(job.id);}, timeout);
       child.on('error', error => append(error.message));
-      child.on('close', (code, signal) => {clearTimeout(timer); job.code = code ?? -1; job.signal = signal; resolve();});
+      child.on('close', (code, signal) => {
+        clearTimeout(timer); job.signal = signal;
+        Promise.resolve(code === 0 && afterSuccess ? afterSuccess() : undefined)
+          .then(() => {job.code = code ?? -1; resolve();})
+          .catch(error => {append(`\n${error.message}`); job.code = -1; resolve();});
+      });
     });
     return job;
   }

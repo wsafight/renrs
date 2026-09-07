@@ -39,11 +39,11 @@ writes ambiguous content into a report.
 ### 5.1 Script and static analysis
 
 - `config title` / `config id`, `define`, `default`, and static `image` declarations.
-- Backgrounds, sprite aliases, integer layers, dialogue, interpolation, basic rich text, and conditional menus.
+- Backgrounds, global sprite aliases, ordered/clearable named sprite layers, dialogue, interpolation, basic rich text, and conditional menus.
 - `set`, deterministic expressions, lists/records and built-in collection ops, `if` / `elif` / `else`.
-- `jump`, positional `call`, `return <expr>`, and `_return`.
+- `jump`, positional/named/default `call` arguments, `return <expr>`, and `_return`.
 - `move`, transform, easing, serial/parallel timelines, fade/dissolve, and character precomposition.
-- Music, sound, voice, music queue, and fade commands.
+- Music, sound, voice, music queue, fade commands, and static music/sound relative gain.
 - Multi-file declaration checks, asset checks, unreachable code, definite assignment, and immediate-loop diagnostics.
 
 ### 5.2 Playback and UI
@@ -54,7 +54,7 @@ writes ambiguous content into a report.
 - `theme.json`, project fonts, high contrast, and reduced motion.
 - Desktop/Web `screens.json` for title, dialogue, choices, save/load, preferences, and history, with controlled variable updates and a read-only HUD.
 - NVL, multi-segment reading, ruby, underline, and system self-voicing.
-- Independent music, sound, and voice volumes, defaults `0.6`, `0.8`, `1.0`; tests mute.
+- Independent music, sound, and voice volumes, defaults `0.6`, `0.8`, `1.0`; music/sound statements can set relative gain; tests mute.
 - Directory mode watches scripts, media, theme, fonts, translations, and screens. Archive mode stays read-only and deterministic.
 
 ### 5.3 Localization
@@ -72,17 +72,17 @@ writes ambiguous content into a report.
 - `.renrs` uses a versioned manifest, canonical relative paths, bound checks, and per-asset SHA-256.
 - The player can open `.renrs` directly. With no arguments it prefers `game.renrs` next to the player, independent of cwd.
 - `renrs-build` validates the project and writes the player, `game.renrs`, a build manifest, run notes, and engine/font licenses.
-- GitHub Actions builds Linux x86-64, macOS arm64, and Windows x86-64 toolkits.
+- Local release scripts assemble the current-platform toolkit, Web shell, editor extension, and checksummed SDK.
 
 ### 5.5 Current-version saves
 
-- The project is not released. Breaking changes are allowed. Old-version compatibility and save migration are not maintained.
-- The current runtime snapshot is v4. Load requires format and compiled script fingerprint to match the current version.
-- v4 records stable execution position, call-site return addresses, variables, stage, transform, audio queues, language, history, and bounded rollback checkpoints.
+- The project is not released. Breaking format changes are allowed. Old container and snapshot formats are not migrated.
+- The current runtime snapshot is v7. An identical fingerprint restores directly. After a content update, only explicit `@id`/`alias` positions are mapped; automatic, removed, or inconsistent positions are rejected.
+- v7 records stable execution positions, call-site return addresses, shared value nodes, stage, transforms, audio queues with relative gain, language, history, and bounded rollback checkpoints.
 - The current save container is v2: engine version, project ID, content fingerprint, play time, chapter, and SHA-256 integrity. Other container versions and missing or mismatched checksums are rejected.
 - Corrupt slots stay visible in the list. The store API supports import/export. The player rotates 3 quick and 5 auto slots.
 - Read state is not part of a single snapshot. It is stored in project-level `read.json`.
-- Development hot reload has separate ID/alias mapping. Failure keeps the current session and is not used for cross-version load.
+- Hot reload and current-format persisted saves share ID/alias mapping. Failure preserves the live session or original save respectively.
 
 ### 5.6 Engineering constraints
 
@@ -119,7 +119,7 @@ long-term identity for a shipped project.
 
 - Python, arbitrary host code, Ren'Py plugins, or Ren'Py save compatibility.
 - Ren'Py screen language, a full style/displayable system, and full ATL; only a constrained JSON UI subset.
-- Live2D, complex particles, 3D, custom shaders, and arbitrary named display layers.
+- Live2D, complex particles, 3D, custom shaders, layer cameras, and arbitrary displayables.
 - Native Rust mobile rendering, cloud saves, multiplayer, and network auto-update. Current mobile output uses a Capacitor WebView.
 - Fetching shipping credentials or completing store review for the publisher. Existing signing, notarization, and mobile pack tools need the matching SDKs and accounts.
 - A stable native plugin ABI. If extensions are needed later, prefer least-privilege WASM.
@@ -129,7 +129,7 @@ long-term identity for a shipped project.
 - The same project loads consistent scripts and assets from a directory and an archive, and passes headless checks.
 - Dual-path samples run end to end. Save/load, rollback, hot reload, and translation do not break stable execution position.
 - Invalid syntax, assets, control flow, archives, translation catalogs, and save checks return explicit errors.
-- P0/P1 tests pass on three desktop CI platforms, strict Clippy is warning-free, and Rust files stay under 500 lines.
+- The P0/P1 local gate passes; target desktop systems receive local machine or VM acceptance before release, strict Clippy is warning-free, and Rust files stay under 500 lines.
 - Audio state is covered by automated tests, muted in test mode. Actual listening is left for final human acceptance.
 
 ## 9. Next

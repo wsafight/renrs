@@ -26,7 +26,7 @@ export const app = {
   applySettings() {
     document.documentElement.style.setProperty('--text-size', `${app.settings.fontSize}px`);
     document.body.classList.toggle('contrast', app.settings.contrast); document.body.classList.toggle('reduced', app.settings.reduced);
-    for (const [channel, audio] of app.voices) audio.volume = audioVolume(app.settings, channel);
+    for (const [channel, audio] of app.voices) audio.volume = audioVolume(app.settings, channel, Number(audio.dataset.relativeVolume ?? 1));
     if (app.clipAudio) app.clipAudio.volume = app.settings.sound_volume;
     if (!app.settings.self_voicing && 'speechSynthesis' in window) speechSynthesis.cancel();
     localStorage.setItem(settingsKey(app.data.program.project_id), JSON.stringify(app.settings));

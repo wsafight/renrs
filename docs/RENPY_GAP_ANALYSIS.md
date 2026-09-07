@@ -15,17 +15,17 @@
 | --- | --- | --- | --- |
 | 脚本解析与静态诊断 | 完成 | 多文件 `.rns`、源位置、跨文件校验、CFG 分析 | 按真实项目扩充诊断 |
 | 对白、菜单、条件、跳转 | 完成 | 支持条件菜单、插值和基础富文本 | 增加更多文本标签与输入 |
-| 标签参数与返回值 | 完成 | 位置参数、`return expr`、`_return` | 命名/默认参数为 P2 |
+| 标签参数与返回值 | 完成 | 位置/命名/默认参数、调用时默认值、动态参数作用域、`return expr`、`_return` | `*args` / `**kwargs` 和仅命名参数未纳入静态子集 |
 | Python/store 语义 | 未实现 | 整数、布尔、字符串、列表、记录和确定性内置函数 | Python 生态兼容仍为非目标 |
-| 图片声明与舞台 | 部分 | 静态 image、背景、alias、整数 layer、camera、受限 layered image | 任意 displayable、Live2D、粒子仍缺失 |
+| 图片声明与舞台 | 部分 | 静态 image、背景、全局 alias、可排序/清空的命名立绘层、camera、受限 layered image | layer camera、任意 displayable、Live2D、粒子仍缺失 |
 | ATL 与 transform | 部分 | transform、easing、串行 timeline、独立 parallel 轨道 | 完整 ATL、动态 layeredimage、眨眼/口型仍缺失 |
 | Transition | 部分 | 可序列化 fade、dissolve | 组合转场仍缺失 |
 | Screen/style/UI | 部分 | 桌面/Web 共用 JSON 界面、滚动容器、数据控件、拖放和扩展按钮 | 任意 displayable、完整 screen language 仍缺失 |
-| 音频 | 部分 | music/sound/voice，音乐队列与淡入淡出 | mixer、同步、更多格式为 P2 |
+| 音频 | 部分 | music/sound/voice，音乐队列、淡入淡出、静态 music/sound 相对音量 | 任意 mixer、同步、更多格式为 P2 |
 | 视频 | 部分 | 图片帧或流式视频、可选 WAV 音轨，按音轨时钟暂停/恢复 | 多音轨、字幕轨与更多平台实测仍待补齐 |
 | 阅读与无障碍 | 部分 | NVL、下划线、注音、键盘控件、自助朗读 | RTL、复杂排版、完整屏幕阅读器语义树仍缺失 |
 | 本地化 | 完成 | JSON catalog、稳定 ID、alias、fallback、CLDR 复数、RTL shaping、字体族 | 完整 ICU 富文本和屏幕阅读器语义树仍缺失 |
-| 存档 | 完成 | 快照 v4、异步存档、页码恢复、当前构建桌面/Web 容器交换与读档验收 | 云同步仍缺失 |
+| 存档 | 完成 | 快照 v7、异步存档、显式 ID 内容更新恢复、桌面/Web 容器交换与读档验收 | 旧格式迁移与云同步仍缺失 |
 | 回滚/已读/自动/跳过 | 完成 | 有界检查点、独立 profile、回滚屏障 | 固定回滚与高级偏好同步仍缺失 |
 | 资源归档与发行 | 部分 | 签名差量补丁、本地 app 和商店配置工具 | 发行凭据与外部验收待提供 |
 | 编辑器工具 | 部分 | 独立 editor crate、LSP、VSCode 语法、Launcher、项目模板和 SDK 打包 | 可视化剧情创作和完整调试器仍缺失 |

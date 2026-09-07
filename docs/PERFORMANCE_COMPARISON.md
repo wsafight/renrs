@@ -2,9 +2,9 @@
 
 Measured on 2026-09-06. This is the P0-P2 iteration following the Ren'Py
 comparison. Historical results in [PERFORMANCE.md](PERFORMANCE.md) are separate
-measurements. The project is pre-release: current saves require container v2,
-snapshot v4 and an identical compiled-script fingerprint. Editor hot reload is
-a separate transactional operation, not an old-save migration mechanism.
+measurements. The project is pre-release: current saves require container v2 and
+snapshot v7. Content updates restore only when active positions resolve through
+explicit IDs or aliases; this does not migrate an older snapshot format.
 
 The subsequent [native font memory optimization](FONT_MEMORY.md) reduces the
 measured RenRS idle RSS from 359.3 to 127.5 MiB. The native tables below describe

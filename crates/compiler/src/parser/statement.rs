@@ -1,6 +1,6 @@
 use super::{
-    CropRect, Cursor, Diagnostic, Easing, Parser, Position, Statement, StatementKind,
-    TransformProperties, TransitionKind, TranslationId, default_alias, parse_expression,
+    CropRect, Cursor, Diagnostic, Easing, Parser, Statement, StatementKind, TransformProperties,
+    TransitionKind, TranslationId, parse_expression,
 };
 
 impl Parser {
@@ -120,63 +120,13 @@ impl Parser {
             self.current += 1;
             StatementKind::Video { path, seconds }
         } else if cursor.keyword("scene") {
-            let path = self.parse_image_source(&line, &mut cursor)?;
-            cursor
-                .end()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            self.current += 1;
-            StatementKind::Scene { path }
+            self.parse_scene(&line, &mut cursor)?
         } else if cursor.keyword("show") {
-            let path = self.parse_image_source(&line, &mut cursor)?;
-            let mut alias = path
-                .strip_prefix("@image:")
-                .map_or_else(|| default_alias(&path), ToOwned::to_owned);
-            let mut position = Position::Center;
-            let mut layer = 0;
-            let mut has_alias = false;
-            let mut has_position = false;
-            let mut has_layer = false;
-            loop {
-                if cursor.end().is_ok() {
-                    break;
-                }
-                if cursor.keyword("as") && !has_alias {
-                    alias = cursor.identifier().ok_or_else(|| {
-                        self.error(&line, cursor.column(), "expected alias after `as`")
-                    })?;
-                    has_alias = true;
-                } else if cursor.keyword("at") && !has_position {
-                    position = self.parse_position(&line, &mut cursor)?;
-                    has_position = true;
-                } else if cursor.keyword("layer") && !has_layer {
-                    layer = cursor.integer().ok_or_else(|| {
-                        self.error(&line, cursor.column(), "expected integer layer")
-                    })?;
-                    has_layer = true;
-                } else {
-                    return Err(self.error(
-                        &line,
-                        cursor.column(),
-                        "expected `as`, `at`, or `layer`",
-                    ));
-                }
-            }
-            self.current += 1;
-            StatementKind::Show {
-                path,
-                alias,
-                position,
-                layer,
-            }
+            self.parse_show(&line, &mut cursor)?
         } else if cursor.keyword("hide") {
-            let alias = cursor
-                .identifier()
-                .ok_or_else(|| self.error(&line, cursor.column(), "expected image alias"))?;
-            cursor
-                .end()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            self.current += 1;
-            StatementKind::Hide { alias }
+            self.parse_hide(&line, &mut cursor)?
+        } else if cursor.keyword("clear") {
+            self.parse_clear_layer(&line, &mut cursor)?
         } else if cursor.keyword("menu") {
             cursor
                 .symbol(':')
@@ -257,14 +207,22 @@ impl Parser {
                 .map_err(|message| self.error(&line, cursor.column(), message))?;
             let kind = match target.as_str() {
                 "music" => {
-                    let (repeat, fade_in) = self.parse_music_options(&line, &mut cursor)?;
+                    let (repeat, fade_in, volume) = self.parse_music_options(&line, &mut cursor)?;
                     StatementKind::PlayMusic {
                         path,
                         repeat,
                         fade_in,
+                        volume,
                     }
                 }
-                "sound" => StatementKind::PlaySound { path },
+                "sound" => {
+                    let volume = if cursor.keyword("volume") {
+                        self.parse_audio_volume(&line, &mut cursor)?
+                    } else {
+                        1.0
+                    };
+                    StatementKind::PlaySound { path, volume }
+                }
                 _ => return Err(self.error(&line, cursor.column(), "expected `music` or `sound`")),
             };
             cursor
@@ -279,7 +237,7 @@ impl Parser {
             let path = cursor
                 .string()
                 .map_err(|message| self.error(&line, cursor.column(), message))?;
-            let (repeat, fade_in) = self.parse_music_options(&line, &mut cursor)?;
+            let (repeat, fade_in, volume) = self.parse_music_options(&line, &mut cursor)?;
             cursor
                 .end()
                 .map_err(|message| self.error(&line, cursor.column(), message))?;
@@ -288,6 +246,7 @@ impl Parser {
                 path,
                 repeat,
                 fade_in,
+                volume,
             }
         } else if cursor.keyword("voice") {
             let path = cursor

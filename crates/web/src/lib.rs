@@ -181,7 +181,7 @@ impl Engine {
     }
 
     pub fn restore(&mut self, snapshot: &str) -> Result<String, JsValue> {
-        let mut next = Runtime::restore(
+        let (mut next, _) = Runtime::restore_compatible(
             self.runtime.shared_program(),
             serde_json::from_str(snapshot).map_err(js_error)?,
         )

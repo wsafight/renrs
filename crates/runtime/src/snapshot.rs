@@ -1,5 +1,7 @@
 use crate::compiler::InstructionId;
-use crate::runtime::{DialogueState, RollbackCheckpoint, RuntimeSnapshot, StageState, WaitState};
+use crate::runtime::{
+    CallFrame, DialogueState, RollbackCheckpoint, RuntimeSnapshot, StageState, WaitState,
+};
 use crate::syntax::Value;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -24,7 +26,7 @@ pub(crate) struct Snapshot {
 #[serde(deny_unknown_fields)]
 struct Checkpoint {
     instruction: usize,
-    call_stack: Vec<usize>,
+    call_stack: Vec<SavedCallFrame>,
     instruction_id: Option<InstructionId>,
     last_instruction_id: Option<InstructionId>,
     instruction_is_interaction_anchor: bool,
@@ -35,6 +37,13 @@ struct Checkpoint {
     history_len: usize,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SavedCallFrame {
+    return_address: usize,
+    previous_variables: BTreeMap<String, Option<usize>>,
+}
+
 impl From<RuntimeSnapshot> for Snapshot {
     fn from(snapshot: RuntimeSnapshot) -> Self {
         let mut encoder = Encoder::default();
@@ -42,22 +51,26 @@ impl From<RuntimeSnapshot> for Snapshot {
         let rollback = snapshot
             .rollback
             .into_iter()
-            .map(|checkpoint| Checkpoint {
-                instruction: checkpoint.instruction,
-                call_stack: checkpoint.call_stack,
-                instruction_id: checkpoint.instruction_id,
-                last_instruction_id: checkpoint.last_instruction_id,
-                instruction_is_interaction_anchor: checkpoint.instruction_is_interaction_anchor,
-                call_stack_ids: checkpoint.call_stack_ids,
-                variables: encoder.record(&checkpoint.variables),
-                stage: checkpoint.stage,
-                waiting: Some(checkpoint.waiting),
-                history_len: checkpoint.history_len,
+            .map(|checkpoint| {
+                let call_stack = encode_call_stack(&mut encoder, &checkpoint.call_stack);
+                Checkpoint {
+                    instruction: checkpoint.instruction,
+                    call_stack,
+                    instruction_id: checkpoint.instruction_id,
+                    last_instruction_id: checkpoint.last_instruction_id,
+                    instruction_is_interaction_anchor: checkpoint.instruction_is_interaction_anchor,
+                    call_stack_ids: checkpoint.call_stack_ids,
+                    variables: encoder.record(&checkpoint.variables),
+                    stage: checkpoint.stage,
+                    waiting: Some(checkpoint.waiting),
+                    history_len: checkpoint.history_len,
+                }
             })
             .collect();
+        let call_stack = encode_call_stack(&mut encoder, &snapshot.call_stack);
         let current = Checkpoint {
             instruction: snapshot.instruction,
-            call_stack: snapshot.call_stack,
+            call_stack,
             instruction_id: snapshot.instruction_id,
             last_instruction_id: snapshot.last_instruction_id,
             instruction_is_interaction_anchor: snapshot.instruction_is_interaction_anchor,
@@ -79,11 +92,60 @@ impl From<RuntimeSnapshot> for Snapshot {
     }
 }
 
+fn encode_call_stack(encoder: &mut Encoder, call_stack: &[CallFrame]) -> Vec<SavedCallFrame> {
+    call_stack
+        .iter()
+        .map(|frame| SavedCallFrame {
+            return_address: frame.return_address,
+            previous_variables: frame
+                .previous_variables
+                .iter()
+                .map(|(name, value)| {
+                    (
+                        name.clone(),
+                        value.as_ref().map(|value| encoder.value(value)),
+                    )
+                })
+                .collect(),
+        })
+        .collect()
+}
+
 fn variables(values: &[Value], index: usize) -> Result<Arc<BTreeMap<String, Value>>, String> {
     match values.get(index) {
         Some(Value::Record(record)) => Ok(record.clone()),
         _ => Err("snapshot variables must reference a record".to_owned()),
     }
+}
+
+fn call_stack(values: &[Value], saved: Vec<SavedCallFrame>) -> Result<Vec<CallFrame>, String> {
+    if saved.len() > 10_000 {
+        return Err("snapshot call stack exceeds its budget".to_owned());
+    }
+    saved
+        .into_iter()
+        .map(|frame| {
+            let previous_variables = frame
+                .previous_variables
+                .into_iter()
+                .map(|(name, value)| {
+                    let value = value
+                        .map(|index| {
+                            values
+                                .get(index)
+                                .cloned()
+                                .ok_or("invalid snapshot value reference")
+                        })
+                        .transpose()?;
+                    Ok((name, value))
+                })
+                .collect::<Result<_, String>>()?;
+            Ok(CallFrame {
+                return_address: frame.return_address,
+                previous_variables,
+            })
+        })
+        .collect()
 }
 
 impl TryFrom<Snapshot> for RuntimeSnapshot {
@@ -109,7 +171,7 @@ impl TryFrom<Snapshot> for RuntimeSnapshot {
                 }
                 Ok(RollbackCheckpoint {
                     instruction: checkpoint.instruction,
-                    call_stack: checkpoint.call_stack,
+                    call_stack: call_stack(&values, checkpoint.call_stack)?,
                     instruction_id: checkpoint.instruction_id,
                     last_instruction_id: checkpoint.last_instruction_id,
                     instruction_is_interaction_anchor: checkpoint.instruction_is_interaction_anchor,
@@ -126,7 +188,7 @@ impl TryFrom<Snapshot> for RuntimeSnapshot {
             format_version: snapshot.format_version,
             program_fingerprint: snapshot.program_fingerprint,
             instruction: current.instruction,
-            call_stack: current.call_stack,
+            call_stack: call_stack(&values, current.call_stack)?,
             instruction_id: current.instruction_id,
             last_instruction_id: current.last_instruction_id,
             instruction_is_interaction_anchor: current.instruction_is_interaction_anchor,

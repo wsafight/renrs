@@ -16,7 +16,7 @@ my-game/
 ```
 
 RenRS 递归读取非隐藏目录中的 `.rns` 文件，按相对路径排序并合并。所有文件共享配置、角色、
-图片、默认变量和标签命名空间；项目必须且只能定义一个 `start` 标签。资源路径相对项目根目录，
+图片、显示层、默认变量和标签命名空间；项目必须且只能定义一个 `start` 标签。资源路径相对项目根目录，
 绝对路径、`..` 和其他越界路径会被拒绝。
 
 播放器和无窗口工具都接受目录或 `.renrs` 归档。只有目录模式监听脚本修改；归档是只读发行输入。
@@ -32,13 +32,15 @@ default score = 0
 default player_name = "Reader"
 image room = "images/room.png"
 image eileen = "images/eileen.png"
+layer effects order 50
 ```
 
 `config id` 应使用稳定的 ASCII 反向域名或 slug，决定设置、已读状态和存档目录。发布后修改 ID
 会让播放器把项目视为另一款游戏。未声明时从标题派生，只建议用于原型。
 
 `default` 在新游戏开始时按声明顺序求值。颜色支持 `#RRGGBB` 和 `#RRGGBBAA`。静态 `image`
-允许后续用名称代替资源路径：`scene room`、`show eileen`。
+允许后续用名称代替资源路径：`scene room`、`show eileen`。`master`、`transient`、`screens`、
+`overlay` 是内置显示层；自定义层用 `layer name order integer` 声明，order 越小越先绘制。
 
 ## 对白、插值与文字标签
 
@@ -63,16 +65,20 @@ Windows 使用系统语音，Linux 需安装 `espeak-ng`。Web 使用浏览器 S
 ```text
 label start:
     scene room
-    show eileen as hero at right layer 10
+    show eileen as hero at right onlayer effects zorder 10
     move hero to center over 0.4
     transform hero x 24 y -12 scale 1.1 rotate 5 alpha 0.9 over 0.5 ease in_out
     transform hero anchor 0.5 1 crop 0 0 600 900
     transform hero uncrop
     hide hero
+    clear effects
 ```
 
 `scene` 替换背景并清空立绘。`show` 接受静态图片名或引号路径；位置为 `left`、`center`、
-`right`，layer 为 32 位整数，数值小的先绘制。同 alias 的立绘会被替换。
+`right`。`onlayer` 选择命名立绘层，`zorder` 是层内 32 位整数，数值小的先绘制；旧写法
+`layer 10` 仍等同于 `zorder 10`。同 alias 的立绘在全舞台唯一并会被替换，`clear name`
+只清空指定立绘层。层名、顺序、立绘和清层结果都会进入存档与回滚；内容热重载会刷新层顺序，
+若删除仍有立绘的自定义层则事务式拒绝重载。
 
 `transform` 可组合以下属性：
 
@@ -86,7 +92,7 @@ label start:
 - `ease linear|in|out|in_out`：插值曲线，默认 `linear`。
 
 transform、位置 tween、fade 和 dissolve 都会进入快照、读档与回滚状态。当前不支持 Ren'Py 的完整
-ATL、camera 或任意命名显示层。
+ATL、layer camera、背景层拆分或任意 displayable。
 
 `timeline:` 块可串行组合 transform、move 和 pause；`transition dissolve seconds` 混合前后舞台。
 `video "clips/name/clip.json" over seconds` 支持图片帧清单（v1）和 MP4/WebM 流式清单（v2），时长必须匹配清单。使用 `renrs-video input.mp4 my-project clips/name --stream` 生成流式版本；转换需 FFmpeg 与 FFprobe，原生流式播放需 FFmpeg，Web 使用浏览器视频播放。
@@ -156,30 +162,39 @@ menu:
 
 ```text
 label start:
-    call add_score(score, 2)
+    call add_score(score, amount=2)
     e "New score: {_return}."
     return
 
-label add_score(current, amount):
+label add_score(current, amount=1):
     return current + amount
 ```
 
-`call` 的位置参数数量必须与标签声明一致。参数在当前变量表中绑定；`return expr` 将结果写入
-`_return` 后返回调用处。不带表达式的 `return` 不改变 `_return`。返回栈为空时结束游戏，
-标签末尾也会隐式结束或返回。
+必需参数必须写在带默认值的参数之前，位置实参必须写在命名实参之前。命名参数可调整顺序；
+编译器会拒绝未知、重复、缺失和过多的参数。只对未显式传入的参数计算默认表达式。
+
+一次 `call` 的全部显式实参和实际使用的默认表达式，都会先基于调用方当前变量表求值，再按 label
+声明顺序一次性绑定。因此后一个实参或默认表达式不会看到同一次调用中新绑定的参数。参数会动态
+遮蔽同名变量，并在返回时恢复之前的值或未赋值状态。`start` 不能声明参数，`jump` 不能进入带
+参数的 label；必须使用 `call`。
+
+`return expr` 在参数恢复前求值，将结果写入 `_return` 后返回调用处。不带表达式的 `return`
+不改变 `_return`。返回栈为空时结束游戏，标签末尾也会隐式结束或返回。
 
 ## 音频与暂停
 
 ```text
-play music "audio/theme.ogg" loop fadein 0.5
-queue music "audio/next.ogg" fadein 0.25
-play sound "audio/click.wav"
+play music "audio/theme.ogg" loop fadein 0.5 volume 0.7
+queue music "audio/next.ogg" volume 0.6 fadein 0.25
+play sound "audio/click.wav" volume 0.5
 voice "audio/line-001.wav"
 pause 0.5
 stop music fadeout 0.8
 ```
 
-音乐、音效和语音是独立通道，首次运行默认音量分别为 `0.6`、`0.8`、`1.0`。`voice` 通常放在对应对白前，对白推进时
+音乐、音效和语音是独立通道，首次运行默认音量分别为 `0.6`、`0.8`、`1.0`。`play music`、
+`queue music` 和 `play sound` 可带一次 `volume 0..1`，该静态相对增益会与玩家的通道音量相乘并随音乐状态存档；
+它不是任意 mixer。`voice` 通常放在对应对白前，对白推进时
 自动停止。非循环 WAV/Ogg 音乐可在解析到实际时长后推进队列；无法确定时长时不会伪造时长。
 音频状态随存档和回滚恢复。当前自动测试不试听声音。
 

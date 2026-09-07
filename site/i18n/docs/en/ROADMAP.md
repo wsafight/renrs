@@ -25,7 +25,7 @@ detailed matrix is [Gap with Ren’Py](RENPY_GAP_ANALYSIS.md).
 - [x] Added conditional menus and fixed definite-assignment analysis across `call` / `return` edges.
 - [x] Split execution IDs, translation IDs, and read IDs. Support `@id` and old-ID `alias`.
 - [x] JSON translation catalogs, explicit and language-tag fallback, empty translations falling back to source, translation before interpolation and rich-text parse.
-- [x] Saves only accept current snapshot format v4 and the current script fingerprint. Development hot reload keeps stable ID mapping.
+- [x] Saves only accept current snapshot format v7 and the current script fingerprint. Development hot reload keeps stable ID mapping.
 - [x] Saves include project ID, content fingerprint, play time, and chapter, with SHA-256 integrity. Corrupt slots stay visible.
 - [x] Save container reads and writes v2 only, with mandatory checksums. Archive unpack rejects symlink escapes and overwrite.
 - [x] 3 quick and 5 auto rotating slots, plus import/export store API.
@@ -36,7 +36,7 @@ detailed matrix is [Gap with Ren’Py](RENPY_GAP_ANALYSIS.md).
 
 - [x] General `transform` that saves, loads, and rolls back: x/y, scale, rotate, alpha, anchor, crop, uncrop.
 - [x] Transform `over` plus `linear`, `in`, `out`, `in_out` easing. Keep basic position tween and fade transitions.
-- [x] Independent music, sound, and voice channels. Music fade-in, queue, and fade-out state.
+- [x] Independent music, sound, and voice channels. Music fade-in, queue, fade-out, and static music/sound relative gain.
 - [x] WAV/Ogg duration advances a non-looping music queue. Current defaults 0.6/0.8/1.0, tests muted.
 - [x] Project `theme.json`, custom fonts, high contrast, and reduced motion.
 - [x] `renrs-i18n extract/update/check`. The player reads catalogs from `locales/*.json`.
@@ -58,7 +58,7 @@ These are still clearly missing versus Ren'Py. They cannot be marked supported w
 a real backend.
 
 1. **Custom screen extensions**: composable displayables, nested viewports, drag/drop, and full AT semantics.
-2. **Advanced presentation**: full ATL, runtime character layers, arbitrary named layers, camera, composite transitions, shaders, particles, Live2D.
+2. **Advanced presentation**: named sprite layers are shipped; full ATL, layer cameras, arbitrary displayables, composite transitions, shaders, particles, and Live2D remain.
 3. **Video**: extra audio and subtitle tracks, more device and long-form sync acceptance.
 4. **Performance**: real project samples and font-cache budgets. Incremental compile is shipped.
 5. **Shipping platforms**: native Rust mobile rendering, Capacitor device matrix, signing/notarization external acceptance, store SDKs, and a network auto-update client.

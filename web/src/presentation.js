@@ -75,7 +75,7 @@ export function setupPresentation(app) {
   document.addEventListener('focusin', event => app.speak(event.target.getAttribute('aria-label') || event.target.labels?.[0]?.textContent || event.target.textContent));
 }
 
-export function audioVolume(settings, channel) {
+export function audioVolume(settings, channel, relative = 1) {
   const key = channel === 'music' ? 'music_volume' : channel === 'voice' ? 'voice_volume' : 'sound_volume';
-  return settings[key] ?? settings.volume ?? 0.8;
+  return (settings[key] ?? settings.volume ?? 0.8) * relative;
 }

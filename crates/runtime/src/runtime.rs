@@ -45,8 +45,16 @@ pub struct SpriteState {
     pub position: Position,
     #[serde(default)]
     pub layer: i32,
+    #[serde(default = "master_display_layer")]
+    pub display_layer: String,
+    #[serde(default)]
+    pub display_order: i32,
     #[serde(default)]
     pub transform: TransformState,
+}
+
+fn master_display_layer() -> String {
+    "master".to_owned()
 }
 
 impl SpriteState {
@@ -72,6 +80,7 @@ pub struct MusicState {
     pub repeat: bool,
     #[serde(default)]
     pub fade_in: f32,
+    pub volume: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -152,14 +161,17 @@ pub enum AudioEvent {
         path: String,
         repeat: bool,
         fade_in: f32,
+        volume: f32,
     },
     QueueMusic {
         path: String,
         repeat: bool,
         fade_in: f32,
+        volume: f32,
     },
     PlaySound {
         path: String,
+        volume: f32,
     },
     PlayVoice {
         path: String,
@@ -179,7 +191,7 @@ pub struct RuntimeSnapshot {
     pub format_version: u32,
     pub program_fingerprint: String,
     pub instruction: usize,
-    pub call_stack: Vec<usize>,
+    pub call_stack: Vec<CallFrame>,
     pub instruction_id: Option<InstructionId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_instruction_id: Option<InstructionId>,
@@ -197,7 +209,7 @@ pub struct RuntimeSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RollbackCheckpoint {
     pub instruction: usize,
-    pub call_stack: Vec<usize>,
+    pub call_stack: Vec<CallFrame>,
     pub instruction_id: Option<InstructionId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_instruction_id: Option<InstructionId>,
@@ -210,7 +222,13 @@ pub struct RollbackCheckpoint {
 }
 
 impl RuntimeSnapshot {
-    pub const FORMAT_VERSION: u32 = 5;
+    pub const FORMAT_VERSION: u32 = 7;
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CallFrame {
+    pub return_address: usize,
+    pub previous_variables: BTreeMap<String, Option<Value>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -235,7 +253,7 @@ pub struct Runtime {
     pub(crate) profile_revision: u64,
     last_instruction: usize,
     trace: Option<BTreeSet<usize>>,
-    call_stack: Vec<usize>,
+    call_stack: Vec<CallFrame>,
     pub(crate) variables: Arc<BTreeMap<String, Value>>,
     stage: Arc<StageState>,
     waiting: Option<WaitState>,
@@ -261,6 +279,8 @@ pub enum RuntimeError {
     SavedInstructionMissing(InstructionId),
     #[error("save has inconsistent stable instruction positions")]
     InvalidStablePositions,
+    #[error("saved stage uses removed display layer `{0}`")]
+    SavedDisplayLayerMissing(String),
     #[error(
         "cannot hot-reload automatic position `{0}` after a script edit; restart the preview or use an explicit @id"
     )]
@@ -282,6 +302,9 @@ pub enum RuntimeError {
 }
 
 mod builtins;
+#[cfg(test)]
+#[path = "runtime/display_tests.rs"]
+mod display_tests;
 #[path = "runtime/execute.rs"]
 mod execute;
 #[path = "runtime/inspect.rs"]
@@ -295,6 +318,8 @@ mod prediction;
 mod reload_tests;
 #[path = "runtime/restore.rs"]
 mod restore;
+#[path = "runtime/restore_state.rs"]
+mod restore_state;
 #[path = "runtime/session.rs"]
 mod session;
 #[cfg(test)]

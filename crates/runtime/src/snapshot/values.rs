@@ -35,7 +35,7 @@ impl Encoder {
         index
     }
 
-    fn value(&mut self, value: &Value) -> usize {
+    pub(super) fn value(&mut self, value: &Value) -> usize {
         let node = match value {
             Value::Integer(value) => Node::Integer(*value),
             Value::Boolean(value) => Node::Boolean(*value),

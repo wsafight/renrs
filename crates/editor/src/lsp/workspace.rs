@@ -102,7 +102,10 @@ impl Workspace {
                 .map(|symbol| {
                     let kind = match symbol.kind {
                         SymbolKind::Label => 12,
-                        SymbolKind::Character | SymbolKind::Image | SymbolKind::Variable => 13,
+                        SymbolKind::Character
+                        | SymbolKind::Image
+                        | SymbolKind::DisplayLayer
+                        | SymbolKind::Variable => 13,
                     };
                     json!({
                         "name": symbol.name,
@@ -216,14 +219,20 @@ impl Workspace {
     }
 }
 
-const KEYWORDS: [&str; 21] = [
+const KEYWORDS: [&str; 29] = [
+    "fadein",
+    "fadeout",
     "nvl",
     "call",
+    "clear",
     "hide",
     "if",
     "jump",
+    "loop",
     "menu",
     "move",
+    "onlayer",
+    "order",
     "pause",
     "play",
     "return",
@@ -238,6 +247,8 @@ const KEYWORDS: [&str; 21] = [
     "transition",
     "video",
     "voice",
+    "volume",
+    "zorder",
 ];
 
 pub(super) fn workspace_root(message: &Value) -> Option<PathBuf> {
@@ -276,6 +287,7 @@ const fn completion_kind(kind: SymbolKind) -> u8 {
         SymbolKind::Label => 3,
         SymbolKind::Character | SymbolKind::Variable => 6,
         SymbolKind::Image => 17,
+        SymbolKind::DisplayLayer => 13,
     }
 }
 
@@ -284,6 +296,7 @@ const fn symbol_kind_name(kind: SymbolKind) -> &'static str {
         SymbolKind::Label => "label",
         SymbolKind::Character => "character",
         SymbolKind::Image => "image",
+        SymbolKind::DisplayLayer => "display layer",
         SymbolKind::Variable => "variable",
     }
 }

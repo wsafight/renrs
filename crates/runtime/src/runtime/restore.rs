@@ -1,7 +1,8 @@
+use super::restore_state::{prepare_saved_stage, prepare_saved_wait};
 use super::{
-    BTreeMap, IdAliasResolution, InstructionId, InstructionKind, LocalizationError, Localizer,
-    Program, ReloadReport, RollbackCheckpoint, Runtime, RuntimeError, RuntimeSnapshot, StageState,
-    Value, WaitState, evaluate, execution, interpolate, parse_text_markup,
+    BTreeMap, CallFrame, IdAliasResolution, InstructionId, InstructionKind, LocalizationError,
+    Localizer, Program, ReloadReport, RollbackCheckpoint, Runtime, RuntimeError, RuntimeSnapshot,
+    StageState, Value, WaitState, evaluate, execution, interpolate, parse_text_markup,
 };
 use std::sync::Arc;
 
@@ -60,7 +61,24 @@ impl Runtime {
         Self::restore_session(program, snapshot).map(|(runtime, _)| runtime)
     }
 
-    // Hot reload can remap a live session; persisted saves use `restore` above.
+    /// Restores a persisted save against the current compiled program.
+    ///
+    /// An identical script is restored directly. After a content update, every
+    /// active execution and call-stack position must resolve through an explicit
+    /// `@id` or `alias`; automatic positions are rejected instead of guessed.
+    ///
+    /// # Errors
+    ///
+    /// Rejects other snapshot formats, removed or automatic saved positions,
+    /// inconsistent state, and defaults that cannot be initialized.
+    pub fn restore_compatible(
+        program: impl Into<std::sync::Arc<Program>>,
+        snapshot: RuntimeSnapshot,
+    ) -> Result<(Self, ReloadReport), RuntimeError> {
+        Self::restore_session(program, snapshot)
+    }
+
+    // Hot reload and compatible saves share stable-position remapping.
     pub(super) fn restore_session(
         program: impl Into<std::sync::Arc<Program>>,
         mut snapshot: RuntimeSnapshot,
@@ -78,15 +96,20 @@ impl Runtime {
             initialized_defaults: Vec::new(),
         };
         let changed = snapshot.program_fingerprint != program.fingerprint;
-        let (instruction, call_stack) =
+        let (instruction, mut call_stack) =
             restore_stable_positions(&program, &snapshot, &mut report, changed)?;
         let localizer = Localizer::new(snapshot.language.clone());
         if changed {
             initialize_missing_defaults(
                 &program,
                 Arc::make_mut(&mut snapshot.variables),
+                &mut call_stack,
                 &mut report,
             )?;
+        }
+        prepare_saved_stage(&program, Arc::make_mut(&mut snapshot.stage))?;
+        if let Some(waiting) = &mut snapshot.waiting {
+            prepare_saved_wait(&program, waiting)?;
         }
         let waiting = restore_wait_state(
             &program,
@@ -155,11 +178,12 @@ impl Runtime {
     }
 }
 
-pub(super) fn stable_call_stack(program: &Program, call_stack: &[usize]) -> Vec<InstructionId> {
+pub(super) fn stable_call_stack(program: &Program, call_stack: &[CallFrame]) -> Vec<InstructionId> {
     call_stack
         .iter()
-        .filter_map(|index| {
-            index
+        .filter_map(|frame| {
+            frame
+                .return_address
                 .checked_sub(1)
                 .and_then(|site| program.instruction_id(site))
                 .cloned()
@@ -172,7 +196,7 @@ fn restore_stable_positions(
     snapshot: &RuntimeSnapshot,
     report: &mut ReloadReport,
     changed: bool,
-) -> Result<(usize, Vec<usize>), RuntimeError> {
+) -> Result<(usize, Vec<CallFrame>), RuntimeError> {
     if snapshot.call_stack.len() != snapshot.call_stack_ids.len() {
         return Err(RuntimeError::InvalidStablePositions);
     }
@@ -180,7 +204,10 @@ fn restore_stable_positions(
         || Ok(program.instructions.len()),
         |id| resolve_saved_instruction(program, id, report, changed),
     )?;
-    if changed && snapshot.instruction_id.is_none() {
+    if changed
+        && snapshot.instruction_id.is_none()
+        && !matches!(snapshot.waiting, Some(WaitState::Finished))
+    {
         if let Some(id) = &snapshot.last_instruction_id {
             resolve_saved_instruction(program, id, report, true)?;
         } else {
@@ -192,11 +219,13 @@ fn restore_stable_positions(
             .saturating_add(1)
             .min(program.instructions.len());
     }
-    let call_stack = snapshot
-        .call_stack_ids
-        .iter()
-        .map(|id| restore_return_address(program, id, report, changed))
-        .collect::<Result<Vec<_>, _>>()?;
+    let call_stack = restore_call_stack(
+        program,
+        &snapshot.call_stack_ids,
+        snapshot.call_stack.clone(),
+        report,
+        changed,
+    )?;
     Ok((instruction, call_stack))
 }
 
@@ -258,15 +287,24 @@ fn restore_checkpoint(
             .saturating_add(1)
             .min(program.instructions.len());
     }
-    checkpoint.call_stack = checkpoint
-        .call_stack_ids
-        .iter()
-        .map(|id| restore_return_address(program, id, report, changed))
-        .collect::<Result<Vec<_>, _>>()?;
+    checkpoint.call_stack = restore_call_stack(
+        program,
+        &checkpoint.call_stack_ids,
+        checkpoint.call_stack,
+        report,
+        changed,
+    )?;
     checkpoint.call_stack_ids = stable_call_stack(program, &checkpoint.call_stack);
     if changed {
-        initialize_missing_defaults(program, Arc::make_mut(&mut checkpoint.variables), report)?;
+        initialize_missing_defaults(
+            program,
+            Arc::make_mut(&mut checkpoint.variables),
+            &mut checkpoint.call_stack,
+            report,
+        )?;
     }
+    prepare_saved_stage(program, Arc::make_mut(&mut checkpoint.stage))?;
+    prepare_saved_wait(program, &mut checkpoint.waiting)?;
     checkpoint.waiting = restore_wait_state(
         program,
         checkpoint.instruction,
@@ -307,31 +345,67 @@ fn resolve_saved_instruction(
         .ok_or_else(|| RuntimeError::SavedInstructionMissing(id.clone()))
 }
 
-fn restore_return_address(
+fn restore_call_stack(
     program: &Program,
-    id: &InstructionId,
+    ids: &[InstructionId],
+    frames: Vec<CallFrame>,
     report: &mut ReloadReport,
     changed: bool,
-) -> Result<usize, RuntimeError> {
-    let index = resolve_saved_instruction(program, id, report, changed)?;
-    if !matches!(
-        program.instructions[index].kind,
-        InstructionKind::Call { .. }
-    ) {
+) -> Result<Vec<CallFrame>, RuntimeError> {
+    if ids.len() != frames.len() {
         return Err(RuntimeError::InvalidStablePositions);
     }
-    Ok(index + 1)
+    let mut restored = Vec::with_capacity(frames.len());
+    for (id, mut frame) in ids.iter().zip(frames) {
+        let index = resolve_saved_instruction(program, id, report, changed)?;
+        let Some(InstructionKind::Call { parameters, .. }) = program
+            .instructions
+            .get(index)
+            .map(|instruction| &instruction.kind)
+        else {
+            return Err(RuntimeError::InvalidStablePositions);
+        };
+        if parameters.len() != frame.previous_variables.len()
+            || parameters
+                .iter()
+                .any(|parameter| !frame.previous_variables.contains_key(parameter))
+        {
+            return Err(RuntimeError::InvalidStablePositions);
+        }
+        frame.return_address = index + 1;
+        restored.push(frame);
+    }
+    Ok(restored)
 }
 
 fn initialize_missing_defaults(
     program: &Program,
     variables: &mut BTreeMap<String, Value>,
+    call_stack: &mut [CallFrame],
     report: &mut ReloadReport,
 ) -> Result<(), RuntimeError> {
+    let mut default_scope = variables.clone();
+    for frame in call_stack.iter().rev() {
+        for (name, previous) in &frame.previous_variables {
+            if let Some(previous) = previous {
+                default_scope.insert(name.clone(), previous.clone());
+            } else {
+                default_scope.remove(name);
+            }
+        }
+    }
     for (name, definition) in &program.defaults {
-        if !variables.contains_key(name) {
-            let value = evaluate(&definition.value, variables, definition.span.line)?;
-            variables.insert(name.clone(), value);
+        if !default_scope.contains_key(name) {
+            let value = evaluate(&definition.value, &default_scope, definition.span.line)?;
+            default_scope.insert(name.clone(), value.clone());
+            if let Some(frame) = call_stack
+                .iter_mut()
+                .find(|frame| frame.previous_variables.contains_key(name))
+            {
+                frame.previous_variables.insert(name.clone(), Some(value));
+            } else {
+                variables.insert(name.clone(), value);
+            }
             if !report.initialized_defaults.contains(name) {
                 report.initialized_defaults.push(name.clone());
             }

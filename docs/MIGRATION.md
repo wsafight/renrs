@@ -15,11 +15,12 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 ## 自动转换范围
 
 - `define config.name` 和静态 `Character(...)` 声明。
-- 无参数 label、旁白、角色对白和无条件基础菜单。
-- 静态 `scene`、`show ... at left/center/right`、`show ... as alias` 和简单 `hide`。
+- 静态 label（含固定参数与默认值）、旁白、角色对白和无条件基础菜单。
+- 静态 `scene`、`show ... at left/center/right`、`show ... as alias`、标准 `onlayer`、整数
+  `zorder` 和简单 `hide`。
 - 简单 `$ variable = expression` 与 `default variable = expression`。
-- `if`、`elif`、`else`、静态 `jump`、静态 `call` 和无返回值 `return`。
-- 基础 `play music`、`play sound`、`stop music` 和 `pause`。
+- `if`、`elif`、`else`、静态 `jump`、带位置/命名参数的静态 `call` 和 `return <expr>`。
+- 基础 `play music`、`play sound`（含静态 `volume 0..1`）、`stop music` 和 `pause`。
 - `with fade` / `with dissolve` 按明确记录的假设转换为 `transition fade 0.5`。
 - 对白中的简单 `[variable]` 转为 `{variable}`。
 
@@ -32,14 +33,14 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 - Python 块、`init python`、普通 `init` 和任意 Python 表达式。
 - screen language、style、自定义 displayable 和 UI action。
 - ATL/transform 块、动态 image expression、自定义 transition。
-- label 参数、call 参数、返回值、动态 jump/call。
+- label 的 `*args` / `**kwargs` / 仅命名参数、动态 jump/call，以及超出 RenRS 子集的参数表达式。
 - 条件/动态菜单、复杂 Character、复杂插值。
-- 自定义 layer、zorder、behind、camera、视频和插件语句。
+- 自定义 layer、`behind`、camera、视频和插件语句；自定义层需手写 `layer name order integer`。
 - Ren'Py label 的隐式 fallthrough；RenRS 在 label 末尾隐式 return/结束。
 
 不支持的源行会保留为 `# TODO migration:` 注释，并在报告中记录 `unsupported`，不会尝试执行或
-静默删除。注意：其中部分能力（如标签参数和 RenRS transform）可由 RenRS 手写，但当前迁移器
-不会猜测 Ren'Py 语义。
+静默删除。固定 label 参数采用与 Ren'Py 一致的调用时默认值和返回时动态恢复；`start` 参数与
+可变参数仍会拒绝。RenRS transform 仍需手写。
 
 ## 报告与严格模式
 

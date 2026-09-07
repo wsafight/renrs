@@ -1,7 +1,8 @@
 use super::{
-    AudioEvent, DialogueState, InstructionKind, MAX_IMMEDIATE_STEPS, MusicState, Runtime,
-    RuntimeError, SpriteState, TransformState, TransitionKind, Value, VisualEffect, WaitState,
-    evaluate, execution, interpolate, parse_text_markup, visible_choice_labels, visible_choices,
+    AudioEvent, CallFrame, DialogueState, InstructionKind, MAX_IMMEDIATE_STEPS, MusicState,
+    Runtime, RuntimeError, SpriteState, TransformState, TransitionKind, Value, VisualEffect,
+    WaitState, evaluate, execution, interpolate, parse_text_markup, visible_choice_labels,
+    visible_choices,
 };
 use std::sync::Arc;
 
@@ -119,6 +120,8 @@ impl Runtime {
                     alias,
                     position,
                     layer,
+                    display_layer,
+                    display_order,
                 } => {
                     let sprite = SpriteState {
                         composition: self.resolve_image(&path, line)?,
@@ -126,6 +129,8 @@ impl Runtime {
                         alias: alias.clone(),
                         position,
                         layer,
+                        display_layer,
+                        display_order,
                         transform: TransformState::identity(),
                     };
                     if let Some(existing) = Arc::make_mut(&mut self.stage)
@@ -145,6 +150,12 @@ impl Runtime {
                         .retain(|item| item.alias != alias);
                     self.instruction += 1;
                 }
+                InstructionKind::ClearLayer { display_layer } => {
+                    Arc::make_mut(&mut self.stage)
+                        .sprites
+                        .retain(|item| item.display_layer != display_layer);
+                    self.instruction += 1;
+                }
                 InstructionKind::Choice { options } => {
                     let labels =
                         visible_choice_labels(&options, &self.variables, &self.localizer, line)?;
@@ -160,20 +171,43 @@ impl Runtime {
                         .iter()
                         .map(|argument| evaluate(argument, &self.variables, line))
                         .collect::<Result<Vec<_>, _>>()?;
+                    let previous_variables = parameters
+                        .iter()
+                        .map(|parameter| {
+                            (parameter.clone(), self.variables.get(parameter).cloned())
+                        })
+                        .collect();
                     for (parameter, value) in parameters.into_iter().zip(values) {
                         Arc::make_mut(&mut self.variables).insert(parameter, value);
                     }
-                    self.call_stack.push(self.instruction + 1);
+                    self.call_stack.push(CallFrame {
+                        return_address: self.instruction + 1,
+                        previous_variables,
+                    });
                     self.instruction = target;
                 }
                 InstructionKind::Return { value } => {
-                    if let Some(expression) = value {
-                        let value = evaluate(&expression, &self.variables, line)?;
-                        Arc::make_mut(&mut self.variables).insert("_return".to_owned(), value);
-                    }
-                    if let Some(target) = self.call_stack.pop() {
-                        self.instruction = target;
+                    let returned = value
+                        .map(|expression| evaluate(&expression, &self.variables, line))
+                        .transpose()?;
+                    if let Some(frame) = self.call_stack.pop() {
+                        let variables = Arc::make_mut(&mut self.variables);
+                        for (name, previous) in frame.previous_variables {
+                            if let Some(previous) = previous {
+                                variables.insert(name, previous);
+                            } else {
+                                variables.remove(&name);
+                            }
+                        }
+                        if let Some(returned) = returned {
+                            variables.insert("_return".to_owned(), returned);
+                        }
+                        self.instruction = frame.return_address;
                     } else {
+                        if let Some(returned) = returned {
+                            Arc::make_mut(&mut self.variables)
+                                .insert("_return".to_owned(), returned);
+                        }
                         self.instruction = self.program.instructions.len();
                         return Ok(self.set_waiting(WaitState::Finished));
                     }
@@ -218,17 +252,20 @@ impl Runtime {
                     path,
                     repeat,
                     fade_in,
+                    volume,
                 } => {
                     Arc::make_mut(&mut self.stage).music = Some(MusicState {
                         path: path.clone(),
                         repeat,
                         fade_in,
+                        volume,
                     });
                     Arc::make_mut(&mut self.stage).music_queue.clear();
                     self.audio_events.push(AudioEvent::PlayMusic {
                         path,
                         repeat,
                         fade_in,
+                        volume,
                     });
                     self.instruction += 1;
                 }
@@ -236,11 +273,13 @@ impl Runtime {
                     path,
                     repeat,
                     fade_in,
+                    volume,
                 } => {
                     let music = MusicState {
                         path: path.clone(),
                         repeat,
                         fade_in,
+                        volume,
                     };
                     if self.stage.music.is_none() {
                         Arc::make_mut(&mut self.stage).music = Some(music);
@@ -248,6 +287,7 @@ impl Runtime {
                             path,
                             repeat,
                             fade_in,
+                            volume,
                         });
                     } else {
                         Arc::make_mut(&mut self.stage).music_queue.push(music);
@@ -255,12 +295,14 @@ impl Runtime {
                             path,
                             repeat,
                             fade_in,
+                            volume,
                         });
                     }
                     self.instruction += 1;
                 }
-                InstructionKind::PlaySound { path } => {
-                    self.audio_events.push(AudioEvent::PlaySound { path });
+                InstructionKind::PlaySound { path, volume } => {
+                    self.audio_events
+                        .push(AudioEvent::PlaySound { path, volume });
                     self.instruction += 1;
                 }
                 InstructionKind::PlayVoice { path } => {

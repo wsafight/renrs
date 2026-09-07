@@ -1,8 +1,9 @@
 use super::assets::{AssetCatalog, convert_image_statement, static_target};
 use super::expressions::{
     closing_quote, convert_assignment, convert_condition, convert_default, convert_dialogue,
-    escape_string, named_quoted_argument, quoted_argument, valid_identifier,
+    convert_expression, escape_string, named_quoted_argument, quoted_argument, valid_identifier,
 };
+use super::parameters::{split_top_level, static_invocation, top_level_assignment};
 use super::{MigrationIssue, MigrationIssueKind, issue};
 
 #[derive(Debug)]
@@ -105,18 +106,17 @@ fn convert_line(content: &str, catalog: &AssetCatalog) -> LineConversion {
     if let Some(converted) = convert_definition(content) {
         return converted;
     }
-    if content.starts_with("label ") {
-        return if static_label_name(content).is_some() {
-            LineConversion::One(content.to_owned())
-        } else {
-            unsupported("label parameters and expressions are not supported", false)
-        };
+    if let Some(rest) = content.strip_prefix("label ") {
+        return convert_label(rest);
     }
     if matches!(content, "menu:" | "else:" | "return" | "stop music") {
         return LineConversion::One(content.to_owned());
     }
-    if content.starts_with("return ") {
-        return unsupported("return values are not supported", false);
+    if let Some(expression) = content.strip_prefix("return ") {
+        return match convert_expression(expression.trim()) {
+            Ok(expression) => LineConversion::One(format!("return {expression}")),
+            Err(message) => unsupported(&message, false),
+        };
     }
     if content.starts_with('"') && content.ends_with(':') {
         return convert_menu_option(content);
@@ -150,7 +150,7 @@ fn convert_line(content: &str, catalog: &AssetCatalog) -> LineConversion {
         return static_target("jump", rest);
     }
     if let Some(rest) = content.strip_prefix("call ") {
-        return static_target("call", rest);
+        return convert_call(rest);
     }
     if let Some(rest) = content.strip_prefix("default ") {
         return convert_default(rest);
@@ -180,6 +180,110 @@ fn convert_line(content: &str, catalog: &AssetCatalog) -> LineConversion {
         "statement is outside the supported Ren'Py migration subset",
         content.ends_with(':'),
     )
+}
+
+fn convert_label(source: &str) -> LineConversion {
+    let Some(header) = source.strip_suffix(':').map(str::trim) else {
+        return unsupported("label declaration must end with `:`", false);
+    };
+    let (name, arguments) = match static_invocation(header) {
+        Ok(value) => value,
+        Err(message) => return unsupported(message, false),
+    };
+    let Some(arguments) = arguments else {
+        return LineConversion::One(format!("label {name}:"));
+    };
+    let parts = match split_top_level(arguments) {
+        Ok(parts) => parts,
+        Err(message) => return unsupported(message, false),
+    };
+    let mut converted = Vec::with_capacity(parts.len());
+    let mut names = Vec::with_capacity(parts.len());
+    let mut saw_default = false;
+    for part in parts {
+        let (parameter, default) = top_level_assignment(part)
+            .map_or((part.trim(), None), |value| {
+                (value.0.trim(), Some(value.1.trim()))
+            });
+        if !valid_identifier(parameter) {
+            return unsupported(
+                "label parameters must be named, fixed RenRS parameters",
+                false,
+            );
+        }
+        if names.contains(&parameter) {
+            return unsupported("label contains a duplicate parameter", false);
+        }
+        names.push(parameter);
+        if let Some(default) = default {
+            saw_default = true;
+            let default = match convert_expression(default) {
+                Ok(value) => value,
+                Err(message) => return unsupported(&message, false),
+            };
+            converted.push(format!("{parameter}={default}"));
+        } else {
+            if saw_default {
+                return unsupported(
+                    "required label parameters must precede parameters with defaults",
+                    false,
+                );
+            }
+            converted.push(parameter.to_owned());
+        }
+    }
+    if name == "start" && !converted.is_empty() {
+        return unsupported("the RenRS `start` label cannot declare parameters", false);
+    }
+    LineConversion::One(format!("label {name}({}):", converted.join(", ")))
+}
+
+fn convert_call(source: &str) -> LineConversion {
+    let (name, arguments) = match static_invocation(source.trim()) {
+        Ok(value) => value,
+        Err(message) => return unsupported(message, false),
+    };
+    let Some(arguments) = arguments else {
+        return LineConversion::One(format!("call {name}"));
+    };
+    let parts = match split_top_level(arguments) {
+        Ok(parts) => parts,
+        Err(message) => return unsupported(message, false),
+    };
+    let mut converted = Vec::with_capacity(parts.len());
+    let mut names = Vec::new();
+    let mut saw_named = false;
+    for part in parts {
+        if let Some((argument, value)) = top_level_assignment(part) {
+            let argument = argument.trim();
+            if !valid_identifier(argument) {
+                return unsupported("call keyword argument must be a static name", false);
+            }
+            if names.contains(&argument) {
+                return unsupported("call contains a duplicate named argument", false);
+            }
+            names.push(argument);
+            saw_named = true;
+            let value = match convert_expression(value.trim()) {
+                Ok(value) => value,
+                Err(message) => return unsupported(&message, false),
+            };
+            converted.push(format!("{argument}={value}"));
+        } else {
+            if saw_named {
+                return unsupported(
+                    "positional call arguments must precede named arguments",
+                    false,
+                );
+            }
+            let value = match convert_expression(part.trim()) {
+                Ok(value) => value,
+                Err(message) => return unsupported(&message, false),
+            };
+            converted.push(value);
+        }
+    }
+    LineConversion::One(format!("call {name}({})", converted.join(", ")))
 }
 
 fn convert_menu_option(content: &str) -> LineConversion {
@@ -240,8 +344,8 @@ fn is_unsupported_block(content: &str) -> bool {
 }
 
 fn static_label_name(content: &str) -> Option<&str> {
-    let name = content.strip_prefix("label ")?.strip_suffix(':')?.trim();
-    valid_identifier(name).then_some(name)
+    let header = content.strip_prefix("label ")?.strip_suffix(':')?.trim();
+    static_invocation(header).ok().map(|(name, _)| name)
 }
 
 pub(super) fn report_label_fallthrough(
@@ -298,6 +402,52 @@ mod tests {
                 .issues
                 .iter()
                 .any(|item| item.message.contains("fallthrough"))
+        );
+    }
+
+    #[test]
+    fn converts_static_label_call_and_return_arguments() {
+        let converted = convert_script(
+            "label start:\n    call add(2, amount=True)\n    return\nlabel add(current, amount=1):\n    return current + amount\n",
+            "script.rpy",
+            &AssetCatalog::empty(),
+        );
+        assert!(converted.issues.is_empty(), "{:?}", converted.issues);
+        assert!(converted.output.contains("call add(2, amount=true)"));
+        assert!(converted.output.contains("label add(current, amount=1):"));
+        assert!(converted.output.contains("return current + amount"));
+    }
+
+    #[test]
+    fn rejects_variadic_label_parameters() {
+        let converted = convert_script(
+            "label start(*args):\n    return\n",
+            "script.rpy",
+            &AssetCatalog::empty(),
+        );
+        assert!(matches!(
+            converted.issues.as_slice(),
+            [issue] if issue.kind == MigrationIssueKind::Unsupported
+        ));
+    }
+
+    #[test]
+    fn preserves_static_audio_volume_clauses() {
+        let converted = convert_script(
+            "label start:\n    play music \"theme.ogg\" volume 0.4\n    play sound \"click.wav\" volume 0.25\n    return\n",
+            "script.rpy",
+            &AssetCatalog::empty(),
+        );
+        assert!(converted.issues.is_empty(), "{:?}", converted.issues);
+        assert!(
+            converted
+                .output
+                .contains("play music \"theme.ogg\" volume 0.4")
+        );
+        assert!(
+            converted
+                .output
+                .contains("play sound \"click.wav\" volume 0.25")
         );
     }
 }

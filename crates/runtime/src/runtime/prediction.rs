@@ -14,7 +14,7 @@ impl Runtime {
             .rev()
             .take(16)
             .rev()
-            .copied()
+            .map(|frame| frame.return_address)
             .collect::<Vec<_>>();
         let mut queue = VecDeque::from([(self.instruction, stack)]);
         let mut visited = HashSet::new();

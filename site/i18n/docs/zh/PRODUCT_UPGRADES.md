@@ -4,9 +4,9 @@
 
 ## 预发布策略
 
-项目尚未发行。API、脚本和持久格式允许破坏性变更；向后兼容和旧版本迁移不是发行标准。
-读档只接受当前容器和快照格式，且编译脚本指纹相同。当前构建的桌面/Web 存档交换、校验和、
-回滚和事务式编辑器热重载仍支持。热重载重映射现场开发会话；它不是存档升级 API。
+项目尚未发行。API、脚本和持久格式允许破坏性变更；旧格式迁移不是发行标准。读档只接受当前
+容器和快照格式。内容变化后，活动位置必须通过显式 `@id`/`alias` 解析；自动或已删除位置会被
+拒绝。桌面/Web 存档交换、校验和、回滚和事务式编辑器热重载仍支持。
 
 ## P0
 
@@ -27,12 +27,15 @@
 
 - [x] Capacitor Android/iOS 工程、本地原生构建和平台适配。
 - [x] 列表/记录、确定性内置函数和受控界面表达式。
+- [x] 命名/默认 label 参数、动态参数作用域和静态迁移。
+- [x] 可排序的命名立绘层、单层清空、存档/回滚和事务式热重载。
+- [x] 原生/Web 播放、音乐队列、存档和迁移中的静态 music/sound 单音轨增益。
 - [ ] 真机验收、平台服务和商店上架。
 
 ## 外部验收
 
 - [ ] 所有者提供的真实产品项目。
-- [ ] 远程 Windows、macOS 和 Linux CI 结果。
+- [ ] 在发行方目标桌面系统上的本地打包播放器结果。
 - [ ] 发行方签名、公证和商店凭据。
 
 未勾选工作仍开放。本地生成的示例是回归夹具，不是独立作者采用或商店批准的证据。
@@ -72,7 +75,7 @@ CLI 和 VS Code 不再暴露与旧版本的对比。
 - Android APK：`target/mobile-product-v1/android/app/build/outputs/apk/debug/app-debug.apk`。
 - iOS 模拟器应用：`target/mobile-ios-build/Build/Products/Debug-iphonesimulator/App.app`；
   安装/启动在 iPhone 17 模拟器，截图 `target/mobile-ios-screen.png`。
-- 当前构建验收测试覆盖没有显式结束锚点的对白和完成存档，以及拒绝不同脚本指纹和损坏存档。
+- 验收测试覆盖当前构建的对白和完成存档、显式锚点处的兼容内容编辑，以及拒绝已删除锚点和损坏存档。
 - 当前产品夹具验收通过两条路线和全部四个原生槽，命令为
   `renrs-accept target/product-story-v3 --saves target/product-native-v2/data/saves`。
 
@@ -82,7 +85,7 @@ CLI 和 VS Code 不再暴露与旧版本的对比。
 
 ## 剩余边界
 
-尚未加入 Python/Ren'Py 插件兼容、完整 ATL、camera、运行时 layeredimage、拖放、嵌套 viewport、
-RTL shaping、独立启动器、云服务或商店集成。桌面分页和 Web 滚动区域不同；存档传递保留运行时
+尚未加入 Python/Ren'Py 插件兼容、完整 ATL、layer camera、任意 displayable、动态运行时 layeredimage、云服务
+或商店集成。桌面分页和 Web 滚动区域不同；存档传递保留运行时
 进度，不是相同的文字折行。语音取决于已安装的 OS/浏览器语音，不能替代完整无障碍树。
 移动构建在 WebView 中运行 Rust/WASM；真机和原生分享流程仍需验收。见 [Web 与移动端](MOBILE.md)。

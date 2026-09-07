@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::path::{Path, PathBuf};
 
 use super::conversion::{LineConversion, unsupported};
@@ -95,6 +96,8 @@ pub(super) fn convert_image_statement(
 
     let mut alias = image_tokens[0];
     let mut position = "center";
+    let mut display_layer = None;
+    let mut zorder = None;
     let mut index = modifier;
     let mut saw_alias = false;
     let mut saw_position = false;
@@ -131,11 +134,31 @@ pub(super) fn convert_image_statement(
                     false,
                 );
             }
-            "onlayer" | "zorder" | "behind" => {
-                return unsupported(
-                    "Ren'Py layer, zorder, and behind clauses require manual migration",
-                    false,
-                );
+            "onlayer" if display_layer.is_none() => {
+                let Some(value) = tokens.get(index + 1).copied() else {
+                    return unsupported("show `onlayer` clause is missing a layer", false);
+                };
+                if !matches!(value, "master" | "transient" | "screens" | "overlay") {
+                    return unsupported(
+                        "only standard static Ren'Py display layers can be migrated",
+                        false,
+                    );
+                }
+                display_layer = Some(value);
+                index += 2;
+            }
+            "zorder" if zorder.is_none() => {
+                let Some(value) = tokens
+                    .get(index + 1)
+                    .and_then(|value| value.parse::<i32>().ok())
+                else {
+                    return unsupported("show `zorder` must be a static 32-bit integer", false);
+                };
+                zorder = Some(value);
+                index += 2;
+            }
+            "behind" => {
+                return unsupported("Ren'Py `behind` ordering requires manual migration", false);
             }
             "as" => return unsupported("multiple show `as` clauses are not supported", false),
             "at" => return unsupported("multiple show `at` clauses are not supported", false),
@@ -150,11 +173,14 @@ pub(super) fn convert_image_statement(
     if !valid_identifier(alias) {
         return unsupported("image alias is not a RenRS identifier", false);
     }
-    converted_image(
-        format!("show \"{path}\" as {alias} at {position}"),
-        &path,
-        assumed,
-    )
+    let mut value = format!("show \"{path}\" as {alias} at {position}");
+    if let Some(display_layer) = display_layer {
+        write!(value, " onlayer {display_layer}").expect("writing to a String cannot fail");
+    }
+    if let Some(zorder) = zorder {
+        write!(value, " zorder {zorder}").expect("writing to a String cannot fail");
+    }
+    converted_image(value, &path, assumed)
 }
 
 fn converted_image(value: String, path: &str, assumed: bool) -> LineConversion {
@@ -195,6 +221,23 @@ mod tests {
             attached,
             LineConversion::Unsupported { ref message, .. }
                 if message.contains("attached to `show`")
+        ));
+    }
+
+    #[test]
+    fn converts_standard_display_layer_and_static_zorder() {
+        let catalog = AssetCatalog::with_image("eileen happy", "images/eileen_happy.png");
+        let converted =
+            convert_image_statement("show", "eileen happy onlayer transient zorder 20", &catalog);
+        assert!(matches!(
+            converted,
+            LineConversion::One(ref value)
+                if value == "show \"images/eileen_happy.png\" as eileen at center onlayer transient zorder 20"
+        ));
+        assert!(matches!(
+            convert_image_statement("show", "eileen happy onlayer custom", &catalog),
+            LineConversion::Unsupported { ref message, .. }
+                if message.contains("standard static")
         ));
     }
 }

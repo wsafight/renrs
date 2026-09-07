@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use crate::archive::ResourceArchive;
 use crate::diagnostic::Diagnostic;
 use crate::parser::{ScriptFragment, derive_project_id, parse_fragment};
-use crate::syntax::{Block, CharacterDef, DefaultDef, ImageDef, Script, Span};
+use crate::syntax::{Block, CharacterDef, DefaultDef, DisplayLayerDef, ImageDef, Script, Span};
 
 /// Loads every non-hidden `.rns` file below a game directory in sorted order.
 ///
@@ -149,7 +149,9 @@ pub(crate) fn merge_fragments(fragments: Vec<ScriptFragment>) -> Result<Script, 
     let mut characters: IndexMap<String, CharacterDef> = IndexMap::new();
     let mut defaults: IndexMap<String, DefaultDef> = IndexMap::new();
     let mut images: IndexMap<String, ImageDef> = IndexMap::new();
-    let mut label_parameters: IndexMap<String, Vec<String>> = IndexMap::new();
+    let mut display_layers: IndexMap<String, DisplayLayerDef> = IndexMap::new();
+    let mut label_parameters: IndexMap<String, Vec<crate::syntax::LabelParameter>> =
+        IndexMap::new();
     let mut labels: IndexMap<String, Block> = IndexMap::new();
     let mut diagnostics = Vec::new();
 
@@ -161,6 +163,7 @@ pub(crate) fn merge_fragments(fragments: Vec<ScriptFragment>) -> Result<Script, 
             characters: fragment_characters,
             defaults: fragment_defaults,
             images: fragment_images,
+            display_layers: fragment_display_layers,
             label_parameters: fragment_label_parameters,
             labels: fragment_labels,
         } = fragment;
@@ -236,6 +239,22 @@ pub(crate) fn merge_fragments(fragments: Vec<ScriptFragment>) -> Result<Script, 
                 images.insert(name, definition);
             }
         }
+        for (name, definition) in fragment_display_layers {
+            if let Some(first) = display_layers.get(&name) {
+                diagnostics.push(
+                    at(
+                        &definition.span,
+                        format!("display layer `{name}` is declared more than once"),
+                    )
+                    .with_hint(format!(
+                        "the first declaration is at {}:{}:{}",
+                        first.span.source, first.span.line, first.span.column
+                    )),
+                );
+            } else {
+                display_layers.insert(name, definition);
+            }
+        }
         for (name, block) in fragment_labels {
             if let Some(first) = labels.get(&name) {
                 let span = block.first().map_or_else(
@@ -283,6 +302,7 @@ pub(crate) fn merge_fragments(fragments: Vec<ScriptFragment>) -> Result<Script, 
             characters,
             defaults,
             images,
+            display_layers,
             label_parameters,
             labels,
         })
@@ -328,12 +348,12 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         fs::write(
             root.path().join("a.rns"),
-            "define e = character \"First\"\nlabel start:\n    return\n",
+            "layer effects order 10\ndefine e = character \"First\"\nlabel start:\n    return\n",
         )
         .unwrap();
         fs::write(
             root.path().join("b.rns"),
-            "define e = character \"Second\"\nlabel start:\n    return\n",
+            "layer effects order 20\ndefine e = character \"Second\"\nlabel start:\n    return\n",
         )
         .unwrap();
 
@@ -347,6 +367,11 @@ mod tests {
             errors
                 .iter()
                 .any(|error| error.message.contains("label `start`"))
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.message.contains("display layer `effects`"))
         );
         assert!(errors.iter().all(|error| error.file == "b.rns"));
     }

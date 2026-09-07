@@ -66,8 +66,7 @@ async function api(request, url) {
     case '/api/create': {
       const destination = path.resolve(data.path);
       if (existsSync(destination)) throw new Error('Destination already exists');
-      const job = jobs.start('Create project', binary('renrs-init'), [destination, '--title', data.title, '--id', data.projectId, '--template', data.template || 'story'], root);
-      job.done.then(async () => { if (job.code === 0) await register(destination); }).catch(error => {job.log += `\n${error.message}`;});
+      const job = jobs.start('Create project', binary('renrs-init'), [destination, '--title', data.title, '--id', data.projectId, '--template', data.template || 'story'], root, 600000, () => register(destination));
       return jobs.public(job);
     }
     case '/api/script': {

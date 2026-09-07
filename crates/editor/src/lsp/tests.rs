@@ -43,6 +43,12 @@ fn loads_workspace_documents_and_resolves_symbols() {
             .iter()
             .any(|(_, item)| item.role == SymbolRole::Definition)
     );
+    assert!(
+        workspace
+            .completions()
+            .iter()
+            .any(|item| item["label"] == "volume")
+    );
     let path = temporary.path().join("a file.rns");
     let uri = path_uri(&path);
     assert_eq!(file_uri_path(&uri), Some(path));

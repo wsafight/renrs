@@ -16,11 +16,14 @@ writes `migration-report.json`.
 ## Automatic conversion
 
 - `define config.name` and static `Character(...)` declarations.
-- Parameterless labels, narration, character dialogue, and unconditional basic menus.
-- Static `scene`, `show ... at left/center/right`, `show ... as alias`, and simple `hide`.
+- Static labels, including fixed parameters and defaults, narration, character dialogue,
+  and unconditional basic menus.
+- Static `scene`, `show ... at left/center/right`, `show ... as alias`, standard
+  `onlayer`, integer `zorder`, and simple `hide`.
 - Simple `$ variable = expression` and `default variable = expression`.
-- `if`, `elif`, `else`, static `jump`, static `call`, and `return` with no value.
-- Basic `play music`, `play sound`, `stop music`, and `pause`.
+- `if`, `elif`, `else`, static `jump`, static `call` with positional/named arguments,
+  and `return <expr>`.
+- Basic `play music` and `play sound` (including static `volume 0..1`), `stop music`, and `pause`.
 - `with fade` / `with dissolve` become `transition fade 0.5` under documented assumptions.
 - Simple `[variable]` in dialogue becomes `{variable}`.
 
@@ -34,15 +37,18 @@ is found, an assumed path `images/bg_room.png` is generated and recorded as an
 - Python blocks, `init python`, ordinary `init`, and arbitrary Python expressions.
 - Screen language, styles, custom displayables, and UI actions.
 - ATL/transform blocks, dynamic image expressions, custom transitions.
-- Label parameters, call arguments, return values, dynamic jump/call.
+- Label `*args`, `**kwargs`, keyword-only parameters, dynamic jump/call, and parameter
+  expressions outside the RenRS subset.
 - Conditional/dynamic menus, complex Character, complex interpolation.
-- Custom layers, zorder, behind, camera, video, and plugin statements.
+- Custom layers, `behind`, camera, video, and plugin statements. Declare custom
+  targets manually with `layer name order integer`.
 - Implicit fallthrough of Ren'Py labels; RenRS implicitly returns/ends at a label.
 
 Unsupported source lines are kept as `# TODO migration:` comments and recorded as
-`unsupported` in the report. They are not executed or silently dropped. Some of
-those capabilities (label parameters and RenRS transforms) can be written by hand
-in RenRS; the migrator does not guess Ren'Py semantics.
+`unsupported` in the report. They are not executed or silently dropped. Fixed label
+parameters use Ren'Py-compatible call-time defaults and dynamic restoration on return.
+Parameters on `start` and variadic parameters are still rejected. RenRS transforms
+still need manual conversion.
 
 ## Report and strict mode
 

@@ -94,8 +94,10 @@ impl AudioManager {
     ) -> bool {
         for event in events {
             match event {
-                AudioEvent::PlaySound { path } if settings.sound_volume > 0.0 => {
-                    self.send(Command::Sound(path));
+                AudioEvent::PlaySound { path, volume }
+                    if settings.sound_volume > 0.0 && volume > 0.0 =>
+                {
+                    self.send(Command::Sound(path, volume));
                 }
                 AudioEvent::StopMusic { fade_out } => {
                     self.send(Command::StopMusic(fade_out));

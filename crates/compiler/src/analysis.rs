@@ -78,10 +78,9 @@ fn definite_assignment_diagnostics(
         let mut output = inputs[index].clone().unwrap_or_default();
         match &program.instructions[index].kind {
             InstructionKind::Set { variable, .. } | InstructionKind::Extension { variable, .. } => {
-                output.insert(variable.clone());
-            }
-            InstructionKind::Call { parameters, .. } => {
-                output.extend(parameters.iter().cloned());
+                if !is_label_parameter(program, index, variable) {
+                    output.insert(variable.clone());
+                }
             }
             InstructionKind::Return { value: Some(_) } => {
                 output.insert("_return".to_owned());
@@ -119,7 +118,12 @@ fn definite_assignment_diagnostics(
         if !reachable[index] {
             continue;
         }
-        let assigned = inputs[index].clone().unwrap_or_default();
+        let mut assigned = inputs[index].clone().unwrap_or_default();
+        if let Some(label) = containing_label(program, index)
+            && let Some(parameters) = program.label_parameters.get(label)
+        {
+            assigned.extend(parameters.iter().cloned());
+        }
         let mut used = HashSet::new();
         match &instruction.kind {
             InstructionKind::Set { value, .. }
@@ -170,6 +174,12 @@ fn definite_assignment_diagnostics(
         }
     }
     diagnostics
+}
+
+fn is_label_parameter(program: &Program, instruction: usize, variable: &str) -> bool {
+    containing_label(program, instruction)
+        .and_then(|label| program.label_parameters.get(label))
+        .is_some_and(|parameters| parameters.iter().any(|parameter| parameter == variable))
 }
 
 fn expression_variables(expression: &Expr, variables: &mut HashSet<String>) {
@@ -337,6 +347,44 @@ mod tests {
             "label start:\n    call initialize\n    \"Value {answer}\"\n    return\nlabel initialize:\n    set answer = 42\n    return\n",
         );
         assert!(!found.iter().any(|item| item.message.contains("answer")));
+    }
+
+    #[test]
+    fn analyzes_only_defaults_used_by_each_call() {
+        let missing = diagnostics(
+            "label start:\n    call target\n    return\nlabel target(value=missing):\n    return value",
+        );
+        assert!(
+            missing
+                .iter()
+                .any(|item| item.message.contains("`missing` may be unassigned"))
+        );
+
+        let overridden = diagnostics(
+            "label start:\n    call target(value=1)\n    return\nlabel target(value=missing):\n    return value",
+        );
+        assert!(
+            !overridden
+                .iter()
+                .any(|item| item.message.contains("missing"))
+        );
+    }
+
+    #[test]
+    fn parameter_assignment_does_not_escape_its_dynamic_scope() {
+        let found = diagnostics(
+            "label start:\n    call target(1)\n    return value\nlabel target(value):\n    set value = 2\n    return",
+        );
+        assert!(
+            found
+                .iter()
+                .any(|item| item.message.contains("`value` may be unassigned"))
+        );
+
+        let assigned = diagnostics(
+            "default value = 0\nlabel start:\n    call target(1)\n    return value\nlabel target(value):\n    set value = 2\n    return",
+        );
+        assert!(!assigned.iter().any(Diagnostic::is_error));
     }
 
     #[test]

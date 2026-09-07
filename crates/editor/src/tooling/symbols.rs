@@ -13,6 +13,7 @@ pub enum SymbolKind {
     Character,
     Label,
     Image,
+    DisplayLayer,
     Variable,
 }
 
@@ -75,6 +76,14 @@ pub fn document_symbols(source: &str) -> Vec<DocumentSymbol> {
                     line,
                     column,
                 })
+            } else if let Some(rest) = trimmed.strip_prefix("layer ") {
+                let name = rest.split_whitespace().next()?;
+                valid_identifier(name).then(|| DocumentSymbol {
+                    name: name.to_owned(),
+                    kind: SymbolKind::DisplayLayer,
+                    line,
+                    column,
+                })
             } else {
                 None
             }
@@ -104,6 +113,7 @@ pub fn symbol_occurrences(source: &str) -> Vec<SymbolOccurrence> {
             "define" => Some(SymbolKind::Character),
             "image" => Some(SymbolKind::Image),
             "default" => Some(SymbolKind::Variable),
+            "layer" => Some(SymbolKind::DisplayLayer),
             _ => None,
         };
         if let Some(kind) = definition_kind
@@ -119,13 +129,14 @@ pub fn symbol_occurrences(source: &str) -> Vec<SymbolOccurrence> {
         }
         if first.0 == "label" {
             for (name, column) in tokens.iter().skip(2) {
-                occurrences.push(occurrence(
-                    name,
-                    SymbolKind::Variable,
-                    SymbolRole::Definition,
-                    line,
-                    *column,
-                ));
+                let role = if label_parameter_starts_at(raw, *column) {
+                    SymbolRole::Definition
+                } else {
+                    SymbolRole::Reference
+                };
+                if role == SymbolRole::Definition || !language_keyword(name) {
+                    occurrences.push(occurrence(name, SymbolKind::Variable, role, line, *column));
+                }
             }
         }
         for (name, column) in interpolation_variables(raw) {
@@ -147,6 +158,18 @@ pub fn symbol_occurrences(source: &str) -> Vec<SymbolOccurrence> {
             }
             "scene" | "show" => {
                 push_reference(&mut occurrences, &tokens, 1, SymbolKind::Image, line);
+                if let Some(index) = tokens.iter().position(|token| token.0 == "onlayer") {
+                    push_reference(
+                        &mut occurrences,
+                        &tokens,
+                        index + 1,
+                        SymbolKind::DisplayLayer,
+                        line,
+                    );
+                }
+            }
+            "clear" => {
+                push_reference(&mut occurrences, &tokens, 1, SymbolKind::DisplayLayer, line);
             }
             "set" | "extend" => {
                 if let Some((name, column)) = tokens.get(1) {
@@ -287,6 +310,48 @@ fn identifier_tokens(line: &str) -> Vec<(&str, usize)> {
     tokens
 }
 
+fn label_parameter_starts_at(line: &str, column: usize) -> bool {
+    let Some(opening) = line.find('(').filter(|opening| *opening < column) else {
+        return false;
+    };
+    let bytes = line.as_bytes();
+    let mut item_start = opening + 1;
+    let (mut parentheses, mut brackets, mut braces) = (0_usize, 0_usize, 0_usize);
+    let (mut quoted, mut escaped) = (false, false);
+    for (index, byte) in bytes
+        .iter()
+        .copied()
+        .enumerate()
+        .take(column)
+        .skip(opening + 1)
+    {
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                quoted = false;
+            }
+            continue;
+        }
+        match byte {
+            b'"' => quoted = true,
+            b'(' => parentheses += 1,
+            b')' => parentheses = parentheses.saturating_sub(1),
+            b'[' => brackets += 1,
+            b']' => brackets = brackets.saturating_sub(1),
+            b'{' => braces += 1,
+            b'}' => braces = braces.saturating_sub(1),
+            b',' if parentheses == 0 && brackets == 0 && braces == 0 => item_start = index + 1,
+            _ => {}
+        }
+    }
+    bytes[item_start..column]
+        .iter()
+        .all(u8::is_ascii_whitespace)
+}
+
 fn push_reference(
     occurrences: &mut Vec<SymbolOccurrence>,
     tokens: &[(&str, usize)],
@@ -347,12 +412,15 @@ fn language_keyword(value: &str) -> bool {
             | "at"
             | "call"
             | "center"
+            | "clear"
             | "color"
             | "default"
             | "define"
             | "elif"
             | "else"
             | "false"
+            | "fadein"
+            | "fadeout"
             | "hide"
             | "id"
             | "if"
@@ -367,6 +435,8 @@ fn language_keyword(value: &str) -> bool {
             | "music"
             | "not"
             | "or"
+            | "onlayer"
+            | "order"
             | "over"
             | "pause"
             | "play"
@@ -386,6 +456,8 @@ fn language_keyword(value: &str) -> bool {
             | "true"
             | "video"
             | "voice"
+            | "volume"
+            | "zorder"
     )
 }
 

@@ -10,8 +10,11 @@ impl Engine {
             .map_err(js_error)?;
         let snapshot = serde_json::to_string(&save.snapshot).map_err(js_error)?;
         // Validate current-build state before the browser writes imported progress.
-        renrs_runtime::Runtime::restore(self.runtime.shared_program(), save.snapshot.clone())
-            .map_err(js_error)?;
+        renrs_runtime::Runtime::restore_compatible(
+            self.runtime.shared_program(),
+            save.snapshot.clone(),
+        )
+        .map_err(js_error)?;
         let view = save.presentation.unwrap_or_default();
         serde_json::to_string(&serde_json::json!({
             "version": 1, "project": self.runtime.shared_program().project_id,

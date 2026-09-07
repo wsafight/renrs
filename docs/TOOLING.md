@@ -135,9 +135,10 @@ cargo run --bin renrs-accept -- game
 cargo run --bin renrs-accept -- game --saves saved-games
 ```
 
-验收器输出 JSON，检查路线断言和当前脚本版本的实际存档恢复；失败时返回非零状态。
-项目尚未上线，不要求旧版本兼容，也不接受 `--baseline`。测试存档应由当前构建生成；
-更改脚本后可以重新开始游戏。当前策略见 [产品改进记录](PRODUCT_UPGRADES.md)。
+验收器输出 JSON，检查路线断言和实际存档恢复；失败时返回非零状态。存档必须使用当前容器和
+快照格式。脚本内容更新后，只恢复带显式 `@id`/`alias` 的活动位置；自动或已删除的位置会失败。
+成功的存档检查会在 `compatibility` 中列出 alias 映射、新增 default 和丢弃的旧回滚点。
+不接受 `--baseline`，也不迁移旧快照格式。当前策略见 [产品改进记录](PRODUCT_UPGRADES.md)。
 
 ## 角色预合成
 
@@ -159,10 +160,10 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 `migration-report.json`。`--strict` 在存在 assumption、unsupported 或后验证诊断时以失败退出，
 适合 CI。完整范围见 [迁移手册](MIGRATION.md)。
 
-## 跨平台发布包
+## 本地发布包
 
-`.github/workflows/release.yml` 在 `v*` tag 或手动触发时构建 Linux x86-64、macOS arm64 和
-Windows x86-64 artifact。工具包包含：
+在每个目标平台本地构建 release 二进制，再用 `scripts/package-sdk.mjs` 组装该平台 SDK。
+工具包包含：
 
 - `renrs`、`renrs-check`、`renrs-fmt`、`renrs-graph` 和 `renrs-lsp`。
 - `renrs-i18n`、`renrs-migrate`、`renrs-pack`、`renrs-unpack` 和 `renrs-build`。
@@ -171,20 +172,27 @@ Windows x86-64 artifact。工具包包含：
 - `web-shell/`、`mobile.mjs` 和 VS Code 扩展 VSIX。
 - `demo/`、`demo.renrs`、文档、README、引擎及内置字体许可证。
 
-该 workflow 生成未签名 artifact，不包含 macOS 公证、Windows 签名、安装器或自动更新。
+SDK 对应构建机器的平台。签名、公证和商店文件使用 `scripts/release.mjs`，仍需发行方凭据；
+当前不包含安装器或网络自动更新。
 
 ## 工程质量门槛
 
 ```sh
+node scripts/verify-local.mjs
+
 cargo fmt --all -- --check
 cargo check --offline --workspace --all-targets
 cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
 cargo test --offline --workspace --all-targets
 ```
 
+上述本地门禁还会检查 demo、脚手架路线、产品 fixture、Web 单测、VS Code 与 Launcher 语法。
+加 `--full` 会继续运行 Web 浏览器、VS Code 宿主、release 二进制与 SDK 打包验收；它要求先安装
+对应的 npm、WASM、`wasm-bindgen` 与浏览器依赖。
+
 `tests/source_size.rs` 递归检查 `src/`、`tests/` 和各个 workspace crate 的源码，
 任何超过 500 行的 Rust 文件都会使测试失败。
 超过职责边界的模块应拆成同名目录下的子模块，并保持现有公共 API。
 
-CI 还配置了模板创建、路线断言、分支探索、VSIX 打包，以及 Linux Xvfb/Mesa 原生截图和
-从项目外目录启动发行包的检查。窗口自动验收用法和当前本地验证范围见 [验收记录](VALIDATION.md)。
+完整本地门禁还覆盖模板创建、路线断言、分支探索、VSIX 打包和浏览器流程。窗口自动验收用法
+和当前本地验证范围见 [验收记录](VALIDATION.md)。

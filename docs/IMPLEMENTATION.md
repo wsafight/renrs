@@ -10,8 +10,10 @@ implementation and relevant verification; external acceptance remains explicit.
 - [x] Share project resource inclusion rules across loading, packing and watching.
 
 P0 verification: 114 tests, formatting and strict Clippy passed locally.
-Snapshot v4 uses call-site IDs for return addresses. Older v1-v3 snapshots remain
-readable; automatic positions are rejected when a script fingerprint changes.
+The current snapshot v7 uses call-site IDs for return addresses, preserves dynamic
+parameter scopes, and interns shared values. Older snapshot formats are rejected;
+content updates restore only through
+explicit positions, while automatic positions are rejected when the fingerprint changes.
 
 ## P1
 
@@ -30,6 +32,7 @@ readable; automatic positions are rejected when a script fingerprint changes.
 - [x] Sequential timeline, dissolve, silent frame clips and desktop toggle/input controls.
 - [x] Signing/notarization commands, signed resource deltas and local store-file generation.
 - [x] Web player with the shared Rust runtime; desktop/mobile Chromium acceptance.
+- [x] Ordered named sprite layers across compiler, save/rollback, native/Web rendering and LSP.
 
 This historical iteration delivered a bounded subset. Subsequent product work
 added synchronized video, parallel tracks, shared Web screens, keyboard save tools,
@@ -54,5 +57,5 @@ The current Web preview is served at http://127.0.0.1:4174/ from `target/web-fin
 ## External Acceptance
 
 - [ ] A real medium-size project supplied by its owner.
-- [ ] Remote CI on all three desktop platforms.
+- [ ] Local packaged-player acceptance on the publisher's target desktop platforms.
 - [ ] Signing identities, notarization and store credentials provided by the publisher.

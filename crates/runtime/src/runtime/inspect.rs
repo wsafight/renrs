@@ -169,10 +169,10 @@ impl Runtime {
             call_stack: self
                 .call_stack
                 .iter()
-                .filter_map(|index| {
+                .filter_map(|frame| {
                     self.program
                         .instructions
-                        .get(index.saturating_sub(1))
+                        .get(frame.return_address.saturating_sub(1))
                         .map(|item| item.span.clone())
                 })
                 .collect(),

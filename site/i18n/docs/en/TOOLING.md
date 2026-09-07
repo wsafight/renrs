@@ -150,10 +150,12 @@ cargo run --bin renrs-accept -- game
 cargo run --bin renrs-accept -- game --saves saved-games
 ```
 
-The acceptor prints JSON, checks route assertions, and restores real saves for the
-current script version. Failure returns non-zero. The project is not released, so old
-versions are not required and `--baseline` is not accepted. Test saves should come from
-the current build. After script changes you can start a new game. Current policy is in
+The acceptor prints JSON, checks route assertions, and restores real saves. Failure
+returns non-zero. Saves must use the current container and snapshot formats. After a
+content update, only active positions with explicit `@id`/`alias` mappings restore;
+automatic or removed positions fail. Successful save checks report alias resolutions,
+new defaults, and dropped rollback points in `compatibility`. `--baseline` is not
+accepted and old snapshot formats are not migrated. Current policy is in
 [Product upgrades](PRODUCT_UPGRADES.md).
 
 ## Character precomposition
@@ -178,10 +180,10 @@ validates, compiles, and analyzes, and writes issues to `migration-report.json`.
 `--strict` fails when assumptions, unsupported items, or post-validation diagnostics
 exist. Use it in CI. Full scope is in [Migrate from Ren’Py](MIGRATION.md).
 
-## Cross-platform release packages
+## Local release packages
 
-`.github/workflows/release.yml` builds Linux x86-64, macOS arm64, and Windows x86-64
-artifacts on a `v*` tag or a manual run. A toolkit includes:
+Build release binaries locally on each target platform, then use
+`scripts/package-sdk.mjs` to assemble that platform's SDK. A toolkit includes:
 
 - `renrs`, `renrs-check`, `renrs-fmt`, `renrs-graph`, and `renrs-lsp`.
 - `renrs-i18n`, `renrs-migrate`, `renrs-pack`, `renrs-unpack`, and `renrs-build`.
@@ -190,23 +192,28 @@ artifacts on a `v*` tag or a manual run. A toolkit includes:
 - `web-shell/`, `mobile.mjs`, and the VS Code extension VSIX.
 - `demo/`, `demo.renrs`, docs, README, engine and built-in font licenses.
 
-The workflow emits unsigned artifacts. It does not include macOS notarization, Windows
-signing, an installer, or auto-update.
+The SDK targets the build machine. Use `scripts/release.mjs` for signing, notarization,
+and store files with publisher credentials. It does not include an installer or network auto-update.
 
 ## Engineering gates
 
 ```sh
+node scripts/verify-local.mjs
+
 cargo fmt --all -- --check
 cargo check --offline --workspace --all-targets
 cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
 cargo test --offline --workspace --all-targets
 ```
 
+This local gate also checks the demo, scaffold routes, product fixture, Web unit tests,
+and VS Code/Launcher syntax. Add `--full` for Web browser, VS Code host, release binary,
+and SDK packaging acceptance after installing the npm, WASM, `wasm-bindgen`, and browser tooling.
+
 `tests/source_size.rs` recursively checks `src/`, `tests/`, and every workspace crate.
 Any Rust file over 500 lines fails the test. Modules that outgrow a responsibility
 should split into submodules in a same-named directory and keep the public API.
 
-CI also configures template creation, route assertions, branch exploration, VSIX
-packaging, Linux Xvfb/Mesa native captures, and starting a shipping package from
-outside the project. Window automated acceptance and the current local validation
-scope are in [Local validation](VALIDATION.md).
+Full local verification also covers template creation, route assertions, branch
+exploration, VSIX packaging, and browser workflows. Window automated acceptance and
+the current local validation scope are in [Local validation](VALIDATION.md).

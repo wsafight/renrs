@@ -40,14 +40,14 @@ Ren'Py 在执行上下文与界面 interaction 之间切换。RenRS 使用 `Wait
 ### 显示状态
 
 Ren'Py 支持多命名层、displayable 树、camera、ATL 和复杂 transition。RenRS 当前保存一个背景、
-按整数 layer/显示顺序排列的立绘，以及每个立绘的 transform。它覆盖 P1 的静态视觉小说表现，
-但不将这部分描述为完整 ATL 或 screen 支持。
+按显式层顺序和层内 z-order 排列的命名立绘层，以及每个立绘的 transform；层可单独清空。
+它不支持 layer camera 或任意 displayable，也不将这部分描述为完整 ATL 或 screen 支持。
 
 ### 存档与回滚
 
 Ren'Py 保存对象图、回滚日志、截图和 JSON 元数据。RenRS 保存小型显式快照，不使用 pickle。
-v4 快照记录执行位置、变量、舞台、调用点身份、语言、历史和有界完整检查点；恢复 v1/v2/v3 时生成迁移
-报告。外层存档增加项目/内容身份、游玩时长、章节和 SHA-256。
+v7 快照记录执行位置、变量、舞台、动态调用帧、语言、历史和有界完整检查点；旧快照格式会被拒绝。
+外层存档增加项目/内容身份、游玩时长、章节和 SHA-256。
 
 已读状态与玩家设置不放入单个快照，而是作为项目级数据独立保存。这与 Ren'Py 的 persistent/
 preferences 思路相近，但数据结构和兼容格式完全独立。
@@ -69,10 +69,10 @@ Ren'Py loader 为目录和归档提供统一资源视图。RenRS 对应为 `Proj
 - RenRS 不执行 Python，不兼容 `.rpyc`、Ren'Py 存档或 Python 插件生态。
 - RenRS 使用 `.rns`，迁移器只是离线静态子集转换器。
 - RenRS 当前只有内置且可主题化的 UI，没有 screen language、完整 style 或 displayable 系统。
-- RenRS transform 是受限属性动画，不是 ATL；显示层也是整数排序，不是 Ren'Py layer/camera 模型。
-- RenRS 当前只支持 fade transition，没有预测加载、视频、Live2D、shader、Web 或移动端导出。
+- RenRS transform 是受限属性动画，不是 ATL；命名立绘层不包含 Ren'Py 的 layer camera/displayable 模型。
+- RenRS 支持可序列化的 fade/dissolve、预测加载、流式视频、Web 播放器和 Capacitor 移动构建；组合转场、Live2D、shader 和原生 Rust 移动渲染仍未实现。
 - RenRS 回滚保存有界完整检查点，不实现 Ren'Py 的可回退对象差异日志和固定回滚全部语义。
-- RenRS 音频只覆盖 music/sound/voice 和基础队列/淡入淡出，默认全部静音。
+- RenRS 音频覆盖 music/sound/voice、基础队列/淡入淡出和静态 music/sound 相对音量；不支持任意 mixer，播放器默认可听，自动测试保持静音。
 
 完整状态和后续优先级见 [差距分析](RENPY_GAP_ANALYSIS.md) 与 [路线图](ROADMAP.md)。
 

@@ -33,3 +33,14 @@ test('completed voice is released without restarting until explicitly replayed',
   await audio.replay('voice.wav'); assert.notEqual(app.voices.get('voice'), first);
   audio.reset(); await audio.events(); assert.equal(app.voices.size, 1);
 });
+test('relative media volume multiplies channel preferences', async () => {
+  const {app, events, audio} = fixture();
+  app.settings = {music_volume:.6, sound_volume:.8, voice_volume:1};
+  app.state.stage.music = {path:'music.ogg', repeat:true, volume:.5};
+  events.push({PlaySound:{path:'sound.wav', volume:.25}}); await audio.events();
+  assert.equal(app.voices.get('music').volume, .3);
+  assert.equal(app.voices.get('sound-1').volume, .2);
+  const first = app.voices.get('music'); app.state.stage.music.volume = .25;
+  await audio.events(); assert.notEqual(app.voices.get('music'), first);
+  assert.equal(app.voices.get('music').volume, .15);
+});

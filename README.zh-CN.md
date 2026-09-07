@@ -9,7 +9,8 @@
 RenRS 是用 Rust 独立实现、受 Ren'Py 启发的视觉小说引擎。用 `.rns` 写剧情，先检查再运行，
 可生成本地播放器或只读归档。它不执行 Python，不运行 `.rpy`，也不读取 Ren'Py 存档。
 
-> 预发布 `0.1.0`。允许破坏性变更。存档只在容器、快照和编译脚本指纹与当前构建一致时可读。
+> 预发布 `0.1.0`。允许破坏格式变更。存档必须使用当前容器与快照格式；内容更新后恢复还要求
+> 所有活动执行位置都有显式稳定的 `@id`/`alias`。
 
 ## 运行示例
 
@@ -87,7 +88,7 @@ Web 与移动端见 [命令行工具](https://wsafight.github.io/renrs/reference
 
 - 声明式 `.rns`：角色、对白、菜单、transform、音频、NVL
 - 先检查再运行：资源、控制流、确定赋值、不可达剧情
-- 可恢复状态：快照 v4、回滚、带校验和的存档、桌面/Web 交换
+- 可恢复状态：快照 v7、回滚、带校验和的存档、桌面/Web 交换
 - `screens.json`、`theme.json`、JSON 翻译目录、`renrs-i18n`
 - 无窗口工具：check、fmt、graph、LSP、debug、pack、build、migrate
 - Web（WASM）与 Capacitor Android/iOS 打包
@@ -114,6 +115,8 @@ crate 边界见 [架构](docs/ARCHITECTURE.md)。
 ## 开发
 
 ```sh
+node scripts/verify-local.mjs
+
 cargo fmt --all -- --check
 cargo check --offline --workspace --all-targets
 cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
@@ -122,6 +125,9 @@ cargo test --offline --workspace --all-targets
 # 原生静音截图验收，输出目录必须不存在
 cargo run -- demo --smoke-test target/demo-captures --window-size 800x600
 ```
+
+`node scripts/verify-local.mjs --full` 还会验证 Web 浏览器流程、VS Code 扩展宿主、release
+二进制和 SDK 打包；运行前需安装 Web/编辑器 npm 依赖、Rust WASM target、`wasm-bindgen` 和浏览器工具。
 
 Ren'Py 研究副本在忽略目录 `references/renpy`，见 [上游研究](docs/RENPY_RESEARCH.md)。
 内置字体按 SIL OFL 1.1 分发（`assets/fonts/OFL.txt`）。

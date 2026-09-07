@@ -287,7 +287,7 @@ impl App {
         if !save.project_id.is_empty() && save.project_id != self.program.project_id {
             return Err("Save belongs to another game".to_owned());
         }
-        let mut runtime = Runtime::restore(self.program.clone(), save.snapshot)
+        let (mut runtime, _) = Runtime::restore_compatible(self.program.clone(), save.snapshot)
             .map_err(|error| error.to_string())?;
         runtime
             .set_profile(self.storage.profile.clone())

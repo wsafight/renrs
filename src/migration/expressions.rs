@@ -40,7 +40,7 @@ pub(super) fn convert_condition(keyword: &str, source: &str) -> LineConversion {
     }
 }
 
-fn convert_expression(source: &str) -> Result<String, String> {
+pub(super) fn convert_expression(source: &str) -> Result<String, String> {
     if source.is_empty() {
         return Err("expression cannot be empty".to_owned());
     }

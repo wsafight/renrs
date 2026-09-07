@@ -6,8 +6,9 @@ use crate::diagnostic::Diagnostic;
 use crate::expression::parse_expression;
 use crate::localization::TranslationId;
 use crate::syntax::{
-    Block, CharacterDef, CropRect, DefaultDef, Easing, ImageDef, MenuOption, Position, Script,
-    Span, Statement, StatementKind, TransformProperties, TransitionKind,
+    Block, CallArgument, CharacterDef, CropRect, DefaultDef, DisplayLayerDef, Easing, ImageDef,
+    LabelParameter, MenuOption, Position, Script, Span, Statement, StatementKind,
+    TransformProperties, TransitionKind,
 };
 
 /// Parses a complete `RenRS` script into a source-located syntax tree.
@@ -50,7 +51,8 @@ pub struct ScriptFragment {
     pub characters: IndexMap<String, CharacterDef>,
     pub defaults: IndexMap<String, DefaultDef>,
     pub images: IndexMap<String, ImageDef>,
-    pub label_parameters: IndexMap<String, Vec<String>>,
+    pub display_layers: IndexMap<String, DisplayLayerDef>,
+    pub label_parameters: IndexMap<String, Vec<LabelParameter>>,
     pub labels: IndexMap<String, Block>,
 }
 
@@ -69,6 +71,7 @@ impl ScriptFragment {
             characters: self.characters,
             defaults: self.defaults,
             images: self.images,
+            display_layers: self.display_layers,
             label_parameters: self.label_parameters,
             labels: self.labels,
         }
@@ -183,6 +186,8 @@ mod block;
 mod blocks;
 #[path = "parser/cursor.rs"]
 mod cursor;
+#[path = "parser/display.rs"]
+mod display;
 mod parallel;
 #[path = "parser/statement.rs"]
 mod statement;

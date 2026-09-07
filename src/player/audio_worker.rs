@@ -16,7 +16,7 @@ pub(super) enum Command {
     },
     Music(Option<MusicState>),
     Voice(Option<String>),
-    Sound(String),
+    Sound(String, f32),
     StopMusic(f32),
     Volume([f32; 3]),
 }
@@ -42,6 +42,7 @@ struct Track {
     fade_in: f32,
     started: Instant,
     fade_out: Option<(Instant, f32)>,
+    volume: f32,
 }
 
 impl Track {
@@ -54,9 +55,14 @@ impl Track {
         let fade_out = self.fade_out.map_or(1.0, |(start, seconds)| {
             (1.0 - start.elapsed().as_secs_f32() / seconds).max(0.0)
         });
-        self.player.set_volume(volume * fade_in * fade_out);
+        self.player
+            .set_volume(mixed_volume(volume, self.volume) * fade_in * fade_out);
         fade_out
     }
+}
+
+fn mixed_volume(channel: f32, relative: f32) -> f32 {
+    channel * relative
 }
 
 impl AudioWorker {
@@ -145,6 +151,7 @@ fn track(
     repeat: bool,
     fade_in: f32,
     volume: f32,
+    relative_volume: f32,
 ) -> Result<Track, String> {
     let reader = BufReader::with_capacity(
         64 * 1024,
@@ -153,7 +160,11 @@ fn track(
             .map_err(|error| format!("{path}: {error}"))?,
     );
     let player = Player::connect_new(mixer);
-    player.set_volume(if fade_in > 0.0 { 0.0 } else { volume });
+    player.set_volume(if fade_in > 0.0 {
+        0.0
+    } else {
+        mixed_volume(volume, relative_volume)
+    });
     if repeat {
         player.append(Decoder::new_looped(reader).map_err(|error| format!("{path}: {error}"))?);
     } else {
@@ -166,6 +177,7 @@ fn track(
         fade_in,
         started: Instant::now(),
         fade_out: None,
+        volume: relative_volume,
     })
 }
 
@@ -210,6 +222,7 @@ fn run(
                     state.repeat,
                     state.fade_in,
                     volumes[0],
+                    state.volume,
                 )
                 .map(|track| music = Some(track))
             }
@@ -232,15 +245,15 @@ fn run(
             Some(Command::Voice(path)) => {
                 voice = None;
                 path.map_or(Ok(()), |path| {
-                    track(source, mixer, path, false, 0.0, volumes[2])
+                    track(source, mixer, path, false, 0.0, volumes[2], 1.0)
                         .map(|track| voice = Some(track))
                 })
             }
-            Some(Command::Sound(path)) => {
+            Some(Command::Sound(path, relative_volume)) => {
                 if sounds.len() >= 16 {
                     sounds.pop_front();
                 }
-                track(source, mixer, path, false, 0.0, volumes[1])
+                track(source, mixer, path, false, 0.0, volumes[1], relative_volume)
                     .map(|track| sounds.push_back(track))
             }
             Some(Command::Volume(next)) => {
@@ -258,7 +271,9 @@ fn run(
             pending_video.fetch_sub(1, Ordering::AcqRel);
         }
         for sound in &sounds {
-            sound.player.set_volume(volumes[1]);
+            sound
+                .player
+                .set_volume(mixed_volume(volumes[1], sound.volume));
         }
         if let Some(track) = &music {
             let fade_out = track.apply_volume(volumes[0]);
@@ -290,6 +305,13 @@ fn run(
 mod tests {
     use super::*;
     use rodio::Source;
+
+    #[test]
+    fn relative_volume_multiplies_the_channel_preference() {
+        assert!((mixed_volume(0.8, 0.25) - 0.2).abs() < f32::EPSILON);
+        assert!(mixed_volume(0.0, 1.0).abs() < f32::EPSILON);
+    }
+
     #[test]
     fn long_wav_decodes_incrementally_without_a_device() {
         let root = tempfile::tempdir().unwrap();

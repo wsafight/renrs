@@ -14,6 +14,7 @@ use crate::source::ProjectSource;
 mod assets;
 mod conversion;
 mod expressions;
+mod parameters;
 
 use assets::AssetCatalog;
 use conversion::convert_script;

@@ -72,6 +72,47 @@ fn current_snapshot_restores_call_sites_through_rollback() {
     restored.continue_story().unwrap();
     assert_eq!(restored.stage().dialogue.as_ref().unwrap().text, "After");
 }
+
+#[test]
+fn reload_preserves_matching_parameter_scopes_and_rejects_signature_changes() {
+    let original = "label start:\n    @id \"call\" call chapter(1)\n    \"After {value}\"\nlabel chapter(value):\n    @id \"inside\" \"Inside {value}\"\n    return\n";
+    let edited = "default value = 9\nlabel start:\n    @id \"call\" call chapter(1)\n    \"After {value}\"\nlabel chapter(value):\n    @id \"inside\" \"Edited {value}\"\n    return\n";
+    let incompatible = "default value = 9\nlabel start:\n    @id \"call\" call chapter(1)\n    \"After {value}\"\nlabel chapter(value, extra=2):\n    @id \"inside\" \"Edited {value}\"\n    return\n";
+
+    let mut runtime = Runtime::new(program(original)).unwrap();
+    runtime.advance().unwrap();
+    assert_eq!(runtime.variables()["value"], Value::Integer(1));
+    assert!(matches!(
+        runtime.reload(program(incompatible)),
+        Err(RuntimeError::InvalidStablePositions)
+    ));
+    assert_eq!(runtime.variables()["value"], Value::Integer(1));
+
+    let report = runtime.reload_with_report(program(edited)).unwrap();
+    assert_eq!(report.initialized_defaults, ["value"]);
+    runtime.continue_story().unwrap();
+    assert_eq!(runtime.stage().dialogue.as_ref().unwrap().text, "After 9");
+    assert_eq!(runtime.variables()["value"], Value::Integer(9));
+}
+
+#[test]
+fn reload_refreshes_layer_order_and_rejects_removed_active_layers() {
+    let original = "layer effects order 10\nlabel start:\n    show \"glow.png\" onlayer effects\n    @id \"line\" \"Before\"\n";
+    let reordered = "layer effects order 80\nlabel start:\n    show \"glow.png\" onlayer effects\n    @id \"line\" \"After\"\n";
+    let removed = "label start:\n    @id \"line\" \"After\"\n";
+    let mut runtime = Runtime::new(program(original)).unwrap();
+    runtime.advance().unwrap();
+    assert_eq!(runtime.stage().sprites[0].display_order, 10);
+
+    runtime.reload(program(reordered)).unwrap();
+    assert_eq!(runtime.stage().sprites[0].display_order, 80);
+    assert!(matches!(
+        runtime.reload(program(removed)),
+        Err(RuntimeError::SavedDisplayLayerMissing(ref name)) if name == "effects"
+    ));
+    assert_eq!(runtime.stage().sprites[0].display_order, 80);
+}
+
 #[test]
 fn snapshot_shares_history_until_mutation_without_changing_saved_data() {
     let program = crate::compile(

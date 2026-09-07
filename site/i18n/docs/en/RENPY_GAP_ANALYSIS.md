@@ -19,17 +19,17 @@ migration report must reject it or list it as todo.
 | --- | --- | --- | --- |
 | Script parse and static diagnostics | done | Multi-file `.rns`, source positions, cross-file checks, CFG | Expand diagnostics from real projects |
 | Dialogue, menus, conditions, jumps | done | Conditional menus, interpolation, basic rich text | More text tags and input |
-| Label parameters and returns | done | Positional args, `return expr`, `_return` | Named/default args are P2 |
+| Label parameters and returns | done | Positional/named/default args, call-time defaults, dynamic parameter scope, `return expr`, `_return` | `*args`, `**kwargs`, and keyword-only parameters are outside the static subset |
 | Python/store semantics | not implemented | Integers, booleans, strings, lists, records, deterministic built-ins | Python ecosystem remains a non-goal |
-| Image declarations and stage | partial | Static image, background, alias, integer layer, camera, constrained layered image | Arbitrary displayables, Live2D, particles still missing |
+| Image declarations and stage | partial | Static image, background, global aliases, ordered/clearable named sprite layers, camera, constrained layered image | Layer cameras, arbitrary displayables, Live2D, and particles still missing |
 | ATL and transform | partial | Transform, easing, serial timeline, independent parallel tracks | Full ATL, dynamic layeredimage, blink/lipsync still missing |
 | Transition | partial | Serializable fade, dissolve | Composite transitions still missing |
 | Screen/style/UI | partial | Shared desktop/web JSON screens, scroll, data controls, drag/drop, extension buttons | Arbitrary displayables and full screen language still missing |
-| Audio | partial | music/sound/voice, music queue and fades | Mixer, sync, more formats are P2 |
+| Audio | partial | music/sound/voice, music queue, fades, static music/sound relative gain | Arbitrary mixers, sync, and more formats are P2 |
 | Video | partial | Image frames or streaming video, optional WAV bed, pause/resume on the audio clock | Extra audio/subtitle tracks and more platform measurement still pending |
 | Reading and a11y | partial | NVL, underline, ruby, keyboard controls, self-voicing | RTL, complex layout, full screen-reader trees still missing |
 | Localization | done | JSON catalog, stable IDs, alias, fallback, CLDR plurals, RTL shaping, font families | Full ICU rich text and screen-reader trees still missing |
-| Saves | done | Snapshot v4, async saves, page restore, current-build desktop/web container exchange and load acceptance | Cloud sync still missing |
+| Saves | done | Snapshot v7, async saves, explicit-ID content-update restore, desktop/web container exchange and load acceptance | Old-format migration and cloud sync still missing |
 | Rollback/read/auto/skip | done | Bounded checkpoints, independent profile, rollback barrier | Fixed rollback and advanced preference sync still missing |
 | Archives and shipping | partial | Signed delta patches, local app and store config tools | Shipping credentials and external acceptance still pending |
 | Editor tools | partial | Separate editor crate, LSP, VS Code grammar, launcher, templates, SDK pack | Visual story authoring and a full debugger still missing |

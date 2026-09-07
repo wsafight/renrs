@@ -1,6 +1,6 @@
 use super::{
-    Cursor, Diagnostic, Line, MenuOption, Parser, Position, Span, Statement, StatementKind,
-    TranslationId, parse_expression,
+    CallArgument, Cursor, Diagnostic, Line, MenuOption, Parser, Position, Span, Statement,
+    StatementKind, TranslationId, parse_expression,
 };
 
 impl Parser {
@@ -27,21 +27,45 @@ impl Parser {
         &self,
         line: &Line,
         cursor: &mut Cursor<'_>,
-    ) -> Result<(bool, f32), Diagnostic> {
+    ) -> Result<(bool, f32, f32), Diagnostic> {
         let mut repeat = false;
         let mut fade_in = 0.0;
+        let mut volume = 1.0;
         let mut has_fade = false;
+        let mut has_volume = false;
         loop {
             if cursor.keyword("loop") && !repeat {
                 repeat = true;
             } else if cursor.keyword("fadein") && !has_fade {
                 fade_in = self.parse_audio_duration(line, cursor, "fadein")?;
                 has_fade = true;
+            } else if cursor.keyword("volume") && !has_volume {
+                volume = self.parse_audio_volume(line, cursor)?;
+                has_volume = true;
             } else {
                 break;
             }
         }
-        Ok((repeat, fade_in))
+        Ok((repeat, fade_in, volume))
+    }
+
+    pub(super) fn parse_audio_volume(
+        &self,
+        line: &Line,
+        cursor: &mut Cursor<'_>,
+    ) -> Result<f32, Diagnostic> {
+        let value = cursor.number().ok_or_else(|| {
+            self.error(
+                line,
+                cursor.column(),
+                "volume must be a number between 0 and 1",
+            )
+        })?;
+        if value.is_finite() && (0.0..=1.0).contains(&value) {
+            Ok(value)
+        } else {
+            Err(self.error(line, cursor.column(), "volume must be between 0 and 1"))
+        }
     }
 
     pub(super) fn parse_audio_duration(
@@ -91,22 +115,48 @@ impl Parser {
         line: &Line,
         indent: usize,
         cursor: &mut Cursor<'_>,
-    ) -> Result<Vec<crate::syntax::Expr>, Diagnostic> {
+    ) -> Result<Vec<CallArgument>, Diagnostic> {
         let mut arguments = Vec::new();
+        let mut named = Vec::new();
         if cursor.consume_symbol(')') {
             return Ok(arguments);
         }
         loop {
+            cursor.skip_spaces();
             let column = cursor.column();
             let source = cursor
                 .argument_source()
                 .map_err(|message| self.error(line, cursor.column(), message))?;
-            arguments.push(parse_expression(
-                source,
-                &self.source_name,
-                line.number,
-                indent + column,
-            )?);
+            let (name, value, value_offset) = split_named_argument(source).map_or_else(
+                || (None, source, 0),
+                |(name, value, offset)| (Some(name.to_owned()), value, offset),
+            );
+            if name.is_none() && !named.is_empty() {
+                return Err(self.error(
+                    line,
+                    column,
+                    "positional arguments must precede named arguments",
+                ));
+            }
+            if let Some(name) = &name {
+                if named.contains(name) {
+                    return Err(self.error(
+                        line,
+                        column,
+                        format!("duplicate named argument `{name}`"),
+                    ));
+                }
+                named.push(name.clone());
+            }
+            arguments.push(CallArgument {
+                name,
+                value: parse_expression(
+                    value,
+                    &self.source_name,
+                    line.number,
+                    indent + column + value_offset,
+                )?,
+            });
             if cursor.consume_symbol(')') {
                 break;
             }
@@ -317,4 +367,31 @@ impl Parser {
     pub(super) fn span(&self, line: usize, column: usize) -> Span {
         Span::in_source(&self.source_name, line, column)
     }
+}
+
+fn split_named_argument(source: &str) -> Option<(&str, &str, usize)> {
+    let bytes = source.as_bytes();
+    let first = *bytes.first()?;
+    if first != b'_' && !first.is_ascii_alphabetic() {
+        return None;
+    }
+    let mut end = 1;
+    while bytes
+        .get(end)
+        .is_some_and(|byte| *byte == b'_' || byte.is_ascii_alphanumeric())
+    {
+        end += 1;
+    }
+    let mut equals = end;
+    while bytes.get(equals).is_some_and(u8::is_ascii_whitespace) {
+        equals += 1;
+    }
+    if bytes.get(equals) != Some(&b'=') || bytes.get(equals + 1) == Some(&b'=') {
+        return None;
+    }
+    let mut value = equals + 1;
+    while bytes.get(value).is_some_and(u8::is_ascii_whitespace) {
+        value += 1;
+    }
+    Some((&source[..end], &source[value..], value))
 }

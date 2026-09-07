@@ -3,8 +3,9 @@ use std::collections::{HashMap, HashSet};
 use indexmap::IndexMap;
 
 use crate::localization::TranslationId;
-use crate::syntax::{Block, Span, StatementKind};
+use crate::syntax::{Block, CallArgument, LabelParameter, Span, StatementKind};
 
+use super::calls::bind_call_arguments;
 use super::ids::{
     stable_anchored_statement_id, stable_instruction_id, stable_statement_id, translation_id,
 };
@@ -13,9 +14,9 @@ use super::{ChoiceTarget, CompileError, Instruction, InstructionId, InstructionK
 pub(super) struct Compiler<'a> {
     pub(super) instructions: Vec<Instruction>,
     pub(super) labels: IndexMap<String, usize>,
-    pub(super) unresolved: Vec<(usize, String, Span)>,
+    pub(super) unresolved: Vec<(usize, String, Option<Vec<CallArgument>>, Span)>,
     pub(super) current_label: String,
-    pub(super) label_parameters: &'a IndexMap<String, Vec<String>>,
+    pub(super) label_parameters: &'a IndexMap<String, Vec<LabelParameter>>,
     pub(super) instruction_aliases: HashMap<InstructionId, InstructionId>,
     pub(super) alias_collision: Option<InstructionId>,
     pub(super) explicit_instruction_ids: HashSet<InstructionId>,
@@ -97,41 +98,11 @@ impl Compiler<'_> {
                         },
                     );
                 }
-                StatementKind::Scene { path } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Scene { path: path.clone() },
-                    );
-                }
-                StatementKind::Show {
-                    path,
-                    alias,
-                    position,
-                    layer,
-                } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Show {
-                            path: path.clone(),
-                            alias: alias.clone(),
-                            position: *position,
-                            layer: *layer,
-                        },
-                    );
-                }
-                StatementKind::Hide { alias } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Hide {
-                            alias: alias.clone(),
-                        },
-                    );
+                StatementKind::Scene { .. }
+                | StatementKind::Show { .. }
+                | StatementKind::Hide { .. }
+                | StatementKind::ClearLayer { .. } => {
+                    self.lower_display(&statement.kind, span, &statement_id);
                 }
                 StatementKind::Menu { options } => {
                     let choice_index = self.emit(
@@ -181,7 +152,8 @@ impl Compiler<'_> {
                         "main",
                         InstructionKind::Jump { target: 0 },
                     );
-                    self.unresolved.push((index, label.clone(), span.clone()));
+                    self.unresolved
+                        .push((index, label.clone(), None, span.clone()));
                 }
                 StatementKind::Call { label, arguments } => {
                     let index = self.emit(
@@ -190,11 +162,16 @@ impl Compiler<'_> {
                         "main",
                         InstructionKind::Call {
                             target: 0,
-                            arguments: arguments.clone(),
+                            arguments: Vec::new(),
                             parameters: Vec::new(),
                         },
                     );
-                    self.unresolved.push((index, label.clone(), span.clone()));
+                    self.unresolved.push((
+                        index,
+                        label.clone(),
+                        Some(arguments.clone()),
+                        span.clone(),
+                    ));
                 }
                 StatementKind::Return { value } => {
                     self.emit(
@@ -254,6 +231,7 @@ impl Compiler<'_> {
                     path,
                     repeat,
                     fade_in,
+                    volume,
                 } => {
                     self.emit(
                         span.clone(),
@@ -263,6 +241,7 @@ impl Compiler<'_> {
                             path: path.clone(),
                             repeat: *repeat,
                             fade_in: *fade_in,
+                            volume: *volume,
                         },
                     );
                 }
@@ -270,6 +249,7 @@ impl Compiler<'_> {
                     path,
                     repeat,
                     fade_in,
+                    volume,
                 } => {
                     self.emit(
                         span.clone(),
@@ -279,15 +259,19 @@ impl Compiler<'_> {
                             path: path.clone(),
                             repeat: *repeat,
                             fade_in: *fade_in,
+                            volume: *volume,
                         },
                     );
                 }
-                StatementKind::PlaySound { path } => {
+                StatementKind::PlaySound { path, volume } => {
                     self.emit(
                         span.clone(),
                         statement_id.clone(),
                         "main",
-                        InstructionKind::PlaySound { path: path.clone() },
+                        InstructionKind::PlaySound {
+                            path: path.clone(),
+                            volume: *volume,
+                        },
                     );
                 }
                 StatementKind::PlayVoice { path } => {
@@ -412,7 +396,7 @@ impl Compiler<'_> {
             .iter()
             .map(|(name, index)| (name.clone(), *index))
             .collect();
-        for (index, label, span) in std::mem::take(&mut self.unresolved) {
+        for (index, label, supplied, span) in std::mem::take(&mut self.unresolved) {
             let Some(target) = labels.get(&label) else {
                 return Err(CompileError::UnknownLabel {
                     label,
@@ -420,26 +404,29 @@ impl Compiler<'_> {
                     line: span.line,
                 });
             };
-            if let InstructionKind::Call {
-                arguments,
-                parameters,
-                ..
-            } = &mut self.instructions[index].kind
-            {
-                let expected = self
-                    .label_parameters
-                    .get(&label)
-                    .map_or(&[][..], Vec::as_slice);
-                if arguments.len() != expected.len() {
-                    return Err(CompileError::LabelArity {
-                        label,
-                        expected: expected.len(),
-                        found: arguments.len(),
-                        file: span.source,
-                        line: span.line,
-                    });
-                }
-                parameters.extend_from_slice(expected);
+            let expected = self
+                .label_parameters
+                .get(&label)
+                .map_or(&[][..], Vec::as_slice);
+            if let Some(supplied) = supplied {
+                let (resolved_arguments, resolved_parameters) =
+                    bind_call_arguments(&label, expected, &supplied, &span)?;
+                let InstructionKind::Call {
+                    arguments,
+                    parameters,
+                    ..
+                } = &mut self.instructions[index].kind
+                else {
+                    unreachable!("call fixup must reference a call instruction");
+                };
+                *arguments = resolved_arguments;
+                *parameters = resolved_parameters;
+            } else if !expected.is_empty() {
+                return Err(CompileError::ParameterizedJump {
+                    label,
+                    file: span.source,
+                    line: span.line,
+                });
             }
             self.patch_target(index, *target);
         }

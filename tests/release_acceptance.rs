@@ -1,5 +1,14 @@
 use renrs::{ProjectSource, Runtime, save::SaveRepository};
-use std::{fs, process::Command};
+use std::{fs, path::Path, process::Command};
+
+fn accept(project: &Path, saves: &Path) -> std::process::Output {
+    Command::new(env!("CARGO_BIN_EXE_renrs-accept"))
+        .arg(project)
+        .arg("--saves")
+        .arg(saves)
+        .output()
+        .unwrap()
+}
 
 #[test]
 fn release_check_validates_current_routes_and_saves_without_end_anchors() {
@@ -11,7 +20,7 @@ fn release_check_validates_current_routes_and_saves_without_end_anchors() {
         r#"{"routes":[{"name":"ending","choices":[],"expect_label":"start"}]}"#,
     )
     .unwrap();
-    let script = "config id \"org.test.release\"\nlabel start:\n    \"Hello\"\n    return\n";
+    let script = "config id \"org.test.release\"\nlabel start:\n    @id \"greeting\" \"Hello\"\n    return\n";
     fs::write(project.join("script.rns"), script).unwrap();
     let program = ProjectSource::open(&project).unwrap().compile().unwrap();
     let mut runtime = Runtime::new(program).unwrap();
@@ -21,15 +30,7 @@ fn release_check_validates_current_routes_and_saves_without_end_anchors() {
     repository.save("dialogue", &runtime.snapshot()).unwrap();
     runtime.continue_story().unwrap();
     repository.save("finished", &runtime.snapshot()).unwrap();
-    let check = || {
-        Command::new(env!("CARGO_BIN_EXE_renrs-accept"))
-            .arg(&project)
-            .arg("--saves")
-            .arg(&saves)
-            .output()
-            .unwrap()
-    };
-    let output = check();
+    let output = accept(&project, &saves);
     assert!(
         output.status.success(),
         "{}",
@@ -44,24 +45,67 @@ fn release_check_validates_current_routes_and_saves_without_end_anchors() {
         script.replace("Hello", "Updated"),
     )
     .unwrap();
-    let output = check();
-    assert!(!output.status.success());
+    let output = accept(&project, &saves);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let checks = report["checks"].as_array().unwrap();
     assert!(
         checks
             .iter()
-            .filter(|check| check["kind"] == "route")
+            .filter(|check| check["kind"] == "save")
             .all(|check| check["passed"] == true)
     );
+
+    fs::write(
+        project.join("script.rns"),
+        script.replace("@id \"greeting\"", "@id \"greeting.v2\" alias \"greeting\""),
+    )
+    .unwrap();
+    let output = accept(&project, &saves);
+    assert!(output.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        report["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["name"] == "dialogue")
+            .unwrap()["compatibility"]["alias_resolutions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    fs::write(
+        project.join("script.rns"),
+        script.replace("@id \"greeting\"", "@id \"replacement\""),
+    )
+    .unwrap();
+    let output = accept(&project, &saves);
+    assert!(!output.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let checks = report["checks"].as_array().unwrap();
+    let dialogue = checks
+        .iter()
+        .find(|check| check["name"] == "dialogue")
+        .unwrap();
+    assert_eq!(dialogue["passed"], false);
     assert!(
+        dialogue["error"]
+            .as_str()
+            .unwrap()
+            .contains("no longer exists")
+    );
+    assert_eq!(
         checks
             .iter()
-            .filter(|check| check["kind"] == "save")
-            .all(|check| check["passed"] == false
-                && check["error"]
-                    .as_str()
-                    .unwrap()
-                    .contains("different script version"))
+            .find(|check| check["name"] == "finished")
+            .unwrap()["passed"],
+        true
     );
 }

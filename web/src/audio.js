@@ -15,7 +15,7 @@ export function setupAudio(app, AudioClass = Audio) {
     for (const channel of [...channels.keys()]) stop(channel);
     voicePath = null;
   }
-  async function play(path, channel, repeat = false) {
+  async function play(path, channel, repeat = false, volume = 1) {
     stop(channel);
     if (channel.startsWith('sound-')) {
       const sounds = [...channels.keys()].filter(key => key.startsWith('sound-'));
@@ -23,7 +23,8 @@ export function setupAudio(app, AudioClass = Audio) {
     }
     if (channel === 'voice') voicePath = path;
     const audio = new AudioClass(app.asset(path));
-    audio.loop = repeat; audio.volume = audioVolume(app.settings, channel); channels.set(channel, audio);
+    audio.loop = repeat; audio.dataset.relativeVolume = String(volume);
+    audio.volume = audioVolume(app.settings, channel, volume); channels.set(channel, audio);
     audio.onended = () => {
       if (channels.get(channel) !== audio) return;
       stop(channel);
@@ -41,13 +42,16 @@ export function setupAudio(app, AudioClass = Audio) {
   }
   async function events() {
     for (const event of JSON.parse(app.engine.audio_events())) {
-      if (event.PlaySound) await play(event.PlaySound.path, `sound-${++sequence}`);
+      if (event.PlaySound) await play(event.PlaySound.path, `sound-${++sequence}`, false, event.PlaySound.volume ?? 1);
       if (event.PlayVoice) await play(event.PlayVoice.path, 'voice');
       if (event === 'StopVoice') { stop('voice'); voicePath = null; }
       if (event.StopMusic) stop('music');
     }
     const music = app.state.stage.music;
-    if (music && channels.get('music')?.src !== app.asset(music.path)) await play(music.path, 'music', music.repeat);
+    const currentMusic = channels.get('music'), musicVolume = music?.volume ?? 1;
+    if (music && (currentMusic?.src !== app.asset(music.path) || currentMusic.loop !== music.repeat || Number(currentMusic.dataset.relativeVolume) !== musicVolume)) {
+      await play(music.path, 'music', music.repeat, musicVolume);
+    }
     if (!music) stop('music');
     const voice = app.state.stage.voice;
     if (voice && voice !== voicePath) await play(voice, 'voice');

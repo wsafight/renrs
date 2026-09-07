@@ -68,3 +68,50 @@ fn references_cover_anchors_arguments_conditions_and_unicode_interpolation() {
     let column = line[..line.find("score").unwrap()].encode_utf16().count();
     assert_eq!(symbol_at(source, 3, column).unwrap().name, "score");
 }
+
+#[test]
+fn label_defaults_are_references_and_named_call_keys_resolve_parameters() {
+    let source = "default fallback = 2\nlabel start:\n    call target(value=fallback)\nlabel target(value=fallback):\n    return value\n";
+    let items = symbol_occurrences(source);
+    assert_eq!(
+        items
+            .iter()
+            .filter(|item| item.name == "value" && item.role == SymbolRole::Definition)
+            .count(),
+        1
+    );
+    assert_eq!(
+        items
+            .iter()
+            .filter(|item| item.name == "value" && item.role == SymbolRole::Reference)
+            .count(),
+        2
+    );
+    assert_eq!(
+        items
+            .iter()
+            .filter(|item| item.name == "fallback" && item.role == SymbolRole::Reference)
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn display_layers_are_renameable_definitions_and_references() {
+    let source = "layer effects order 50\nlabel start:\n    show hero onlayer effects zorder 2\n    clear effects\n";
+    let items = symbol_occurrences(source);
+    assert_eq!(
+        items
+            .iter()
+            .filter(|item| item.name == "effects" && item.kind == SymbolKind::DisplayLayer)
+            .count(),
+        3
+    );
+    assert_eq!(
+        items
+            .iter()
+            .filter(|item| item.name == "effects" && item.role == SymbolRole::Definition)
+            .count(),
+        1
+    );
+}

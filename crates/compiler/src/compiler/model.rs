@@ -74,8 +74,11 @@ pub struct Program {
     pub fingerprint: String,
     pub characters: IndexMap<String, CharacterDef>,
     pub defaults: IndexMap<String, DefaultDef>,
+    #[serde(default)]
+    pub display_layers: std::collections::BTreeMap<String, i32>,
     pub instructions: Vec<Instruction>,
     pub labels: IndexMap<String, usize>,
+    pub label_parameters: IndexMap<String, Vec<String>>,
     pub instruction_by_id: HashMap<InstructionId, usize>,
     #[serde(default)]
     pub instruction_aliases: HashMap<InstructionId, InstructionId>,
@@ -173,9 +176,14 @@ pub enum InstructionKind {
         alias: String,
         position: Position,
         layer: i32,
+        display_layer: String,
+        display_order: i32,
     },
     Hide {
         alias: String,
+    },
+    ClearLayer {
+        display_layer: String,
     },
     Choice {
         options: Vec<ChoiceTarget>,
@@ -203,14 +211,17 @@ pub enum InstructionKind {
         path: String,
         repeat: bool,
         fade_in: f32,
+        volume: f32,
     },
     QueueMusic {
         path: String,
         repeat: bool,
         fade_in: f32,
+        volume: f32,
     },
     PlaySound {
         path: String,
+        volume: f32,
     },
     PlayVoice {
         path: String,
@@ -268,11 +279,48 @@ pub enum CompileError {
         file: String,
         line: usize,
     },
-    #[error("label `{label}` expects {expected} arguments but received {found} at {file}:{line}")]
-    LabelArity {
+    #[error("unknown display layer `{name}` referenced at {file}:{line}")]
+    UnknownDisplayLayer {
+        name: String,
+        file: String,
+        line: usize,
+    },
+    #[error(
+        "label `{label}` accepts at most {maximum} positional arguments but received {found} at {file}:{line}"
+    )]
+    TooManyLabelArguments {
         label: String,
-        expected: usize,
+        maximum: usize,
         found: usize,
+        file: String,
+        line: usize,
+    },
+    #[error("label `{label}` has no parameter named `{argument}` at {file}:{line}")]
+    UnknownLabelArgument {
+        label: String,
+        argument: String,
+        file: String,
+        line: usize,
+    },
+    #[error("label `{label}` receives parameter `{argument}` more than once at {file}:{line}")]
+    DuplicateLabelArgument {
+        label: String,
+        argument: String,
+        file: String,
+        line: usize,
+    },
+    #[error("label `{label}` is missing required argument `{argument}` at {file}:{line}")]
+    MissingLabelArgument {
+        label: String,
+        argument: String,
+        file: String,
+        line: usize,
+    },
+    #[error("entry label `start` cannot declare parameters at {file}:{line}")]
+    ParameterizedStart { file: String, line: usize },
+    #[error("jump cannot enter parameterized label `{label}` at {file}:{line}; use `call`")]
+    ParameterizedJump {
+        label: String,
         file: String,
         line: usize,
     },

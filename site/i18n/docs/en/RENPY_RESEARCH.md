@@ -44,16 +44,16 @@ player onto a real backend.
 ### Display state
 
 Ren'Py supports named layers, displayable trees, camera, ATL, and complex transitions.
-RenRS currently saves one background, sprites ordered by integer layer/draw order, and
-a transform per sprite. That covers P1 static visual-novel presentation. It is not
-described as full ATL or screen support.
+RenRS saves one background, named sprite layers ordered explicitly and then by z-order,
+and a transform per sprite; each sprite layer can be cleared independently. It does not
+provide layer cameras or arbitrary displayables and is not described as full ATL or screen support.
 
 ### Saves and rollback
 
 Ren'Py saves an object graph, rollback log, screenshots, and JSON metadata. RenRS
-saves a small explicit snapshot and does not use pickle. v4 snapshots record execution
-position, variables, stage, call-site identity, language, history, and bounded full
-checkpoints. Restoring v1/v2/v3 produces a migration report. The outer save adds
+saves a small explicit snapshot and does not use pickle. v7 snapshots record execution
+position, variables, stage, dynamic call frames, language, history, and bounded full
+checkpoints. Older snapshot formats are rejected. The outer save adds
 project/content identity, play time, chapter, and SHA-256.
 
 Read state and player settings are not in a single snapshot. They are project-level
@@ -79,10 +79,10 @@ directory, so a shipping archive does not need to be writable.
 - RenRS does not execute Python, and is not compatible with `.rpyc`, Ren'Py saves, or the Python plugin ecosystem.
 - RenRS uses `.rns`. The migrator is only an offline static-subset converter.
 - RenRS currently has built-in themeable UI, not screen language, full style, or a displayable system.
-- RenRS transform is constrained property animation, not ATL. Display layers are integer order, not the Ren'Py layer/camera model.
-- RenRS currently only supports fade transitions. Predicted load, video, Live2D, shaders, web, or mobile export in that older note were later expanded elsewhere; this research page records the original contrast.
+- RenRS transform is constrained property animation, not ATL. Named sprite layers do not include Ren'Py's layer-camera/displayable model.
+- RenRS supports serializable fade/dissolve, predictive loading, streamed video, a Web player, and Capacitor mobile builds. Combined transitions, Live2D, shaders, and native Rust mobile rendering remain unimplemented.
 - RenRS rollback stores bounded full checkpoints. It does not implement Ren'Py's rollback object-diff log and full fixed-rollback semantics.
-- RenRS audio covers music/sound/voice and basic queue/fade. Defaults in tests are muted.
+- RenRS audio covers music/sound/voice, basic queue/fade, and static music/sound relative gain. Arbitrary mixers are unsupported. Player defaults are audible; automated tests stay muted.
 
 Full status and later priorities are in [Gap with Ren’Py](RENPY_GAP_ANALYSIS.md) and
 [Roadmap](ROADMAP.md).

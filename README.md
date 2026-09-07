@@ -10,8 +10,9 @@ RenRS is a visual novel engine written in Rust. Write story in `.rns`, check it,
 then run a native player or ship a read-only archive. It is inspired by Ren'Py,
 but it does not execute Python, run `.rpy`, or load Ren'Py saves.
 
-> Pre-release `0.1.0`. Breaking changes are allowed. Saves only load when the
-> container, snapshot, and compiled script fingerprint match the current build.
+> Pre-release `0.1.0`. Breaking format changes are allowed. Saves require the
+> current container and snapshot formats; content updates additionally require
+> explicit stable `@id`/`alias` positions wherever execution is active.
 
 ## Try the demo
 
@@ -92,7 +93,7 @@ Also: [VS Code extension](editors/vscode-renrs/README.md),
 
 - Declarative `.rns` for characters, dialogue, menus, transforms, audio, and NVL
 - Check before run: assets, control flow, definite assignment, unreachable story
-- Recoverable state: snapshot v4, rollback, checksummed saves, desktop/web exchange
+- Recoverable state: snapshot v7, rollback, checksummed saves, desktop/web exchange
 - `screens.json` layouts, `theme.json`, JSON catalogs, `renrs-i18n`
 - Headless tools: check, fmt, graph, LSP, debug, pack, build, migrate
 - Web (WASM) and Capacitor Android/iOS packaging
@@ -120,6 +121,8 @@ Crate boundaries: [architecture](docs/ARCHITECTURE.md).
 ## Develop
 
 ```sh
+node scripts/verify-local.mjs
+
 cargo fmt --all -- --check
 cargo check --offline --workspace --all-targets
 cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
@@ -128,6 +131,10 @@ cargo test --offline --workspace --all-targets
 # Native muted capture. The output directory must not exist.
 cargo run -- demo --smoke-test target/demo-captures --window-size 800x600
 ```
+
+Use `node scripts/verify-local.mjs --full` for the Web browser, VS Code host,
+release binary, and SDK packaging checks. It expects the Web and editor npm
+dependencies, Rust WASM target, `wasm-bindgen`, and browser tooling to be installed.
 
 The Ren'Py research copy lives in ignored `references/renpy`. See
 [upstream research](docs/RENPY_RESEARCH.md). Bundled fonts use SIL OFL 1.1

@@ -50,25 +50,86 @@ fn requires_start_label() {
 #[test]
 fn parses_layers_tweens_and_transitions() {
     let script = parse_script(
-            "label start:\n    show \"hero.png\" as hero at left layer 7\n    move hero to right over 0.5\n    transition fade 0.25",
+            "layer effects order 50\nlabel start:\n    show \"hero.png\" as hero at left onlayer effects zorder 7\n    clear effects\n    move hero to right over 0.5\n    transition fade 0.25",
             "test.rns",
         )
         .unwrap();
-    assert!(matches!(
-        script.labels["start"][0].kind,
-        StatementKind::Show { layer: 7, .. }
-    ));
+    assert_eq!(script.display_layers["effects"].order, 50);
+    assert!(matches!(&script.labels["start"][0].kind,
+        StatementKind::Show { layer: 7, display_layer, .. } if display_layer == "effects"));
     assert!(matches!(
         script.labels["start"][1].kind,
-        StatementKind::Move { seconds: 0.5, .. }
+        StatementKind::ClearLayer { .. }
     ));
     assert!(matches!(
         script.labels["start"][2].kind,
+        StatementKind::Move { seconds: 0.5, .. }
+    ));
+    assert!(matches!(
+        script.labels["start"][3].kind,
         StatementKind::Transition {
             kind: TransitionKind::Fade,
             seconds: 0.25
         }
     ));
+}
+
+#[test]
+fn parses_static_audio_volume_and_rejects_values_outside_the_mixer_range() {
+    let script = parse_script(
+        "label start:\n    play music \"theme.ogg\" volume 0.4 loop fadein 0.5\n    queue music \"next.ogg\" fadein 0.2 volume 0.7\n    play sound \"click.wav\" volume 0.25",
+        "audio.rns",
+    )
+    .unwrap();
+    assert!(matches!(
+        script.labels["start"][0].kind,
+        StatementKind::PlayMusic {
+            repeat: true,
+            fade_in: 0.5,
+            volume: 0.4,
+            ..
+        }
+    ));
+    assert!(matches!(
+        script.labels["start"][1].kind,
+        StatementKind::QueueMusic {
+            repeat: false,
+            fade_in: 0.2,
+            volume: 0.7,
+            ..
+        }
+    ));
+    assert!(matches!(
+        script.labels["start"][2].kind,
+        StatementKind::PlaySound { volume: 0.25, .. }
+    ));
+    let errors = parse_script(
+        "label start:\n    play sound \"click.wav\" volume 1.1",
+        "audio.rns",
+    )
+    .unwrap_err();
+    assert!(errors[0].message.contains("between 0 and 1"));
+}
+
+#[test]
+fn rejects_redeclared_builtin_and_duplicate_show_clauses() {
+    let built_in = parse_script(
+        "layer master order 10\nlabel start:\n    return",
+        "test.rns",
+    )
+    .unwrap_err();
+    assert!(built_in[0].message.contains("built in"));
+
+    let duplicate = parse_script(
+        "label start:\n    show \"hero.png\" zorder 1 layer 2",
+        "test.rns",
+    )
+    .unwrap_err();
+    assert!(
+        duplicate[0]
+            .message
+            .contains("expected `as`, `at`, `zorder`, or `onlayer`")
+    );
 }
 
 #[test]
@@ -113,9 +174,87 @@ label add(value):
     assert_eq!(script.project_id, "com.example.story");
     assert!(script.defaults.contains_key("score"));
     assert!(script.images.contains_key("hero"));
-    assert_eq!(script.label_parameters["add"], ["value"]);
+    assert_eq!(script.label_parameters["add"][0].name, "value");
+    assert!(script.label_parameters["add"][0].default.is_none());
     assert_eq!(
         script.labels["start"][1].id.as_ref().unwrap().as_str(),
         "line.result"
+    );
+}
+
+#[test]
+fn parses_default_parameters_and_named_call_arguments() {
+    let script = parse_script(
+        r#"label start:
+    call greet("Eileen", punctuation="?", excited=true)
+label greet(name, greeting="Hello", punctuation="!", excited=false):
+    return
+"#,
+        "test.rns",
+    )
+    .unwrap();
+    let parameters = &script.label_parameters["greet"];
+    assert_eq!(parameters.len(), 4);
+    assert_eq!(parameters[0].name, "name");
+    assert!(parameters[0].default.is_none());
+    assert!(
+        parameters[1..]
+            .iter()
+            .all(|parameter| parameter.default.is_some())
+    );
+
+    let StatementKind::Call { arguments, .. } = &script.labels["start"][0].kind else {
+        panic!("expected call statement");
+    };
+    assert_eq!(arguments.len(), 3);
+    assert_eq!(arguments[0].name, None);
+    assert_eq!(arguments[1].name.as_deref(), Some("punctuation"));
+    assert_eq!(arguments[2].name.as_deref(), Some("excited"));
+}
+
+#[test]
+fn rejects_invalid_parameter_and_argument_ordering() {
+    let parameter_errors = parse_script(
+        "label start:\n    return\nlabel invalid(optional=1, required):\n    return",
+        "test.rns",
+    )
+    .unwrap_err();
+    assert!(
+        parameter_errors[0]
+            .message
+            .contains("required parameters must precede")
+    );
+
+    let argument_errors = parse_script(
+        "label start:\n    call target(second=2, 1)\nlabel target(first, second):\n    return",
+        "test.rns",
+    )
+    .unwrap_err();
+    assert!(
+        argument_errors[0]
+            .message
+            .contains("positional arguments must precede")
+    );
+
+    let duplicate_parameter = parse_script(
+        "label start:\n    return\nlabel invalid(value, value=1):\n    return",
+        "test.rns",
+    )
+    .unwrap_err();
+    assert!(
+        duplicate_parameter[0]
+            .message
+            .contains("duplicate parameter")
+    );
+
+    let duplicate_argument = parse_script(
+        "label start:\n    call target(value=1, value=2)\nlabel target(value):\n    return",
+        "test.rns",
+    )
+    .unwrap_err();
+    assert!(
+        duplicate_argument[0]
+            .message
+            .contains("duplicate named argument")
     );
 }

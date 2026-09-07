@@ -43,22 +43,38 @@ fn validate_with_resources(
     for definition in script.images.values() {
         validator.resource(&definition.path, &definition.span);
     }
+    for (name, definition) in &script.display_layers {
+        if crate::syntax::builtin_display_layer_order(name).is_some() {
+            validator.push(
+                &definition.span,
+                format!("display layer `{name}` is built in and cannot be redeclared"),
+            );
+        }
+    }
     validator
         .assigned_variables
         .extend(script.defaults.keys().cloned());
     for definition in script.defaults.values() {
         validator.expression(&definition.value, &definition.span);
     }
-    for parameters in script.label_parameters.values() {
-        validator
-            .assigned_variables
-            .extend(parameters.iter().cloned());
-    }
-
     for block in script.labels.values() {
         collect_assignments(block, &mut validator.assigned_variables);
     }
-    for block in script.labels.values() {
+    for parameters in script.label_parameters.values() {
+        for parameter in parameters {
+            if let Some(default) = &parameter.default {
+                validator.expression(default, &parameter.span);
+            }
+        }
+    }
+    let global_assignments = validator.assigned_variables.clone();
+    for (label, block) in &script.labels {
+        validator.assigned_variables.clone_from(&global_assignments);
+        if let Some(parameters) = script.label_parameters.get(label) {
+            validator
+                .assigned_variables
+                .extend(parameters.iter().map(|parameter| parameter.name.clone()));
+        }
         validator.block(block);
     }
     validator.diagnostics
@@ -97,10 +113,13 @@ impl Validator<'_> {
                     } else {
                         self.resource(path, &statement.span);
                     }
+                    if let StatementKind::Show { display_layer, .. } = &statement.kind {
+                        self.display_layer(display_layer, &statement.span);
+                    }
                 }
                 StatementKind::PlayMusic { path, .. }
                 | StatementKind::QueueMusic { path, .. }
-                | StatementKind::PlaySound { path }
+                | StatementKind::PlaySound { path, .. }
                 | StatementKind::PlayVoice { path } => {
                     self.resource(path, &statement.span);
                 }
@@ -114,7 +133,7 @@ impl Validator<'_> {
                         self.push(&statement.span, format!("unknown label `{label}`"));
                     }
                     for argument in arguments {
-                        self.expression(argument, &statement.span);
+                        self.expression(&argument.value, &statement.span);
                     }
                 }
                 StatementKind::Return { value } => {
@@ -143,6 +162,9 @@ impl Validator<'_> {
                         }
                         self.block(&option.block);
                     }
+                }
+                StatementKind::ClearLayer { display_layer } => {
+                    self.display_layer(display_layer, &statement.span);
                 }
                 StatementKind::Hide { .. }
                 | StatementKind::Nvl { .. }
@@ -190,6 +212,14 @@ impl Validator<'_> {
         }
         if !(self.resource_exists)(resource) {
             self.push(span, format!("resource `{resource}` does not exist"));
+        }
+    }
+
+    fn display_layer(&mut self, name: &str, span: &crate::syntax::Span) {
+        if crate::syntax::builtin_display_layer_order(name).is_none()
+            && !self.script.display_layers.contains_key(name)
+        {
+            self.push(span, format!("unknown display layer `{name}`"));
         }
     }
 
@@ -271,9 +301,66 @@ mod tests {
     }
 
     #[test]
+    fn reports_unknown_display_layers() {
+        let script = parse_script(
+            "label start:\n    show \"missing.png\" onlayer effects\n    clear overlay",
+            "script.rns",
+        )
+        .unwrap();
+        let diagnostics = validate(&script, Path::new("."));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|item| item.message.contains("unknown display layer `effects`"))
+        );
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|item| item.message.contains("display layer `overlay`"))
+        );
+    }
+
+    #[test]
     fn parses_supported_colors() {
         assert_eq!(parse_hex_color("#ff0080"), Some([255, 0, 128, 255]));
         assert_eq!(parse_hex_color("#ff008080"), Some([255, 0, 128, 128]));
         assert_eq!(parse_hex_color("red"), None);
+    }
+
+    #[test]
+    fn validates_label_default_and_call_argument_expressions() {
+        let script = parse_script(
+            "default known = 1\nlabel start:\n    call target(value=known, other=missing_call)\nlabel target(value, other=missing_default):\n    return",
+            "script.rns",
+        )
+        .unwrap();
+        let diagnostics = validate(&script, Path::new("."));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|item| item.message.contains("`missing_call`"))
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|item| item.message.contains("`missing_default`"))
+        );
+    }
+
+    #[test]
+    fn label_parameters_are_assigned_only_inside_their_label() {
+        let script = parse_script(
+            "label start:\n    return value\nlabel target(value):\n    return value",
+            "script.rns",
+        )
+        .unwrap();
+        let diagnostics = validate(&script, Path::new("."));
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|item| item.message.contains("variable `value` is never assigned"))
+                .count(),
+            1
+        );
     }
 }
