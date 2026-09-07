@@ -15,7 +15,7 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 ## 自动转换范围
 
 - `define config.name` 和静态 `Character(...)` 声明。
-- 静态 label（含固定参数与默认值）、旁白、角色对白和无条件基础菜单。
+- 静态 label（含固定参数与默认值）、旁白、角色对白、菜单标题和无条件基础菜单。
 - 静态 `scene`、`show ... at left/center/right`、`show ... as alias`、标准 `onlayer`、整数
   `zorder` 和简单 `hide`。
 - 简单 `$ variable = expression` 与 `default variable = expression`。
@@ -26,7 +26,8 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 
 场景和立绘名称会匹配源项目图片文件名。例如 `scene bg room` 可匹配
 `images/bg_room.jpg` 或 `images/bg room.png`。找不到时生成 `images/bg_room.png` 假设路径，并在
-报告中记录 `assumption`。
+报告中记录 `assumption`。裸 `scene black` 是一个确定性例外：没有同名真实资源时，迁移器会
+生成 `images/black.png` 黑色图片，不记录假设。
 
 ## 明确需要人工迁移
 
@@ -48,6 +49,7 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 
 - `converted_files`：转换的脚本数。
 - `copied_resources`：复制的普通资源数。
+- `generated_resources`：迁移器生成的确定性资源数，例如缺失的内置黑场图片。
 - `issues`：带文件、行号和 `assumption` / `unsupported` 类型的转换问题。
 - `post_validation_diagnostics`：转换后重新解析、资源校验、编译和 CFG 分析产生的诊断。
 

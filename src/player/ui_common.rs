@@ -322,6 +322,29 @@ pub(super) fn wrap_lines(text: &str, maximum_width: f32, font_size: u16) -> Vec<
     wrap_plain(text, maximum_width, |value| measure_width(value, font_size))
 }
 
+pub(super) fn draw_text_block(text: &str, rect: Rect, mut size: u16, tint: Color) {
+    let mut lines = wrap_lines(text, rect.w, size);
+    while size > 12 && lines.len() as f32 * f32::from(size + 4) > rect.h {
+        size -= 1;
+        lines = wrap_lines(text, rect.w, size);
+    }
+    let rows = (rect.h / f32::from(size + 4)).floor().max(1.0) as usize;
+    for (index, line) in lines.iter().take(rows).enumerate() {
+        let text = if index + 1 == rows && lines.len() > rows {
+            ellipsize(&format!("{line} ..."), rect.w, size)
+        } else {
+            line.clone()
+        };
+        draw_text(
+            text,
+            rect.x,
+            rect.y + f32::from(size) + index as f32 * f32::from(size + 4),
+            f32::from(size),
+            tint,
+        );
+    }
+}
+
 pub(super) fn ellipsize(text: &str, width: f32, size: u16) -> String {
     if measure_width(text, size) <= width {
         return text.to_owned();

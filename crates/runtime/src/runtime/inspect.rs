@@ -77,6 +77,10 @@ impl Runtime {
         }
         if let Some(checkpoint) = self.rollback.last_mut() {
             checkpoint.variables = self.variables.clone();
+            checkpoint.stage.clone_from(&self.stage);
+            if let Some(waiting) = &self.waiting {
+                checkpoint.waiting.clone_from(waiting);
+            }
         }
         Ok(())
     }
@@ -127,7 +131,7 @@ impl Runtime {
             .instructions
             .get(self.instruction)
             .ok_or(RuntimeError::NotChoosing)?;
-        let InstructionKind::Choice { options } = &instruction.kind else {
+        let InstructionKind::Choice { options, .. } = &instruction.kind else {
             return Err(RuntimeError::NotChoosing);
         };
         Ok(

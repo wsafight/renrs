@@ -302,6 +302,8 @@ pub enum RuntimeError {
 }
 
 mod builtins;
+#[path = "runtime/dialogue.rs"]
+mod dialogue;
 #[cfg(test)]
 #[path = "runtime/display_tests.rs"]
 mod display_tests;

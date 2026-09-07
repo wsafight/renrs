@@ -52,7 +52,7 @@ impl Runtime {
                 InstructionKind::JumpIfFalse { target, .. } => {
                     targets.extend([position + 1, *target]);
                 }
-                InstructionKind::Choice { options } => {
+                InstructionKind::Choice { options, .. } => {
                     targets.extend(options.iter().map(|option| option.target));
                 }
                 InstructionKind::Call { target, .. } if stack.len() < 16 => {

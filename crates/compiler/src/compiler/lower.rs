@@ -9,7 +9,10 @@ use super::calls::bind_call_arguments;
 use super::ids::{
     stable_anchored_statement_id, stable_instruction_id, stable_statement_id, translation_id,
 };
-use super::{ChoiceTarget, CompileError, Instruction, InstructionId, InstructionKind, StatementId};
+use super::{
+    ChoicePrompt, ChoiceTarget, CompileError, Instruction, InstructionId, InstructionKind,
+    StatementId,
+};
 
 pub(super) struct Compiler<'a> {
     pub(super) instructions: Vec<Instruction>,
@@ -104,12 +107,21 @@ impl Compiler<'_> {
                 | StatementKind::ClearLayer { .. } => {
                     self.lower_display(&statement.kind, span, &statement_id);
                 }
-                StatementKind::Menu { options } => {
+                StatementKind::Menu { prompt, options } => {
                     let choice_index = self.emit(
                         span.clone(),
                         statement_id.clone(),
                         "main",
                         InstructionKind::Choice {
+                            prompt: prompt.as_ref().map(|prompt| ChoicePrompt {
+                                speaker: prompt.speaker.clone(),
+                                text: prompt.text.clone(),
+                                translation_id: translation_id(
+                                    statement.id.as_ref(),
+                                    &statement_id,
+                                    "menu-prompt",
+                                ),
+                            }),
                             options: Vec::new(),
                         },
                     );
@@ -136,7 +148,7 @@ impl Compiler<'_> {
                         ));
                     }
                     let end = self.instructions.len();
-                    if let InstructionKind::Choice { options } =
+                    if let InstructionKind::Choice { options, .. } =
                         &mut self.instructions[choice_index].kind
                     {
                         *options = compiled_options;

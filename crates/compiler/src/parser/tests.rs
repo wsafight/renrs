@@ -36,6 +36,33 @@ fn parses_complete_script() {
 }
 
 #[test]
+fn parses_narrated_and_spoken_menu_prompts() {
+    let script = parse_script(
+        "define e = character \"Eileen\"\nlabel start:\n    menu \"Choose\":\n        \"A\":\n            return\n        \"B\":\n            return\nlabel spoken:\n    menu e \"Ready?\":\n        \"Yes\":\n            return\n        \"No\":\n            return",
+        "menu.rns",
+    )
+    .unwrap();
+    let StatementKind::Menu {
+        prompt: Some(prompt),
+        ..
+    } = &script.labels["start"][0].kind
+    else {
+        panic!("expected a narrated menu prompt");
+    };
+    assert_eq!(prompt.speaker, None);
+    assert_eq!(prompt.text, "Choose");
+    let StatementKind::Menu {
+        prompt: Some(prompt),
+        ..
+    } = &script.labels["spoken"][0].kind
+    else {
+        panic!("expected a spoken menu prompt");
+    };
+    assert_eq!(prompt.speaker.as_deref(), Some("e"));
+    assert_eq!(prompt.text, "Ready?");
+}
+
+#[test]
 fn reports_bad_indentation() {
     let errors = parse_script("label start:\n   \"bad\"", "bad.rns").unwrap_err();
     assert!(errors[0].message.contains("multiple of four"));

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -14,6 +15,7 @@ use crate::source::ProjectSource;
 mod assets;
 mod conversion;
 mod expressions;
+mod menus;
 mod parameters;
 
 use assets::AssetCatalog;
@@ -55,6 +57,8 @@ pub struct PostValidationDiagnostic {
 pub struct MigrationReport {
     pub converted_files: usize,
     pub copied_resources: usize,
+    #[serde(default)]
+    pub generated_resources: usize,
     pub issues: Vec<MigrationIssue>,
     #[serde(default)]
     pub post_validation_diagnostics: Vec<PostValidationDiagnostic>,
@@ -73,6 +77,8 @@ pub enum MigrationError {
     Io(#[from] std::io::Error),
     #[error("could not write migration report: {0}")]
     Report(#[from] serde_json::Error),
+    #[error("could not generate migration resource: {0}")]
+    Image(#[from] image::ImageError),
     #[error("migration output `{0}` must be empty or not exist")]
     OutputNotEmpty(String),
     #[error("input `{0}` is not a .rpy file or directory")]
@@ -104,6 +110,7 @@ pub fn migrate_project(input: &Path, output: &Path) -> Result<MigrationReport, M
     };
     let catalog = AssetCatalog::new(root, &files);
     let mut report = MigrationReport::default();
+    let mut generated_assets = BTreeMap::new();
 
     for path in files {
         let relative = relative_name(root, &path);
@@ -115,6 +122,9 @@ pub fn migrate_project(input: &Path, output: &Path) -> Result<MigrationReport, M
             write_new_file(&destination, converted.output.as_bytes())?;
             report.converted_files += 1;
             report.issues.extend(converted.issues);
+            for asset in converted.generated_assets {
+                generated_assets.insert(asset.path, asset.rgba);
+            }
         } else if !matches!(
             path.extension().and_then(|value| value.to_str()),
             Some("rpyc")
@@ -123,6 +133,15 @@ pub fn migrate_project(input: &Path, output: &Path) -> Result<MigrationReport, M
             write_new_file(&destination, &fs::read(path)?)?;
             report.copied_resources += 1;
         }
+    }
+
+    for (path, rgba) in generated_assets {
+        let image = image::RgbaImage::from_pixel(1, 1, image::Rgba(rgba));
+        let mut encoded = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(image)
+            .write_to(&mut encoded, image::ImageOutputFormat::Png)?;
+        write_new_file(&output.join(path), encoded.get_ref())?;
+        report.generated_resources += 1;
     }
 
     report.post_validation_diagnostics = post_validate(output);

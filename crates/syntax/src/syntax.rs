@@ -151,6 +151,7 @@ pub enum StatementKind {
         display_layer: String,
     },
     Menu {
+        prompt: Option<MenuPrompt>,
         options: Vec<MenuOption>,
     },
     Jump {
@@ -223,6 +224,12 @@ pub struct MenuOption {
     pub id: Option<TranslationId>,
     #[serde(default)]
     pub condition: Option<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MenuPrompt {
+    pub speaker: Option<String>,
+    pub text: String,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

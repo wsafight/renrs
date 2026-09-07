@@ -16,7 +16,15 @@ pub fn extract_catalog(program: &Program) -> Vec<TranslationSource> {
                 kind: TranslationKind::Dialogue,
                 speaker: speaker.clone(),
             }),
-            InstructionKind::Choice { options } => {
+            InstructionKind::Choice { prompt, options } => {
+                if let Some(prompt) = prompt {
+                    entries.push(TranslationSource {
+                        id: prompt.translation_id.clone(),
+                        text: prompt.text.clone(),
+                        kind: TranslationKind::Dialogue,
+                        speaker: prompt.speaker.clone(),
+                    });
+                }
                 entries.extend(options.iter().map(|option| TranslationSource {
                     id: option.translation_id.clone(),
                     text: option.text.clone(),

@@ -7,7 +7,7 @@ use crate::expression::parse_expression;
 use crate::localization::TranslationId;
 use crate::syntax::{
     Block, CallArgument, CharacterDef, CropRect, DefaultDef, DisplayLayerDef, Easing, ImageDef,
-    LabelParameter, MenuOption, Position, Script, Span, Statement, StatementKind,
+    LabelParameter, MenuOption, MenuPrompt, Position, Script, Span, Statement, StatementKind,
     TransformProperties, TransitionKind,
 };
 

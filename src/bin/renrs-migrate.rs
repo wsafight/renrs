@@ -12,9 +12,10 @@ fn main() {
     let output = options.output;
     let report = migrate_project(&input, &output).unwrap_or_else(|error| fail(error.to_string()));
     println!(
-        "converted {} script(s), copied {} resource(s), reported {} issue(s) and {} post-validation diagnostic(s)",
+        "converted {} script(s), copied {} resource(s), generated {} resource(s), reported {} issue(s) and {} post-validation diagnostic(s)",
         report.converted_files,
         report.copied_resources,
+        report.generated_resources,
         report.issues.len(),
         report.post_validation_diagnostics.len()
     );

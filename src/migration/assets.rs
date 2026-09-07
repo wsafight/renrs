@@ -6,6 +6,12 @@ use super::conversion::{LineConversion, unsupported};
 use super::expressions::valid_identifier;
 use super::relative_name;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct GeneratedAsset {
+    pub(super) path: String,
+    pub(super) rgba: [u8; 4],
+}
+
 pub(super) struct AssetCatalog {
     by_name: HashMap<String, String>,
 }
@@ -90,6 +96,15 @@ pub(super) fn convert_image_statement(
                 "scene modifiers (`at`, `as`, `with`, `onlayer`, `zorder`, or `behind`) require manual migration",
                 false,
             );
+        }
+        if assumed && image_tokens == ["black"] {
+            return LineConversion::Generated {
+                value: format!("scene \"{path}\""),
+                asset: GeneratedAsset {
+                    path,
+                    rgba: [0, 0, 0, 255],
+                },
+            };
         }
         return converted_image(format!("scene \"{path}\""), &path, assumed);
     }

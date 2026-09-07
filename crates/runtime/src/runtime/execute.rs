@@ -1,8 +1,7 @@
 use super::{
-    AudioEvent, CallFrame, DialogueState, InstructionKind, MAX_IMMEDIATE_STEPS, MusicState,
-    Runtime, RuntimeError, SpriteState, TransformState, TransitionKind, Value, VisualEffect,
-    WaitState, evaluate, execution, interpolate, parse_text_markup, visible_choice_labels,
-    visible_choices,
+    AudioEvent, CallFrame, InstructionKind, MAX_IMMEDIATE_STEPS, MusicState, Runtime, RuntimeError,
+    SpriteState, TransformState, TransitionKind, Value, VisualEffect, WaitState, evaluate,
+    execution, visible_choice_labels, visible_choices,
 };
 use std::sync::Arc;
 
@@ -67,44 +66,13 @@ impl Runtime {
                     text,
                     translation_id,
                 } => {
-                    if self.stage.nvl
-                        && self.history.len().saturating_sub(self.stage.nvl_start) >= 256
-                    {
-                        return Err(execution(
-                            line,
-                            "NVL page exceeds 256 paragraphs; use nvl clear",
-                        ));
-                    }
-                    let (speaker_name, speaker_color) = if let Some(id) = &speaker {
-                        let character = self.program.characters.get(id).ok_or_else(|| {
-                            RuntimeError::Execution {
-                                line,
-                                message: format!("unknown character `{id}`"),
-                            }
-                        })?;
-                        (Some(character.name.clone()), character.color.clone())
-                    } else {
-                        (None, "#f4f4f5".to_owned())
-                    };
-                    let translated = self
-                        .localizer
-                        .translate_values(&translation_id, &text, &self.variables)
-                        .map_err(|error| execution(line, error.to_string()))?;
-                    let interpolated = interpolate(translated, &self.variables, line)?;
-                    let styled = parse_text_markup(&interpolated)
-                        .map_err(|message| execution(line, message))?;
-                    let dialogue = DialogueState {
-                        voice_path: self.stage.voice.clone(),
-                        statement_id: Some(instruction.statement_id),
-                        speaker_id: speaker,
-                        speaker_name,
-                        speaker_color,
-                        translation_id: Some(translation_id),
-                        text: styled.plain,
-                        runs: styled.runs,
-                    };
-                    Arc::make_mut(&mut self.stage).dialogue = Some(dialogue.clone());
-                    std::sync::Arc::make_mut(&mut self.history).push(dialogue);
+                    self.present_dialogue(
+                        &instruction.statement_id,
+                        speaker.as_deref(),
+                        &text,
+                        &translation_id,
+                        line,
+                    )?;
                     self.instruction += 1;
                     return Ok(self.set_waiting(WaitState::Dialogue));
                 }
@@ -156,7 +124,18 @@ impl Runtime {
                         .retain(|item| item.display_layer != display_layer);
                     self.instruction += 1;
                 }
-                InstructionKind::Choice { options } => {
+                InstructionKind::Choice { prompt, options } => {
+                    if let Some(prompt) = prompt {
+                        self.present_dialogue(
+                            &instruction.statement_id,
+                            prompt.speaker.as_deref(),
+                            &prompt.text,
+                            &prompt.translation_id,
+                            line,
+                        )?;
+                    } else {
+                        Arc::make_mut(&mut self.stage).dialogue = None;
+                    }
                     let labels =
                         visible_choice_labels(&options, &self.variables, &self.localizer, line)?;
                     return Ok(self.set_waiting(WaitState::Choice { options: labels }));
@@ -445,9 +424,10 @@ impl Runtime {
             .instructions
             .get(self.instruction)
             .ok_or(RuntimeError::InvalidInstruction(self.instruction))?;
-        let InstructionKind::Choice { options } = &instruction.kind else {
+        let InstructionKind::Choice { prompt, options } = &instruction.kind else {
             return Err(RuntimeError::NotChoosing);
         };
+        let has_prompt = prompt.is_some();
         let line = instruction.span.line;
         let visible = visible_choices(options, &self.variables, line)?;
         let Some(target) = visible.get(index).map(|option| option.target) else {
@@ -456,6 +436,10 @@ impl Runtime {
                 count: labels.len(),
             });
         };
+        if has_prompt && self.stage.voice.is_some() {
+            Arc::make_mut(&mut self.stage).voice = None;
+            self.audio_events.push(AudioEvent::StopVoice);
+        }
         self.instruction = target;
         self.waiting = None;
         self.advance()

@@ -1,8 +1,9 @@
-use super::assets::{AssetCatalog, convert_image_statement, static_target};
+use super::assets::{AssetCatalog, GeneratedAsset, convert_image_statement, static_target};
 use super::expressions::{
     closing_quote, convert_assignment, convert_condition, convert_default, convert_dialogue,
     convert_expression, escape_string, named_quoted_argument, quoted_argument, valid_identifier,
 };
+use super::menus::{menu_has_explicit_exit, menu_prompt, statement_has_explicit_exit};
 use super::parameters::{split_top_level, static_invocation, top_level_assignment};
 use super::{MigrationIssue, MigrationIssueKind, issue};
 
@@ -10,6 +11,7 @@ use super::{MigrationIssue, MigrationIssueKind, issue};
 pub(super) struct ConvertedScript {
     pub(super) output: String,
     pub(super) issues: Vec<MigrationIssue>,
+    pub(super) generated_assets: Vec<GeneratedAsset>,
 }
 
 #[derive(Debug)]
@@ -17,15 +19,27 @@ pub(super) struct OpenLabel {
     name: String,
     line: usize,
     indent: usize,
-    last_direct_statement: Option<String>,
+    has_explicit_exit: bool,
 }
 
 pub(super) fn convert_script(source: &str, file: &str, catalog: &AssetCatalog) -> ConvertedScript {
     let mut output = String::new();
     let mut issues = Vec::new();
+    let mut generated_assets = Vec::new();
     let mut skipped_block_indent = None;
+    let mut skipped_menu_prompt = None;
     let mut open_label = None;
-    for (index, raw) in source.lines().enumerate() {
+    let lines = source.lines().collect::<Vec<_>>();
+    for (index, raw) in lines.iter().copied().enumerate() {
+        if skipped_menu_prompt == Some(index) {
+            skipped_menu_prompt = None;
+            continue;
+        }
+        let raw = if index == 0 {
+            raw.strip_prefix('\u{feff}').unwrap_or(raw)
+        } else {
+            raw
+        };
         let line = index + 1;
         let indent = raw.len() - raw.trim_start_matches(' ').len();
         let content = raw.trim();
@@ -47,7 +61,14 @@ pub(super) fn convert_script(source: &str, file: &str, catalog: &AssetCatalog) -
             report_label_fallthrough(file, &mut issues, open_label.take());
         }
         let indentation = " ".repeat(indent);
-        match convert_line(content, catalog) {
+        let conversion = menu_prompt(&lines, index, indent).map_or_else(
+            || convert_line(content, catalog),
+            |(prompt_line, prompt)| {
+                skipped_menu_prompt = Some(prompt_line);
+                LineConversion::One(format!("menu {prompt}:"))
+            },
+        );
+        match conversion {
             LineConversion::One(value) => write_line(&mut output, &indentation, &value),
             LineConversion::Assumed { value, message } => {
                 write_line(&mut output, &indentation, &value);
@@ -64,22 +85,34 @@ pub(super) fn convert_script(source: &str, file: &str, catalog: &AssetCatalog) -
                     skipped_block_indent = Some(indent);
                 }
             }
+            LineConversion::Generated { value, asset } => {
+                write_line(&mut output, &indentation, &value);
+                generated_assets.push(asset);
+            }
         }
         if let Some(name) = static_label_name(content) {
             open_label = Some(OpenLabel {
                 name: name.to_owned(),
                 line,
                 indent,
-                last_direct_statement: None,
+                has_explicit_exit: false,
             });
         } else if let Some(label) = &mut open_label
             && indent == label.indent + 4
         {
-            label.last_direct_statement = Some(content.to_owned());
+            label.has_explicit_exit = if content == "menu:" {
+                menu_has_explicit_exit(&lines, index, indent)
+            } else {
+                statement_has_explicit_exit(content)
+            };
         }
     }
     report_label_fallthrough(file, &mut issues, open_label);
-    ConvertedScript { output, issues }
+    ConvertedScript {
+        output,
+        issues,
+        generated_assets,
+    }
 }
 
 fn write_line(output: &mut String, indentation: &str, value: &str) {
@@ -91,8 +124,18 @@ fn write_line(output: &mut String, indentation: &str, value: &str) {
 #[derive(Debug)]
 pub(super) enum LineConversion {
     One(String),
-    Assumed { value: String, message: String },
-    Unsupported { message: String, block: bool },
+    Assumed {
+        value: String,
+        message: String,
+    },
+    Unsupported {
+        message: String,
+        block: bool,
+    },
+    Generated {
+        value: String,
+        asset: GeneratedAsset,
+    },
 }
 
 #[allow(clippy::too_many_lines)]
@@ -356,15 +399,7 @@ pub(super) fn report_label_fallthrough(
     let Some(label) = label else {
         return;
     };
-    let has_explicit_exit = label
-        .last_direct_statement
-        .as_deref()
-        .is_some_and(|statement| {
-            statement == "return"
-                || statement.starts_with("return ")
-                || statement.starts_with("jump ")
-        });
-    if !has_explicit_exit {
+    if !label.has_explicit_exit {
         issues.push(issue(
             file,
             label.line,

@@ -161,7 +161,16 @@ fn definite_assignment_diagnostics(
             InstructionKind::Return { value: Some(value) } => {
                 expression_variables(value, &mut used);
             }
-            InstructionKind::Choice { options } => {
+            InstructionKind::Choice { prompt, options } => {
+                if let Some(prompt) = prompt {
+                    match interpolation_variables(&prompt.text) {
+                        Ok(variables) => used.extend(variables),
+                        Err(message) => diagnostics.push(error_at(&instruction.span, message)),
+                    }
+                    if let Err(message) = validate_text_source(&prompt.text) {
+                        diagnostics.push(error_at(&instruction.span, message));
+                    }
+                }
                 for option in options {
                     if let Some(condition) = &option.condition {
                         expression_variables(condition, &mut used);

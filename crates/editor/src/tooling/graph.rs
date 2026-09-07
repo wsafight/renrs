@@ -50,7 +50,7 @@ fn collect_edges<'a>(
                 }
                 collect_edges(from, else_block, edges);
             }
-            StatementKind::Menu { options } => {
+            StatementKind::Menu { options, .. } => {
                 for option in options {
                     collect_edges(from, &option.block, edges);
                 }

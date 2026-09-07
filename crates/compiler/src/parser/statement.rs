@@ -1,6 +1,6 @@
 use super::{
-    CropRect, Cursor, Diagnostic, Easing, Parser, Statement, StatementKind, TransformProperties,
-    TransitionKind, TranslationId, parse_expression,
+    CropRect, Cursor, Diagnostic, Easing, MenuPrompt, Parser, Statement, StatementKind,
+    TransformProperties, TransitionKind, TranslationId, parse_expression,
 };
 
 impl Parser {
@@ -128,6 +128,25 @@ impl Parser {
         } else if cursor.keyword("clear") {
             self.parse_clear_layer(&line, &mut cursor)?
         } else if cursor.keyword("menu") {
+            let prompt = if cursor.peek_non_space() == Some(':') {
+                None
+            } else {
+                let speaker = if cursor.peek_non_space() == Some('"') {
+                    None
+                } else {
+                    Some(cursor.identifier().ok_or_else(|| {
+                        self.error(
+                            &line,
+                            cursor.column(),
+                            "expected menu prompt speaker or text",
+                        )
+                    })?)
+                };
+                let text = cursor
+                    .string()
+                    .map_err(|message| self.error(&line, cursor.column(), message))?;
+                Some(MenuPrompt { speaker, text })
+            };
             cursor
                 .symbol(':')
                 .map_err(|message| self.error(&line, cursor.column(), message))?;
@@ -136,6 +155,7 @@ impl Parser {
                 .map_err(|message| self.error(&line, cursor.column(), message))?;
             self.current += 1;
             StatementKind::Menu {
+                prompt,
                 options: self.parse_menu(indent + 4)?,
             }
         } else if cursor.keyword("jump") {

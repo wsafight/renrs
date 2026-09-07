@@ -1,6 +1,5 @@
 use super::app::App;
-use super::text::draw_text;
-use super::ui_common::{ButtonState, button, color, ellipsize, slot_button, wrap_lines};
+use super::ui_common::{ButtonState, button, color, draw_text_block, ellipsize, slot_button};
 use super::ui_screen_actions::ScreenCommand;
 use crate::frontend::{FocusAxis, FocusScope, UiAction, UiActions};
 use macroquad::prelude::*;
@@ -188,7 +187,11 @@ impl App {
                         .map(renrs::Runtime::shared_stage)
                         .unwrap_or_default();
                     if let Some(dialogue) = &stage.dialogue {
-                        self.draw_dialogue(dialogue, mouse, actions);
+                        let interactive = matches!(
+                            self.runtime.as_ref().and_then(renrs::Runtime::waiting),
+                            Some(renrs::WaitState::Dialogue)
+                        );
+                        self.draw_dialogue(dialogue, mouse, actions, interactive);
                     }
                     self.theme = previous;
                 }
@@ -471,28 +474,5 @@ impl App {
             ),
         );
         renrs::runtime::format_text(text, &variables).unwrap_or_else(|_| text.to_owned())
-    }
-}
-
-fn draw_text_block(text: &str, rect: Rect, mut size: u16, tint: Color) {
-    let mut lines = wrap_lines(text, rect.w, size);
-    while size > 12 && lines.len() as f32 * f32::from(size + 4) > rect.h {
-        size -= 1;
-        lines = wrap_lines(text, rect.w, size);
-    }
-    let rows = (rect.h / f32::from(size + 4)).floor().max(1.0) as usize;
-    for (index, line) in lines.iter().take(rows).enumerate() {
-        let text = if index + 1 == rows && lines.len() > rows {
-            ellipsize(&format!("{line} ..."), rect.w, size)
-        } else {
-            line.clone()
-        };
-        draw_text(
-            text,
-            rect.x,
-            rect.y + f32::from(size) + index as f32 * f32::from(size + 4),
-            f32::from(size),
-            tint,
-        );
     }
 }

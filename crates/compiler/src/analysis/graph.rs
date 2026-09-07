@@ -35,7 +35,7 @@ impl ControlFlowGraph {
                             None => valid_targets([next, Some(*target)], length),
                         }
                     }
-                    InstructionKind::Choice { options } => options
+                    InstructionKind::Choice { options, .. } => options
                         .iter()
                         .map(|option| option.target)
                         .filter(|target| *target < length)

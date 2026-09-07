@@ -158,6 +158,22 @@ menu:
 每个 `menu` 至少声明两个选项。`if` 条件为假时选项不会显示；即使运行时只有一个选项可见，
 仍按菜单处理。条件必须产生布尔值。
 
+菜单可在头部声明与选项同时显示的旁白或角色提示，不会增加一次继续操作：
+
+```text
+menu "Choose a route":
+    "Left":
+        jump left
+    "Right":
+        jump right
+
+menu e "What should we do?":
+    "Stay":
+        return
+    "Leave":
+        jump outside
+```
+
 ## 标签参数与返回值
 
 ```text

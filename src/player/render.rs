@@ -60,11 +60,19 @@ impl App {
                 self.theme = self.dialogue_theme();
                 let nvl = self.dialogue_view.nvl.clone();
                 if let Some(dialogue) = nvl.as_deref().or(stage.dialogue.as_ref()) {
-                    self.draw_dialogue(dialogue, mouse, actions);
+                    self.draw_dialogue(dialogue, mouse, actions, true);
                 }
                 self.theme = previous;
             }
-            Some(WaitState::Choice { options }) => self.draw_choices(&options, mouse, actions),
+            Some(WaitState::Choice { options }) => {
+                if let Some(dialogue) = &stage.dialogue {
+                    let previous = self.theme.clone();
+                    self.theme = self.dialogue_theme();
+                    self.draw_dialogue(dialogue, mouse, actions, false);
+                    self.theme = previous;
+                }
+                self.draw_choices(&options, mouse, actions);
+            }
             Some(WaitState::Finished) => self.draw_finished(mouse, actions),
             Some(WaitState::Effect {
                 effect: VisualEffect::Fade { seconds },
@@ -291,6 +299,7 @@ impl App {
         dialogue: &renrs::runtime::DialogueState,
         mouse: Vec2,
         actions: &UiActions,
+        interactive: bool,
     ) {
         let layout = self.theme.layout.dialogue_rect;
         let panel = Rect::new(layout.x, layout.y, layout.width, layout.height);
@@ -324,7 +333,7 @@ impl App {
         self.dialogue_view.draw(visible, &self.theme);
         let advance = panel.contains(mouse) && is_mouse_button_pressed(MouseButton::Left)
             || (self.focus.selected().is_none() && actions.pressed(UiAction::Activate));
-        if advance {
+        if interactive && advance {
             if visible < count {
                 self.visible_characters = count as f32;
             } else {

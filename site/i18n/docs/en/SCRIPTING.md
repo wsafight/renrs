@@ -183,6 +183,23 @@ Each `menu` declares at least two options. An option with a false `if` is hidden
 Even if only one option is visible at runtime, it is still a menu. Conditions must
 produce booleans.
 
+A menu may declare a narrated or spoken prompt in its header. The prompt remains
+visible with the options and does not add another continue interaction:
+
+```text
+menu "Choose a route":
+    "Left":
+        jump left
+    "Right":
+        jump right
+
+menu e "What should we do?":
+    "Stay":
+        return
+    "Leave":
+        jump outside
+```
+
 ## Label parameters and return values
 
 ```text

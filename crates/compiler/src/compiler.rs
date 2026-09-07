@@ -19,7 +19,8 @@ use crate::syntax::{Script, Span};
 use ids::stable_statement_id;
 use lower::Compiler;
 pub use model::{
-    ChoiceTarget, CompileError, Instruction, InstructionId, InstructionKind, Program, StatementId,
+    ChoicePrompt, ChoiceTarget, CompileError, Instruction, InstructionId, InstructionKind, Program,
+    StatementId,
 };
 
 /// Compiles a validated syntax tree into executable, flat instructions.
@@ -169,9 +170,10 @@ fn validate_translation_ids(instructions: &[Instruction]) -> Result<(), CompileE
         .iter()
         .flat_map(|instruction| match &instruction.kind {
             InstructionKind::Dialogue { translation_id, .. } => vec![translation_id],
-            InstructionKind::Choice { options } => options
+            InstructionKind::Choice { prompt, options } => prompt
                 .iter()
-                .map(|option| &option.translation_id)
+                .map(|prompt| &prompt.translation_id)
+                .chain(options.iter().map(|option| &option.translation_id))
                 .collect(),
             _ => Vec::new(),
         })
@@ -215,15 +217,19 @@ mod tests {
     #[test]
     fn compiles_menu_targets_and_labels() {
         let script = parse_script(
-            "label start:\n    menu:\n        \"A\":\n            jump end\n        \"B\":\n            \"B\"\nlabel end:\n    return",
+            "label start:\n    menu \"Choose\":\n        \"A\":\n            jump end\n        \"B\":\n            \"B\"\nlabel end:\n    return",
             "test.rns",
         )
         .unwrap();
         let program = compile(&script).unwrap();
         assert_eq!(program.labels.len(), 2);
-        let InstructionKind::Choice { options } = &program.instructions[0].kind else {
+        let InstructionKind::Choice { prompt, options } = &program.instructions[0].kind else {
             panic!("first instruction should be a choice");
         };
+        assert_eq!(
+            prompt.as_ref().map(|prompt| prompt.text.as_str()),
+            Some("Choose")
+        );
         assert_eq!(options.len(), 2);
         assert_ne!(options[0].target, options[1].target);
         assert_eq!(program.instruction_by_id.len(), program.instructions.len());

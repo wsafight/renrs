@@ -155,7 +155,13 @@ impl Validator<'_> {
                     }
                     self.block(else_block);
                 }
-                StatementKind::Menu { options } => {
+                StatementKind::Menu { prompt, options } => {
+                    if let Some(speaker) =
+                        prompt.as_ref().and_then(|prompt| prompt.speaker.as_ref())
+                        && !self.script.characters.contains_key(speaker)
+                    {
+                        self.push(&statement.span, format!("unknown character `{speaker}`"));
+                    }
                     for option in options {
                         if let Some(condition) = &option.condition {
                             self.expression(condition, &option.span);
@@ -248,7 +254,7 @@ fn collect_assignments(block: &Block, assigned: &mut HashSet<String>) {
                 }
                 collect_assignments(else_block, assigned);
             }
-            StatementKind::Menu { options } => {
+            StatementKind::Menu { options, .. } => {
                 for option in options {
                     collect_assignments(&option.block, assigned);
                 }

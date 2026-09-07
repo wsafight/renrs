@@ -1,3 +1,4 @@
+use super::dialogue::{DialogueRequest, resolve_dialogue};
 use super::{
     AudioEvent, BTreeMap, DialogueState, InstructionId, InstructionKind, Localizer,
     MAX_ROLLBACK_CHECKPOINTS, Program, ReloadReport, RollbackCheckpoint, Runtime, RuntimeError,
@@ -227,8 +228,9 @@ impl Runtime {
             .program
             .instructions
             .get(self.instruction)
+            .cloned()
             .ok_or(RuntimeError::InvalidInstruction(self.instruction))?;
-        let InstructionKind::Choice { options } = &instruction.kind else {
+        let InstructionKind::Choice { prompt, options } = &instruction.kind else {
             return Err(RuntimeError::InvalidWaitState);
         };
         let labels = visible_choice_labels(
@@ -237,6 +239,29 @@ impl Runtime {
             &self.localizer,
             instruction.span.line,
         )?;
+        let prompt = prompt
+            .as_ref()
+            .map(|prompt| {
+                resolve_dialogue(
+                    &self.program,
+                    &self.localizer,
+                    &self.variables,
+                    DialogueRequest {
+                        voice_path: self.stage.voice.clone(),
+                        statement_id: &instruction.statement_id,
+                        speaker: prompt.speaker.as_deref(),
+                        text: &prompt.text,
+                        translation_id: &prompt.translation_id,
+                        line: instruction.span.line,
+                    },
+                )
+            })
+            .transpose()?;
+        if let Some(prompt) = prompt {
+            self.replace_presented_dialogue(prompt);
+        } else {
+            std::sync::Arc::make_mut(&mut self.stage).dialogue = None;
+        }
         self.waiting = Some(WaitState::Choice { options: labels });
         Ok(())
     }

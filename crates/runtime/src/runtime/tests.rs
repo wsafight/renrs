@@ -10,7 +10,7 @@ fn executes_choice_and_condition() {
     let mut runtime = runtime(
         r#"label start:
     set score = 1
-    menu:
+    menu "Score: {score}. Choose":
         "Gain":
             set score = score + 1
         "Wait":
@@ -25,6 +25,11 @@ fn executes_choice_and_condition() {
         runtime.advance().unwrap(),
         WaitState::Choice { .. }
     ));
+    assert_eq!(
+        runtime.stage().dialogue.as_ref().unwrap().text,
+        "Score: 1. Choose"
+    );
+    assert_eq!(runtime.history().len(), 1);
     assert_eq!(runtime.choose(0).unwrap(), WaitState::Dialogue);
     assert_eq!(runtime.stage().dialogue.as_ref().unwrap().text, "Score: 2");
 }

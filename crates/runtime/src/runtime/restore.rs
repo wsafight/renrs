@@ -246,7 +246,7 @@ fn restore_wait_state(
             Err(RuntimeError::InvalidWaitState)
         }
         Some(WaitState::Choice { .. }) => {
-            let Some(InstructionKind::Choice { options }) =
+            let Some(InstructionKind::Choice { options, .. }) =
                 program.instructions.get(instruction).map(|item| &item.kind)
             else {
                 return Err(RuntimeError::InvalidWaitState);

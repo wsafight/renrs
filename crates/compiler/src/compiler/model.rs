@@ -186,6 +186,7 @@ pub enum InstructionKind {
         display_layer: String,
     },
     Choice {
+        prompt: Option<ChoicePrompt>,
         options: Vec<ChoiceTarget>,
     },
     Jump {
@@ -255,6 +256,13 @@ pub struct ChoiceTarget {
     pub target: usize,
     pub translation_id: TranslationId,
     pub condition: Option<Expr>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChoicePrompt {
+    pub speaker: Option<String>,
+    pub text: String,
+    pub translation_id: TranslationId,
 }
 
 #[derive(Debug, Error)]

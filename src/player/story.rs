@@ -86,6 +86,7 @@ impl App {
                 }
             }
             Ok(WaitState::Choice { .. }) => {
+                self.visible_characters = f32::MAX;
                 self.selected_choice = 0;
                 self.playback.skip_read = false;
                 self.focus.clear();
