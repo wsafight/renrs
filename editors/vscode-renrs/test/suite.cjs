@@ -39,6 +39,6 @@ exports.run = async function () {
     await fs.rm(fixturePath, {force: true});
   }
   const commands = await vscode.commands.getCommands();
-  for (const command of ['renrs.init', 'renrs.run', 'renrs.build', 'renrs.setup', 'renrs.webBuild', 'renrs.accept', 'renrs.checkSaves', 'renrs.openScreens', 'renrs.openTheme']) assert(commands.includes(command));
+  for (const command of ['renrs.init', 'renrs.run', 'renrs.build', 'renrs.setup', 'renrs.webBuild', 'renrs.accept', 'renrs.checkSaves', 'renrs.openScreens', 'renrs.openTheme', 'renrs.migrate', 'renrs.migrationReport', 'renrs.inspect', 'renrs.impact', 'renrs.graph']) assert(commands.includes(command));
   console.log('RenRS extension host checks passed');
 };

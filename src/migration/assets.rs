@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 
+use super::atl::TransformCatalog;
 use super::conversion::{LineConversion, unsupported};
-use super::expressions::valid_identifier;
+use super::expressions::{escape_string, quoted_argument, valid_identifier};
 use super::relative_name;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,6 +15,7 @@ pub(super) struct GeneratedAsset {
 
 pub(super) struct AssetCatalog {
     by_name: HashMap<String, String>,
+    resources: Vec<String>,
 }
 
 impl AssetCatalog {
@@ -39,7 +41,8 @@ impl AssetCatalog {
                 .entry(stem.replace('_', " ").to_ascii_lowercase())
                 .or_insert(relative);
         }
-        Self { by_name }
+        let resources = files.iter().map(|path| relative_name(root, path)).collect();
+        Self { by_name, resources }
     }
 
     fn resolve(&self, tokens: &[&str]) -> (String, bool) {
@@ -55,6 +58,7 @@ impl AssetCatalog {
     pub(super) fn empty() -> Self {
         Self {
             by_name: HashMap::new(),
+            resources: Vec::new(),
         }
     }
 
@@ -62,7 +66,21 @@ impl AssetCatalog {
     pub(super) fn with_image(name: &str, path: &str) -> Self {
         Self {
             by_name: HashMap::from([(name.to_owned(), path.to_owned())]),
+            resources: vec![path.to_owned()],
         }
+    }
+
+    pub(super) fn find_resource(&self, requested: &str) -> Option<&str> {
+        self.resources
+            .iter()
+            .find(|path| {
+                path.eq_ignore_ascii_case(requested)
+                    || Path::new(path)
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .is_some_and(|name| name.eq_ignore_ascii_case(requested))
+            })
+            .map(String::as_str)
     }
 }
 
@@ -71,6 +89,7 @@ pub(super) fn convert_image_statement(
     kind: &str,
     source: &str,
     catalog: &AssetCatalog,
+    transforms: &TransformCatalog,
 ) -> LineConversion {
     if source.starts_with("expression ") {
         return unsupported("dynamic image expressions require manual migration", false);
@@ -133,13 +152,16 @@ pub(super) fn convert_image_statement(
                 let Some(value) = tokens.get(index + 1).copied() else {
                     return unsupported("show `at` clause is missing a position", false);
                 };
-                if !matches!(value, "left" | "center" | "right") {
+                if !matches!(value, "left" | "center" | "right") && transforms.get(value).is_none()
+                {
                     return unsupported(
                         "only the static `left`, `center`, and `right` transforms can be migrated",
                         false,
                     );
                 }
-                position = value;
+                position = transforms
+                    .get(value)
+                    .map_or(value, |transform| transform.position.unwrap_or("center"));
                 saw_position = true;
                 index += 2;
             }
@@ -195,7 +217,51 @@ pub(super) fn convert_image_statement(
     if let Some(zorder) = zorder {
         write!(value, " zorder {zorder}").expect("writing to a String cannot fail");
     }
+    if let Some(name) = tokens.get(modifier..).and_then(|tokens| {
+        tokens
+            .windows(2)
+            .find(|pair| pair[0] == "at")
+            .map(|pair| pair[1])
+    }) && let Some(transform) = transforms.get(name)
+    {
+        for statement in transform.statements(alias) {
+            write!(value, "\n{statement}").expect("writing to a String cannot fail");
+        }
+        if let Some(message) = transform.assumption() {
+            return LineConversion::Assumed { value, message };
+        }
+    }
     converted_image(value, &path, assumed)
+}
+
+pub(super) fn convert_image_declaration(source: &str, catalog: &AssetCatalog) -> LineConversion {
+    let Some((name, value)) = source
+        .strip_prefix("image ")
+        .and_then(|rest| rest.split_once('='))
+    else {
+        return unsupported("image declaration must use a static assignment", false);
+    };
+    let parts = name.split_whitespace().collect::<Vec<_>>();
+    if parts.is_empty() || parts.iter().any(|part| !valid_identifier(part)) {
+        return unsupported("image declaration name must be static", false);
+    }
+    let Some(path) = quoted_argument(value.trim()) else {
+        return unsupported(
+            "only image declarations with a static file path are supported",
+            false,
+        );
+    };
+    let Some(path) = catalog.find_resource(&path) else {
+        return unsupported(
+            "image declaration path does not name a source resource",
+            false,
+        );
+    };
+    LineConversion::One(format!(
+        "image {} = \"{}\"",
+        parts.join("_"),
+        escape_string(path)
+    ))
 }
 
 fn converted_image(value: String, path: &str, assumed: bool) -> LineConversion {
@@ -225,13 +291,23 @@ mod tests {
     #[test]
     fn preserves_alias_and_rejects_attached_transition() {
         let catalog = AssetCatalog::with_image("eileen happy", "images/eileen_happy.png");
-        let supported = convert_image_statement("show", "eileen happy as hero at left", &catalog);
+        let supported = convert_image_statement(
+            "show",
+            "eileen happy as hero at left",
+            &catalog,
+            &TransformCatalog::default(),
+        );
         assert!(matches!(
             supported,
             LineConversion::One(ref value)
                 if value == "show \"images/eileen_happy.png\" as hero at left"
         ));
-        let attached = convert_image_statement("show", "eileen happy with dissolve", &catalog);
+        let attached = convert_image_statement(
+            "show",
+            "eileen happy with dissolve",
+            &catalog,
+            &TransformCatalog::default(),
+        );
         assert!(matches!(
             attached,
             LineConversion::Unsupported { ref message, .. }
@@ -242,15 +318,24 @@ mod tests {
     #[test]
     fn converts_standard_display_layer_and_static_zorder() {
         let catalog = AssetCatalog::with_image("eileen happy", "images/eileen_happy.png");
-        let converted =
-            convert_image_statement("show", "eileen happy onlayer transient zorder 20", &catalog);
+        let converted = convert_image_statement(
+            "show",
+            "eileen happy onlayer transient zorder 20",
+            &catalog,
+            &TransformCatalog::default(),
+        );
         assert!(matches!(
             converted,
             LineConversion::One(ref value)
                 if value == "show \"images/eileen_happy.png\" as eileen at center onlayer transient zorder 20"
         ));
         assert!(matches!(
-            convert_image_statement("show", "eileen happy onlayer custom", &catalog),
+            convert_image_statement(
+                "show",
+                "eileen happy onlayer custom",
+                &catalog,
+                &TransformCatalog::default(),
+            ),
             LineConversion::Unsupported { ref message, .. }
                 if message.contains("standard static")
         ));

@@ -65,6 +65,11 @@
       {"command": "renrs.checkSaves", "title": "RenRS: Check Saved Games"},
       {"command": "renrs.openScreens", "title": "RenRS: Open Screens"},
       {"command": "renrs.openTheme", "title": "RenRS: Open Theme"},
+      {"command": "renrs.migrate", "title": "RenRS: Migrate Ren'Py Project"},
+      {"command": "renrs.migrationReport", "title": "RenRS: Open Migration Report"},
+      {"command": "renrs.inspect", "title": "RenRS: Inspect Story"},
+      {"command": "renrs.impact", "title": "RenRS: Analyze Project Impact"},
+      {"command": "renrs.graph", "title": "RenRS: Story Graph"},
       {
         "command": "renrs.init",
         "title": "RenRS: New Project"

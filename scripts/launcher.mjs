@@ -20,7 +20,7 @@ async function persist() { await mkdir(path.dirname(statePath), {recursive: true
 function binary(name, sdk = state.sdk) { return path.join(sdk, existsSync(path.join(sdk, 'bin')) ? 'bin' : '', `${name}${process.platform === 'win32' ? '.exe' : ''}`); }
 async function sdkStatus(sdk = state.sdk) {
   const tools = {};
-  for (const name of ['renrs', 'renrs-init', 'renrs-check', 'renrs-inspect', 'renrs-build', 'renrs-pack', 'renrs-web-build', 'renrs-graph']) tools[name] = existsSync(binary(name, sdk));
+  for (const name of ['renrs', 'renrs-init', 'renrs-check', 'renrs-inspect', 'renrs-impact', 'renrs-migrate', 'renrs-build', 'renrs-pack', 'renrs-web-build', 'renrs-graph']) tools[name] = existsSync(binary(name, sdk));
   return {path: sdk, tools, ready: Object.values(tools).every(Boolean)};
 }
 function machine(executable, commandArguments, timeout = 60000) {
@@ -68,6 +68,13 @@ async function api(request, url) {
     if (url.pathname === '/api/scripts') return scripts(project(url.searchParams.get('id')).path);
     if (url.pathname === '/api/script') { const file = await resource(project(url.searchParams.get('id')), url.searchParams.get('file')); if (!file.endsWith('.rns')) throw new Error('Expected .rns'); const text = await readFile(file, 'utf8'); return {text, revision: digest(text)}; }
     if (url.pathname === '/api/inspection') { const item = project(url.searchParams.get('id')); return machine(binary('renrs-inspect'), [item.path]); }
+    if (url.pathname === '/api/migration-report') {
+      const item = project(url.searchParams.get('id'));
+      if (!existsSync(path.join(item.path, 'migration-report.json'))) return null;
+      const file = await resource(item, 'migration-report.json');
+      if ((await stat(file)).size > 4 * 1024 * 1024) throw new Error('Migration report exceeds 4 MiB');
+      return JSON.parse(await readFile(file, 'utf8'));
+    }
     throw new Error('Unknown endpoint');
   }
   if (request.method !== 'POST') throw new Error('Method not allowed');
@@ -82,6 +89,17 @@ async function api(request, url) {
       if (existsSync(destination)) throw new Error('Destination already exists');
       const job = jobs.start('Create project', binary('renrs-init'), [destination, '--title', data.title, '--id', data.projectId, '--template', data.template || 'story'], root, 600000, () => register(destination));
       return jobs.public(job);
+    }
+    case '/api/migrate': {
+      const source = await realpath(data.source), destination = path.resolve(data.output);
+      if (existsSync(destination)) throw new Error('Migration destination already exists');
+      const job = jobs.start('Migrate Ren\'Py project', binary('renrs-migrate'), [source, destination], root, 600000, () => register(destination));
+      return jobs.public(job);
+    }
+    case '/api/impact': {
+      const baseline = project(data.baseline), candidate = project(data.candidate);
+      if (baseline.id === candidate.id) throw new Error('Select two different projects');
+      return machine(binary('renrs-impact'), [baseline.path, candidate.path]);
     }
     case '/api/script': {
       const file = await resource(project(data.id), data.file); if (!file.endsWith('.rns') || typeof data.text !== 'string') throw new Error('Expected script');

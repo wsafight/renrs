@@ -42,7 +42,8 @@ cargo run --bin renrs-debug -- test my-story my-story/routes.json
 目标目录必须不存在。模板包含背景、立绘、两条路线、中文 catalog、主题和标题/HUD 界面。
 安装本地 [VS Code 扩展](../editors/vscode-renrs/README.md) 后，可使用 LSP、项目诊断、资源预览、
 运行、构建和路线测试命令；通过 `renrs.toolsPath` 指定工具目录。资源管理器中的 RenRS Project
-面板还提供界面/主题入口、Web 构建、发布验收和当前版本存档检查。
+面板还提供 Ren'Py 迁移、带原始 `.rpy` 位置的迁移诊断、项目检查、影响分析、剧情图、界面/主题、
+Web 构建、发布验收和当前版本存档检查。迁移器不会为不确定规则提供自动修改。
 
 剧情状态查看、录制、重放和有界分支探索见 [剧情调试](DEBUGGING.md)。
 中型项目生成与 `renrs-bench` 的测量范围见 [规模与运行验证](VALIDATION.md)。
@@ -175,6 +176,9 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 迁移器不加载 Ren'Py、不执行 Python。它在转换后重新解析、校验、编译和分析，并把问题写入
 `migration-report.json`。`--strict` 在存在 assumption、unsupported 或后验证诊断时以失败退出，
 适合 CI。完整范围见 [迁移手册](MIGRATION.md)。
+
+Launcher 可直接选择 Ren'Py 源目录和新的输出目录，迁移成功后自动注册项目；质量视图读取
+`migration-report.json`，并可选择另一个已注册项目作为 `renrs-impact` 基线。
 
 ## 本地发布包
 

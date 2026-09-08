@@ -3,8 +3,10 @@
 This local extension connects to the existing RenRS command-line tools. It has
 syntax highlighting, LSP navigation/formatting/completion, project diagnostics,
 image/audio previews, and commands to initialize, run, build, and test stories.
-The RenRS Project view in Explorer also opens screens and themes, builds Web
-distributions, runs release acceptance, and checks current-build saved games.
+The RenRS Project view in Explorer also migrates Ren'Py projects, publishes migration
+issues at original `.rpy` locations, inspects variables/reachability/coverage, compares
+project impact, emits the story graph, opens screens and themes, builds Web distributions,
+runs release acceptance, and checks current-build saved games.
 Acceptance results appear in the RenRS output channel.
 
 Build the tools with `cargo build --bins`. Set `renrs.toolsPath` to the absolute

@@ -63,7 +63,9 @@ a real backend.
 4. **Performance**: real project samples and font-cache budgets. Incremental compile is shipped.
 5. **Shipping platforms**: native Rust mobile rendering, Capacitor device matrix, signing/notarization external acceptance, store SDKs, and a network auto-update client.
 6. **Advanced narrative state**: fixed rollback, finer preference sync, and cloud saves.
-7. **Migration coverage**: screens, ATL, complex image expressions, dynamic jump/call, custom statements, and a real-project compatibility sample library.
+7. **Migration coverage**: default screens, a common static ATL subset, and the first
+   real-sample baseline are shipped. Complex image expressions, parameterized/looping
+   ATL, dynamic jump/call, custom statements, and a broader real-project corpus remain.
 8. **Extension mechanism**: do not embed Python. If needed, evaluate a least-privilege WASM plugin API separately.
 
 ## Recommended order
@@ -91,8 +93,8 @@ changes, while the agent plans and edits.
    no proposed change was supplied.
 4. Publish `SKILL.md`, `llms.txt`, JSON Schemas, and a machine-interface version policy that
    defines editing steps and mandatory checks.
-5. [-] The launcher now displays checks, route tests, coverage, and localization. Preview
-   captures and impact-report integration remain.
+5. [x] The launcher displays checks, variables, route tests, coverage, localization,
+   migration and impact reports, and a project capture preview.
 6. Once the interface is stable, provide a thin MCP server focused on reads and validation.
    Mutations must return target files and diffs.
 7. Have the owner or an external author validate human-agent collaboration on a real work.

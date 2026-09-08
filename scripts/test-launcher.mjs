@@ -1,6 +1,6 @@
 import {spawn} from 'node:child_process';
 import {existsSync} from 'node:fs';
-import {mkdtemp, readFile, realpath, rm} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, realpath, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 
@@ -64,6 +64,7 @@ try {
   const base = await origin();
   const initial = await request(base, '/api/state');
   if (!initial.sdk.ready) throw new Error('Packaged SDK does not expose all Launcher tools');
+  if (!initial.sdk.tools['renrs-migrate'] || !initial.sdk.tools['renrs-impact']) throw new Error('Launcher SDK status omits migration or impact tools');
 
   const projectPath = path.join(temporary, 'story');
   await job(base, await request(base, '/api/create', {
@@ -76,6 +77,31 @@ try {
   const canonicalProject = await realpath(projectPath);
   const project = state.projects.find(item => item.path === canonicalProject);
   if (!project) throw new Error('Created project was not registered');
+
+  const comparisonPath = path.join(temporary, 'comparison');
+  await job(base, await request(base, '/api/create', {
+    path: comparisonPath,
+    title: 'Launcher Acceptance',
+    projectId: 'org.renrs.launcher_acceptance',
+    template: 'story',
+  }));
+  const comparisonState = await request(base, '/api/state');
+  const canonicalComparison = await realpath(comparisonPath);
+  const comparison = comparisonState.projects.find(item => item.path === canonicalComparison);
+  const impact = await request(base, '/api/impact', {baseline: project.id, candidate: comparison.id});
+  if (impact.protocol_version !== 1 || !impact.ok || impact.data.changed) throw new Error('Launcher impact analysis did not compare equivalent projects');
+
+  const renpyPath = path.join(temporary, 'renpy');
+  const migratedPath = path.join(temporary, 'migrated');
+  await mkdir(renpyPath);
+  await writeFile(path.join(renpyPath, 'script.rpy'), 'label start:\n    "Migrated"\n    return\n');
+  await job(base, await request(base, '/api/migrate', {source: renpyPath, output: migratedPath}));
+  const migratedState = await request(base, '/api/state');
+  const canonicalMigrated = await realpath(migratedPath);
+  const migrated = migratedState.projects.find(item => item.path === canonicalMigrated);
+  if (!migrated) throw new Error('Migrated project was not registered');
+  const migrationReport = await request(base, `/api/migration-report?id=${encodeURIComponent(migrated.id)}`);
+  if (migrationReport.version !== 1 || migrationReport.post_validation_diagnostics.length) throw new Error('Launcher did not expose the migration report');
 
   const inspection = await request(base, `/api/inspection?id=${encodeURIComponent(project.id)}`);
   if (inspection.protocol_version !== 1 || !inspection.ok) throw new Error('Launcher inspection did not return a valid machine report');
@@ -112,6 +138,8 @@ try {
   }
 
   await request(base, '/api/remove', {id: project.id});
+  await request(base, '/api/remove', {id: comparison.id});
+  await request(base, '/api/remove', {id: migrated.id});
   if (!existsSync(path.join(projectPath, scriptFile))) throw new Error('Removing a project deleted its files');
   if ((await request(base, '/api/state')).projects.some(item => item.id === project.id)) {
     throw new Error('Removed project is still registered');

@@ -34,7 +34,8 @@ async function activate(context) {
   require('./project-view').registerProjectView(context);
   const output = vscode.window.createOutputChannel('RenRS');
   const diagnostics = vscode.languages.createDiagnosticCollection('renrs-project');
-  context.subscriptions.push(output, diagnostics);
+  const migrationDiagnostics = vscode.languages.createDiagnosticCollection('renrs-migration');
+  context.subscriptions.push(output, diagnostics, migrationDiagnostics);
   async function command(name, args, root) {
     output.show(true);
     try {
@@ -75,10 +76,66 @@ async function activate(context) {
       try { await callback(); } catch (error) { vscode.window.showErrorMessage(`RenRS: ${error.message}`); }
     }));
   }
+  async function showJson(content) {
+    const document = await vscode.workspace.openTextDocument({language: 'json', content: JSON.stringify(content, null, 2)});
+    await vscode.window.showTextDocument(document, vscode.ViewColumn.Beside);
+  }
+  function publishMigrationDiagnostics(report, source) {
+    migrationDiagnostics.clear();
+    const grouped = new Map();
+    for (const item of report.issues || []) {
+      const uri = vscode.Uri.file(path.resolve(source, item.file));
+      const line = Math.max(0, item.line - 1);
+      const diagnostic = new vscode.Diagnostic(new vscode.Range(line, 0, line, 1), item.message,
+        item.kind === 'unsupported' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning);
+      diagnostic.source = 'renrs-migration';
+      diagnostic.code = item.code;
+      const entry = grouped.get(uri.toString()) || [uri, []];
+      entry[1].push(diagnostic);
+      grouped.set(uri.toString(), entry);
+    }
+    migrationDiagnostics.set([...grouped.values()]);
+  }
   register('renrs.check', check);
   register('renrs.setup', async () => {
     const selected = await vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false, openLabel: 'Select RenRS tools' });
     if (selected) await configuration().update('toolsPath', selected[0].fsPath, vscode.ConfigurationTarget.Global);
+  });
+  register('renrs.migrate', async () => {
+    const selected = await vscode.window.showOpenDialog({canSelectFiles: true, canSelectFolders: true, canSelectMany: false, filters: {'Ren\'Py project': ['rpy']}, openLabel: 'Select Ren\'Py source'});
+    if (!selected) return;
+    const destination = await vscode.window.showSaveDialog({defaultUri: vscode.Uri.file(`${selected[0].fsPath}-renrs`), saveLabel: 'Migrate'});
+    if (!destination) return;
+    await command('renrs-migrate', [selected[0].fsPath, destination.fsPath], path.dirname(selected[0].fsPath));
+    const reportPath = path.join(destination.fsPath, 'migration-report.json');
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    publishMigrationDiagnostics(report, report.source_root || path.dirname(selected[0].fsPath));
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(reportPath));
+  });
+  register('renrs.migrationReport', async () => {
+    const reportPath = path.join(project(), 'migration-report.json');
+    if (!fs.existsSync(reportPath)) throw new Error('This project has no migration-report.json.');
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    publishMigrationDiagnostics(report, report.source_root || project());
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(reportPath));
+  });
+  register('renrs.inspect', async () => {
+    await vscode.workspace.saveAll(false);
+    const root = project();
+    const result = await command('renrs-inspect', [root], root);
+    await showJson(JSON.parse(result.stdout));
+  });
+  register('renrs.impact', async () => {
+    const selected = await vscode.window.showOpenDialog({canSelectFiles: false, canSelectFolders: true, canSelectMany: false, openLabel: 'Select baseline project'});
+    if (!selected) return;
+    await vscode.workspace.saveAll(false);
+    const candidate = project();
+    const result = await command('renrs-impact', [selected[0].fsPath, candidate], candidate);
+    await showJson(JSON.parse(result.stdout));
+  });
+  register('renrs.graph', async () => {
+    await vscode.workspace.saveAll(false);
+    await command('renrs-graph', [project()], project());
   });
   register('renrs.run', async () => {
     await vscode.workspace.saveAll(false);

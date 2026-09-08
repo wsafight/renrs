@@ -1,0 +1,15 @@
+{
+  "converted_files": 5,
+  "copied_resources": 61,
+  "generated_resources": 1,
+  "generated_support_files": 2,
+  "issues": 17,
+  "assumptions": 13,
+  "unsupported": 4,
+  "required_codes": [
+    "default_screens_replaced",
+    "statement_unsupported",
+    "support_file_partial",
+    "transition_duration_assumed"
+  ]
+}

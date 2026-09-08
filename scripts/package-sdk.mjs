@@ -8,7 +8,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const [output, binaries = path.join(root, 'target/release')] = process.argv.slice(2);
 if (!output || existsSync(output)) throw new Error('Usage: node scripts/package-sdk.mjs <new-directory> [binary-directory]');
 const tools = (await readdir(binaries)).filter(name => /^renrs(?:-[a-z-]+)?(?:\.exe)?$/.test(name));
-for (const name of ['renrs','renrs-init','renrs-check','renrs-inspect','renrs-build','renrs-pack','renrs-web-build','renrs-graph']) if (!tools.includes(name) && !tools.includes(`${name}.exe`)) throw new Error(`Missing ${name}`);
+for (const name of ['renrs','renrs-init','renrs-check','renrs-inspect','renrs-impact','renrs-migrate','renrs-build','renrs-pack','renrs-web-build','renrs-graph']) if (!tools.includes(name) && !tools.includes(`${name}.exe`)) throw new Error(`Missing ${name}`);
 if (!existsSync(path.join(root, 'web/dist/engine/renrs_web_bg.wasm'))) throw new Error('Build Web shell first');
 const staging = path.resolve(`${output}.${process.pid}.tmp`);
 await mkdir(path.join(staging, 'bin'), {recursive:true});

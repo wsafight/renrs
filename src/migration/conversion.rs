@@ -1,4 +1,8 @@
-use super::assets::{AssetCatalog, GeneratedAsset, convert_image_statement, static_target};
+use super::assets::{
+    AssetCatalog, GeneratedAsset, convert_image_declaration, convert_image_statement, static_target,
+};
+use super::atl::TransformCatalog;
+use super::audio::convert_audio;
 use super::expressions::{
     closing_quote, convert_assignment, convert_condition, convert_default, convert_dialogue,
     convert_expression, escape_string, named_quoted_argument, quoted_argument, valid_identifier,
@@ -30,6 +34,7 @@ pub(super) fn convert_script(source: &str, file: &str, catalog: &AssetCatalog) -
     let mut skipped_menu_prompt = None;
     let mut open_label = None;
     let lines = source.lines().collect::<Vec<_>>();
+    let transforms = TransformCatalog::parse(source);
     for (index, raw) in lines.iter().copied().enumerate() {
         if skipped_menu_prompt == Some(index) {
             skipped_menu_prompt = None;
@@ -61,8 +66,17 @@ pub(super) fn convert_script(source: &str, file: &str, catalog: &AssetCatalog) -
             report_label_fallthrough(file, &mut issues, open_label.take());
         }
         let indentation = " ".repeat(indent);
+        if transforms.recognized_declaration(line) {
+            write_line(
+                &mut output,
+                &indentation,
+                "# Ren'Py static transform is inlined at supported use sites.",
+            );
+            skipped_block_indent = Some(indent);
+            continue;
+        }
         let conversion = menu_prompt(&lines, index, indent).map_or_else(
-            || convert_line(content, catalog),
+            || convert_line(content, catalog, &transforms),
             |(prompt_line, prompt)| {
                 skipped_menu_prompt = Some(prompt_line);
                 LineConversion::One(format!("menu {prompt}:"))
@@ -116,9 +130,11 @@ pub(super) fn convert_script(source: &str, file: &str, catalog: &AssetCatalog) -
 }
 
 fn write_line(output: &mut String, indentation: &str, value: &str) {
-    output.push_str(indentation);
-    output.push_str(value);
-    output.push('\n');
+    for line in value.lines() {
+        output.push_str(indentation);
+        output.push_str(line);
+        output.push('\n');
+    }
 }
 
 #[derive(Debug)]
@@ -139,7 +155,11 @@ pub(super) enum LineConversion {
 }
 
 #[allow(clippy::too_many_lines)]
-fn convert_line(content: &str, catalog: &AssetCatalog) -> LineConversion {
+fn convert_line(
+    content: &str,
+    catalog: &AssetCatalog,
+    transforms: &TransformCatalog,
+) -> LineConversion {
     if is_unsupported_block(content) {
         return unsupported(
             "Python, screen language, ATL, and transform blocks require manual migration",
@@ -148,6 +168,9 @@ fn convert_line(content: &str, catalog: &AssetCatalog) -> LineConversion {
     }
     if let Some(converted) = convert_definition(content) {
         return converted;
+    }
+    if content.starts_with("image ") {
+        return convert_image_declaration(content, catalog);
     }
     if let Some(rest) = content.strip_prefix("label ") {
         return convert_label(rest);
@@ -168,10 +191,10 @@ fn convert_line(content: &str, catalog: &AssetCatalog) -> LineConversion {
         return dialogue;
     }
     if let Some(rest) = content.strip_prefix("scene ") {
-        return convert_image_statement("scene", rest, catalog);
+        return convert_image_statement("scene", rest, catalog, transforms);
     }
     if let Some(rest) = content.strip_prefix("show ") {
-        return convert_image_statement("show", rest, catalog);
+        return convert_image_statement("show", rest, catalog, transforms);
     }
     if let Some(rest) = content.strip_prefix("hide ") {
         return if valid_identifier(rest.trim()) {
@@ -207,10 +230,10 @@ fn convert_line(content: &str, catalog: &AssetCatalog) -> LineConversion {
     if let Some(rest) = content.strip_prefix("elif ") {
         return convert_condition("elif", rest);
     }
-    if content.starts_with("play music ")
-        || content.starts_with("play sound ")
-        || content.starts_with("pause ")
-    {
+    if let Some(converted) = convert_audio(content) {
+        return converted;
+    }
+    if content.starts_with("pause ") {
         return LineConversion::One(content.to_owned());
     }
     if content == "pass" {
@@ -420,69 +443,5 @@ pub(super) fn unsupported(message: &str, block: bool) -> LineConversion {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn converts_interpolation_and_reports_fallthrough() {
-        let converted = convert_script(
-            "label start:\n    $ ready = True\n    \"Hello [ready]\"\nlabel second:\n    return\n",
-            "script.rpy",
-            &AssetCatalog::empty(),
-        );
-        assert!(converted.output.contains("set ready = true"));
-        assert!(converted.output.contains("\"Hello {ready}\""));
-        assert!(
-            converted
-                .issues
-                .iter()
-                .any(|item| item.message.contains("fallthrough"))
-        );
-    }
-
-    #[test]
-    fn converts_static_label_call_and_return_arguments() {
-        let converted = convert_script(
-            "label start:\n    call add(2, amount=True)\n    return\nlabel add(current, amount=1):\n    return current + amount\n",
-            "script.rpy",
-            &AssetCatalog::empty(),
-        );
-        assert!(converted.issues.is_empty(), "{:?}", converted.issues);
-        assert!(converted.output.contains("call add(2, amount=true)"));
-        assert!(converted.output.contains("label add(current, amount=1):"));
-        assert!(converted.output.contains("return current + amount"));
-    }
-
-    #[test]
-    fn rejects_variadic_label_parameters() {
-        let converted = convert_script(
-            "label start(*args):\n    return\n",
-            "script.rpy",
-            &AssetCatalog::empty(),
-        );
-        assert!(matches!(
-            converted.issues.as_slice(),
-            [issue] if issue.kind == MigrationIssueKind::Unsupported
-        ));
-    }
-
-    #[test]
-    fn preserves_static_audio_volume_clauses() {
-        let converted = convert_script(
-            "label start:\n    play music \"theme.ogg\" volume 0.4\n    play sound \"click.wav\" volume 0.25\n    return\n",
-            "script.rpy",
-            &AssetCatalog::empty(),
-        );
-        assert!(converted.issues.is_empty(), "{:?}", converted.issues);
-        assert!(
-            converted
-                .output
-                .contains("play music \"theme.ogg\" volume 0.4")
-        );
-        assert!(
-            converted
-                .output
-                .contains("play sound \"click.wav\" volume 0.25")
-        );
-    }
-}
+#[path = "conversion_tests.rs"]
+mod tests;

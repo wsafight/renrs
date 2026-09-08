@@ -48,7 +48,9 @@ routes, a Chinese catalog, a theme, and title/HUD screens. After installing the 
 [VS Code extension](../editors/vscode-renrs/README.md), you get LSP, project
 diagnostics, asset preview, run, build, and route-test commands. Set `renrs.toolsPath`
 to the tools directory. The RenRS Project panel in the explorer also opens screens and
-theme, web build, release acceptance, and current-version save checks.
+theme, migrates Ren'Py with source-located diagnostics, inspects a story, compares
+project impact, emits a story graph, builds Web, runs release acceptance, and checks
+current-version saves. The extension does not offer edits for uncertain migration rules.
 
 Story inspect, record, replay, and bounded exploration are in [Story debugging](DEBUGGING.md).
 Medium-project generation and `renrs-bench` coverage are in [Local validation](VALIDATION.md).
@@ -197,6 +199,10 @@ The migrator does not load Ren'Py or execute Python. After conversion it re-pars
 validates, compiles, and analyzes, and writes issues to `migration-report.json`.
 `--strict` fails when assumptions, unsupported items, or post-validation diagnostics
 exist. Use it in CI. Full scope is in [Migrate from Ren’Py](MIGRATION.md).
+
+The Launcher can select a Ren'Py source and a new destination, then registers the
+migrated project after success. Its quality view reads `migration-report.json` and can
+use another registered project as the `renrs-impact` baseline.
 
 ## Local release packages
 

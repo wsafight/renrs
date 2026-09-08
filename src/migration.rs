@@ -13,13 +13,18 @@ use crate::diagnostic::{Diagnostic, Severity};
 use crate::source::ProjectSource;
 
 mod assets;
+mod atl;
+mod audio;
 mod conversion;
 mod expressions;
 mod menus;
 mod parameters;
+mod static_values;
+mod support;
 
 use assets::AssetCatalog;
 use conversion::convert_script;
+use support::SupportAccumulator;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -33,7 +38,35 @@ pub struct MigrationIssue {
     pub file: String,
     pub line: usize,
     pub kind: MigrationIssueKind,
+    #[serde(default)]
+    pub code: String,
     pub message: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MigrationSupportStatus {
+    Converted,
+    Partial,
+    BuiltInReplacement,
+    ManualReview,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MigrationSupportFile {
+    pub file: String,
+    pub kind: String,
+    pub status: MigrationSupportStatus,
+    pub mapped_keys: Vec<String>,
+    pub unmapped_keys: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MigrationSummary {
+    pub assumptions: usize,
+    pub unsupported: usize,
+    pub by_code: BTreeMap<String, usize>,
+    pub by_file: BTreeMap<String, usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,13 +88,29 @@ pub struct PostValidationDiagnostic {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MigrationReport {
+    #[serde(default = "report_version")]
+    pub version: u32,
+    #[serde(default)]
+    pub source_root: String,
+    #[serde(default)]
+    pub output_root: String,
     pub converted_files: usize,
     pub copied_resources: usize,
     #[serde(default)]
     pub generated_resources: usize,
+    #[serde(default)]
+    pub generated_support_files: usize,
+    #[serde(default)]
+    pub support_files: Vec<MigrationSupportFile>,
     pub issues: Vec<MigrationIssue>,
     #[serde(default)]
+    pub summary: MigrationSummary,
+    #[serde(default)]
     pub post_validation_diagnostics: Vec<PostValidationDiagnostic>,
+}
+
+const fn report_version() -> u32 {
+    1
 }
 
 impl MigrationReport {
@@ -109,14 +158,30 @@ pub fn migrate_project(input: &Path, output: &Path) -> Result<MigrationReport, M
         vec![input.to_path_buf()]
     };
     let catalog = AssetCatalog::new(root, &files);
-    let mut report = MigrationReport::default();
+    let mut report = MigrationReport {
+        version: report_version(),
+        source_root: root
+            .canonicalize()
+            .unwrap_or_else(|_| root.to_path_buf())
+            .display()
+            .to_string(),
+        output_root: output
+            .canonicalize()
+            .unwrap_or_else(|_| output.to_path_buf())
+            .display()
+            .to_string(),
+        ..MigrationReport::default()
+    };
     let mut generated_assets = BTreeMap::new();
+    let mut support = SupportAccumulator::default();
 
     for path in files {
         let relative = relative_name(root, &path);
         if path.extension().and_then(|value| value.to_str()) == Some("rpy") {
             let source = fs::read_to_string(&path)?;
-            let converted = convert_script(&source, &relative, &catalog);
+            let converted = support
+                .convert(&relative, &source, &catalog)
+                .unwrap_or_else(|| convert_script(&source, &relative, &catalog));
             let mut destination = output.join(&relative);
             destination.set_extension("rns");
             write_new_file(&destination, converted.output.as_bytes())?;
@@ -144,7 +209,33 @@ pub fn migrate_project(input: &Path, output: &Path) -> Result<MigrationReport, M
         report.generated_resources += 1;
     }
 
+    report.support_files = std::mem::take(&mut support.files);
+    let generated_support = support.finish()?;
+    for (path, bytes) in [
+        ("theme.json", generated_support.theme),
+        ("screens.json", generated_support.screens),
+    ] {
+        if let Some(bytes) = bytes {
+            let destination = output.join(path);
+            if destination.exists() {
+                report.issues.push(coded_issue(
+                    path,
+                    1,
+                    MigrationIssueKind::Unsupported,
+                    "support_output_conflict",
+                    format!(
+                        "could not generate `{path}` because the source project already contains it"
+                    ),
+                ));
+            } else {
+                write_new_file(&destination, &bytes)?;
+                report.generated_support_files += 1;
+            }
+        }
+    }
+
     report.post_validation_diagnostics = post_validate(output);
+    report.summary = summarize(&report.issues);
 
     let report_path = output.join("migration-report.json");
     let encoded = serde_json::to_vec_pretty(&report)?;
@@ -192,11 +283,62 @@ impl From<Diagnostic> for PostValidationDiagnostic {
 }
 
 fn issue(file: &str, line: usize, kind: MigrationIssueKind, message: String) -> MigrationIssue {
+    let code = issue_code(kind, &message).to_owned();
+    coded_issue(file, line, kind, &code, message)
+}
+
+fn coded_issue(
+    file: &str,
+    line: usize,
+    kind: MigrationIssueKind,
+    code: &str,
+    message: String,
+) -> MigrationIssue {
     MigrationIssue {
         file: file.to_owned(),
         line,
         kind,
+        code: code.to_owned(),
         message,
+    }
+}
+
+fn summarize(issues: &[MigrationIssue]) -> MigrationSummary {
+    let mut summary = MigrationSummary::default();
+    for issue in issues {
+        match issue.kind {
+            MigrationIssueKind::Assumption => summary.assumptions += 1,
+            MigrationIssueKind::Unsupported => summary.unsupported += 1,
+        }
+        *summary.by_code.entry(issue.code.clone()).or_default() += 1;
+        *summary.by_file.entry(issue.file.clone()).or_default() += 1;
+    }
+    summary
+}
+
+fn issue_code(kind: MigrationIssueKind, message: &str) -> &'static str {
+    if message.contains("fallthrough") {
+        "label_fallthrough"
+    } else if message.contains("`ease` interpolation") {
+        "atl_easing_assumed"
+    } else if message.starts_with("assumed image path") {
+        "image_path_assumed"
+    } else if message.starts_with("mapped Ren'Py") {
+        "transition_duration_assumed"
+    } else if message.contains("Character") || message.contains("character names") {
+        "character_declaration_unsupported"
+    } else if message.contains("Python") || message.contains("screen language") {
+        "block_unsupported"
+    } else if message.contains("image") || message.contains("show") || message.contains("layer") {
+        "display_statement_unsupported"
+    } else if message.contains("label") || message.contains("call") || message.contains("return") {
+        "control_flow_unsupported"
+    } else if message.contains("menu") {
+        "menu_unsupported"
+    } else if kind == MigrationIssueKind::Assumption {
+        "migration_assumption"
+    } else {
+        "statement_unsupported"
     }
 }
 
