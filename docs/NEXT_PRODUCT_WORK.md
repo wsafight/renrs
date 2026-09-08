@@ -4,6 +4,11 @@ Scope: develop the remaining product and performance gaps in priority order.
 Commercial-project acceptance, cross-platform acceptance and publication are
 excluded by the owner. Previous save formats need not remain compatible.
 
+Current scope decision (2026-09-08): release P0 work, physical-device and real-project
+acceptance are paused. Repository-closed P1/P2 work uses `node scripts/verify-local.mjs`
+as the acceptance gate; no additional GitHub Actions CI is planned. Agent-facing
+`SKILL.md`, `llms.txt`, a read-only MCP server, and related integration work are also paused.
+
 - [x] P0: shared snapshot encoding and lightweight native/Web save listing.
 - [x] P1: composable UI, scroll containers, data-driven controls and drag/drop.
 - [x] P1: camera, runtime character layers and richer presentation.
@@ -13,7 +18,8 @@ excluded by the owner. Previous save formats need not remain compatible.
 - [x] P1: shaped-cluster line breaking, Web assistive semantics, common static ATL/master-camera migration, media gates, mobile wrapper validation, and the `0.1.0-rc.1` contract.
 - [x] P2: project launcher, SDK workflow, templates and author documentation; local end-to-end verification passes.
 - [x] P2: v1 machine protocol, read-only project inspection, baseline/candidate impact analysis and Launcher quality reporting.
-- [ ] P2: media configuration, graphics extensions and platform-service adapters (named sprite layers and static per-track gain shipped; heavier backends remain).
+- [x] P2: bounded media configuration: localized video audio, relative gain, subtitle cues and shared native/Web fallback.
+- [ ] P2: heavier graphics and platform-service backends (Live2D, custom shaders, cloud/store SDKs and native mobile rendering).
 
 Each item requires implementation and focused verification before checking it.
 External SDKs and services must remain explicitly identified when unavailable.
@@ -26,8 +32,10 @@ only. Its quality view separates static reachability from actual route coverage 
 shows diagnostics, route results and localization gaps. Machine-facing check,
 debug, acceptance, inspection and impact commands share the versioned v1 envelope.
 Theme files support fallback font families. Independent music, sound and voice
-volume defaults now combine with bounded per-track music/sound gain. This does not
-complete arbitrary mixers, media sync, graphics, or platform-service extensions. Live2D,
+volume defaults now combine with bounded per-track music/sound gain. Video manifests
+support localized WAV audio, relative gain and bounded subtitle cues on native and Web.
+This does not complete arbitrary mixers, long-form/device media validation, graphics,
+or platform-service extensions. Live2D,
 custom shaders and cloud/store services remain unimplemented. Commercial-project
 and cross-platform acceptance are excluded from this development scope.
 

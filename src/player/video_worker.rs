@@ -164,6 +164,8 @@ mod tests {
             fps: 24.0,
             frames: Vec::new(),
             audio: None,
+            audio_tracks: Vec::new(),
+            subtitles: Vec::new(),
             stream: Some(renrs::video::VideoStream {
                 path: "video.mp4".to_owned(),
                 seconds: 1.0,

@@ -16,7 +16,7 @@ acceptance rules requires a new format version. Pre-RC scripts and saves are not
 | Runtime snapshot | `7` | Accept only the current version | Raise version; old development saves may be discarded |
 | Desktop/Web save container | `2` | Accept only the current version and verify checksum | Raise version and update both parsers |
 | extension/composition | `1` | Reject unknown versions | Raise the matching manifest version |
-| Frame/stream video | `1` / `2` | Strictly validate manifest shape and version | Raise the matching video manifest version |
+| Frame/stream video | `1` / `2` | Strictly validate shape, version, and optional localized audio/subtitle tracks | Raise the matching video manifest version |
 
 `tests/release_contract.rs` checks the release version, machine protocol, snapshot, save, and screen
 formats against compiled code. A format change must update implementation, fixtures, this matrix,

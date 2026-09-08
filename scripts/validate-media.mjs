@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdir, cp, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 const [destination = 'target/media-fixture', ...options] = process.argv.slice(2);
 if (options.some((option) => option !== '--stream') || options.length > 1)
@@ -24,6 +24,10 @@ run(ffmpeg, [
   'lavfi',
   '-i',
   'testsrc2=size=640x360:rate=24',
+  '-f',
+  'lavfi',
+  '-i',
+  'sine=frequency=440:sample_rate=48000',
   '-t',
   '2',
   '-c:v',
@@ -41,6 +45,44 @@ run(
     RENRS_FFMPEG: ffmpeg,
   },
 );
+const clipDirectory = path.join(root, 'clips/intro');
+const soundtrack = path.join(clipDirectory, 'audio.wav');
+await Promise.all([
+  cp(soundtrack, path.join(clipDirectory, 'audio-en.wav')),
+  cp(soundtrack, path.join(clipDirectory, 'audio-zh.wav')),
+]);
+const manifestPath = path.join(clipDirectory, 'clip.json');
+const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+delete manifest.audio;
+manifest.audio_tracks = [
+  {
+    path: 'clips/intro/audio-en.wav',
+    language: 'en',
+    label: 'English',
+    default: true,
+    volume: 0.5,
+  },
+  {
+    path: 'clips/intro/audio-zh.wav',
+    language: 'zh-Hans',
+    label: '简体中文',
+    volume: 0.8,
+  },
+];
+manifest.subtitles = [
+  {
+    language: 'en',
+    label: 'English',
+    default: true,
+    cues: [{ start: 0, end: 1.6, text: 'Signal received.' }],
+  },
+  {
+    language: 'zh-Hans',
+    label: '简体中文',
+    cues: [{ start: 0, end: 1.6, text: '信号已收到。' }],
+  },
+];
+await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 await writeFile(
   path.join(root, 'script.rns'),
   `config title "RenRS Media Test"

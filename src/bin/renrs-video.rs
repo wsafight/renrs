@@ -65,6 +65,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         version: 1,
         stream: None,
         audio: None,
+        audio_tracks: Vec::new(),
+        subtitles: Vec::new(),
         fps: 24.0,
         frames: frames
             .iter()
@@ -127,6 +129,8 @@ fn stream_clip(
         fps: 24.0,
         frames: Vec::new(),
         audio: None,
+        audio_tracks: Vec::new(),
+        subtitles: Vec::new(),
         stream: Some(renrs::video::VideoStream {
             path: format!("{relative}/video.mp4"),
             seconds,

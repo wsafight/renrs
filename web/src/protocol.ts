@@ -20,7 +20,24 @@ export interface VideoManifest {
   fps: number;
   frames: string[];
   audio?: string | null;
-  stream?: { path: string; seconds: number } | null;
+  audio_tracks: VideoAudioTrack[];
+  subtitles: SubtitleTrack[];
+  stream?: { path: string; seconds: number; width: number; height: number } | null;
+}
+
+export interface VideoAudioTrack {
+  path: string;
+  language?: string | null;
+  label?: string | null;
+  default: boolean;
+  volume: number;
+}
+
+export interface SubtitleTrack {
+  language: string;
+  label?: string | null;
+  default: boolean;
+  cues: Array<{ start: number; end: number; text: string }>;
 }
 
 export interface DebugInspection {
@@ -65,6 +82,53 @@ function number(value: unknown, context: string): number {
 function array(value: unknown, context: string): unknown[] {
   if (!Array.isArray(value)) throw new Error(`Invalid ${context}: expected an array`);
   return value;
+}
+
+function optionalBoolean(value: unknown, context: string): boolean {
+  if (value === undefined) return false;
+  if (typeof value !== 'boolean') throw new Error(`Invalid ${context}: expected a boolean`);
+  return value;
+}
+
+const byteLength = (value: string): number => new TextEncoder().encode(value).byteLength;
+
+function visiblePath(value: string): boolean {
+  const lower = value.toLowerCase();
+  const parts = value.split('/');
+  return (
+    value.length > 0 &&
+    !value.includes('\\') &&
+    !value.includes(':') &&
+    !value.startsWith('/') &&
+    parts.every(
+      (part) =>
+        part.length > 0 &&
+        part !== '.' &&
+        part !== '..' &&
+        !part.startsWith('.') &&
+        !['dist', 'target', 'node_modules'].includes(part.toLowerCase()),
+    ) &&
+    !lower.endsWith('.renrs') &&
+    !value.endsWith('~') &&
+    !/\.(tmp|swp|swo)$/.test(value)
+  );
+}
+
+function hasExtension(path: string, extensions: string[]): boolean {
+  const extension = path.split('.').pop()?.toLowerCase();
+  return visiblePath(path) && extension !== undefined && extensions.includes(extension);
+}
+
+function validLanguage(language: string): boolean {
+  return language.length > 0 && language.length <= 35 && /^[a-z0-9-]+$/i.test(language);
+}
+
+function validLabel(label: string | null): boolean {
+  return label === null || byteLength(label) <= 80;
+}
+
+function hasInvalidControl(text: string): boolean {
+  return [...text].some((character) => character !== '\n' && /\p{Cc}/u.test(character));
 }
 
 export function parseJson(text: string, context: string): unknown {
@@ -208,29 +272,126 @@ export function parseVideoManifest(value: unknown): VideoManifest {
   const validFrames =
     frames.length >= 1 &&
     frames.length <= 7200 &&
-    frames.every((frame) => typeof frame === 'string');
-  let stream: VideoManifest['stream'];
+    frames.every((frame) => typeof frame === 'string' && visiblePath(frame));
+  let stream: Exclude<VideoManifest['stream'], null>;
   if (clip.stream != null) {
     const value = record(clip.stream, 'video stream');
     stream = {
       path: string(value.path, 'video stream path'),
       seconds: number(value.seconds, 'video stream duration'),
+      width: number(value.width, 'video stream width'),
+      height: number(value.height, 'video stream height'),
     };
   }
+  const audioTracks = (
+    clip.audio_tracks === undefined ? [] : array(clip.audio_tracks, 'video audio tracks')
+  ).map((item): VideoAudioTrack => {
+    const track = record(item, 'video audio track');
+    const volume = track.volume === undefined ? 1 : number(track.volume, 'video audio volume');
+    const path = string(track.path, 'video audio path');
+    const language = track.language == null ? null : string(track.language, 'video audio language');
+    const label = track.label == null ? null : string(track.label, 'video audio label');
+    if (
+      !hasExtension(path, ['wav']) ||
+      (language !== null && !validLanguage(language)) ||
+      !validLabel(label) ||
+      volume < 0 ||
+      volume > 1
+    ) {
+      throw new Error('Invalid video audio track');
+    }
+    return {
+      path,
+      language,
+      label,
+      default: optionalBoolean(track.default, 'video audio default'),
+      volume,
+    };
+  });
+  const subtitles = (
+    clip.subtitles === undefined ? [] : array(clip.subtitles, 'video subtitles')
+  ).map((item): SubtitleTrack => {
+    const track = record(item, 'video subtitle track');
+    const language = string(track.language, 'video subtitle language');
+    const label = track.label == null ? null : string(track.label, 'video subtitle label');
+    const cues = array(track.cues, 'video subtitle cues').map((item) => {
+      const cue = record(item, 'video subtitle cue');
+      return {
+        start: number(cue.start, 'video subtitle start'),
+        end: number(cue.end, 'video subtitle end'),
+        text: string(cue.text, 'video subtitle text'),
+      };
+    });
+    return {
+      language,
+      label,
+      default: optionalBoolean(track.default, 'video subtitle default'),
+      cues,
+    };
+  });
+  const duration = version === 2 ? stream?.seconds : frames.length / fps;
+  const validStream =
+    stream !== undefined &&
+    hasExtension(stream.path, ['mp4', 'webm']) &&
+    stream.seconds > 0 &&
+    stream.seconds <= 86400 &&
+    Number.isInteger(stream.width) &&
+    stream.width > 0 &&
+    stream.width <= 1920 &&
+    Number.isInteger(stream.height) &&
+    stream.height > 0 &&
+    stream.height <= 1080;
+  const validSubtitles = subtitles.every((track) => {
+    if (
+      !validLanguage(track.language) ||
+      !validLabel(track.label ?? null) ||
+      track.cues.length > 10_000 ||
+      duration === undefined
+    ) {
+      return false;
+    }
+    let previousEnd = 0;
+    for (const cue of track.cues) {
+      if (
+        cue.start < previousEnd ||
+        cue.end <= cue.start ||
+        cue.end > duration + 0.001 ||
+        cue.text.length === 0 ||
+        byteLength(cue.text) > 2048 ||
+        hasInvalidControl(cue.text)
+      ) {
+        return false;
+      }
+      previousEnd = cue.end;
+    }
+    return true;
+  });
   if (
     (version !== 1 && version !== 2) ||
     fps < 1 ||
     fps > 60 ||
-    (version === 1 && !validFrames) ||
-    (version === 2 && (!stream || stream.seconds <= 0))
+    (version === 1 && (!validFrames || stream !== undefined)) ||
+    (version === 2 && (frames.length > 0 || !validStream)) ||
+    (clip.audio != null && audioTracks.length > 0) ||
+    audioTracks.length > 16 ||
+    audioTracks.filter((track) => track.default).length > 1 ||
+    subtitles.length > 16 ||
+    subtitles.filter((track) => track.default).length > 1 ||
+    !validSubtitles
   ) {
     throw new Error('Invalid video manifest');
+  }
+  const audio = clip.audio == null ? null : string(clip.audio, 'video soundtrack');
+  if (audio !== null && !hasExtension(audio, ['wav'])) {
+    throw new Error('Invalid video soundtrack');
   }
   return {
     version,
     fps,
     frames: frames as string[],
-    audio: clip.audio == null ? null : string(clip.audio, 'video soundtrack'),
+    audio,
+    audio_tracks: audioTracks,
+    subtitles,
     stream,
   };
 }

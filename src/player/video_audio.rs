@@ -11,6 +11,13 @@ pub(super) struct VideoAudio {
     path: Option<String>,
     player: Option<Player>,
     offset: f32,
+    volume: f32,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct VideoGain {
+    pub(super) channel: f32,
+    pub(super) track: f32,
 }
 
 impl VideoAudio {
@@ -21,7 +28,7 @@ impl VideoAudio {
         path: Option<String>,
         position: f32,
         paused: bool,
-        volume: f32,
+        gain: VideoGain,
     ) -> Result<(), String> {
         let restart = self.path != path
             || self.player.as_ref().is_some_and(|player| {
@@ -42,13 +49,14 @@ impl VideoAudio {
                     .map_err(|error| error.to_string())?;
                 let player = Player::connect_new(mixer);
                 player.pause();
-                player.set_volume(volume);
+                player.set_volume(gain.channel * gain.track);
                 player.append(decoder);
                 self.path = Some(path);
                 self.player = Some(player);
                 self.offset = position;
             }
         }
+        self.volume = gain.track;
         if let Some(player) = &self.player {
             if paused {
                 player.pause();
@@ -60,7 +68,7 @@ impl VideoAudio {
     }
     pub(super) fn update(&self, volume: f32, clock: &AtomicU32) {
         let position = self.player.as_ref().map_or(f32::NAN, |player| {
-            player.set_volume(volume);
+            player.set_volume(volume * self.volume);
             if player.empty() {
                 f32::MAX
             } else {
@@ -94,13 +102,34 @@ mod tests {
         let mut audio = VideoAudio::default();
         let clock = AtomicU32::new(f32::NAN.to_bits());
         audio
-            .sync(&source, &mixer, Some("audio.wav".into()), 1.0, true, 1.0)
+            .sync(
+                &source,
+                &mixer,
+                Some("audio.wav".into()),
+                1.0,
+                true,
+                VideoGain {
+                    channel: 1.0,
+                    track: 0.5,
+                },
+            )
             .unwrap();
         output.by_ref().take(9600).for_each(drop);
         audio.update(1.0, &clock);
+        assert!((audio.player.as_ref().unwrap().volume() - 0.5).abs() < f32::EPSILON);
         assert!((f32::from_bits(clock.load(Ordering::Acquire)) - 1.0).abs() < 0.01);
         audio
-            .sync(&source, &mixer, Some("audio.wav".into()), 1.0, false, 1.0)
+            .sync(
+                &source,
+                &mixer,
+                Some("audio.wav".into()),
+                1.0,
+                false,
+                VideoGain {
+                    channel: 1.0,
+                    track: 0.5,
+                },
+            )
             .unwrap();
         output.by_ref().take(19200).for_each(drop);
         audio.update(1.0, &clock);
@@ -108,9 +137,31 @@ mod tests {
         output.by_ref().take(100_000).for_each(drop);
         audio.update(1.0, &clock);
         assert_eq!(clock.load(Ordering::Acquire), f32::MAX.to_bits());
-        audio.sync(&source, &mixer, None, 0.0, true, 1.0).unwrap();
         audio
-            .sync(&source, &mixer, Some("audio.wav".into()), 0.0, true, 1.0)
+            .sync(
+                &source,
+                &mixer,
+                None,
+                0.0,
+                true,
+                VideoGain {
+                    channel: 1.0,
+                    track: 1.0,
+                },
+            )
+            .unwrap();
+        audio
+            .sync(
+                &source,
+                &mixer,
+                Some("audio.wav".into()),
+                0.0,
+                true,
+                VideoGain {
+                    channel: 1.0,
+                    track: 1.0,
+                },
+            )
             .unwrap();
         audio.update(1.0, &clock);
         assert_eq!(clock.load(Ordering::Acquire), 0_f32.to_bits());

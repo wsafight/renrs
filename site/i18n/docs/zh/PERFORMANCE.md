@@ -66,7 +66,8 @@ P0 验证：workspace 测试、两项音频生命周期测试、六条 Playwrigh
 - 流式视频 v2 原生走 FFmpeg 的 MP4/WebM，Web 走 HTML video。原生输出限 1920x1080，两个排队帧、
   一个 in-flight 帧、一个 pending 帧和一块可复用 GPU 纹理。FFmpeg 自己的进程内存分开。归档视频
   用临时文件，关闭时删除。
-- 视频支持可选 WAV 音轨，与播放、暂停、定位和读档恢复同步。原生流式需要 `ffmpeg` 或
+- 视频支持旧式可选 WAV 音轨，或有界的本地化 WAV 音轨/字幕轨，并与播放、暂停、定位和读档恢复同步。
+  每轨相对音量与音效通道音量相乘。原生流式需要 `ffmpeg` 或
   `RENRS_FFMPEG`。PNG 帧 v1 片段仍支持，运行时不依赖 FFmpeg。
 
 创建流式片段：

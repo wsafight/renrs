@@ -118,7 +118,8 @@ validation with real users.
 - The core runtime does not need a window. Tests can run with no GPU and no audio device.
 - Parser, compiler, analysis, runtime, player, migration, and LSP are split by duty.
 - Tests reject any Rust source file over 500 lines in the root package and all workspace crates.
-- Video is converted through FFmpeg/FFprobe to frames or a streaming manifest, optionally with a WAV bed, and plays on the audio clock.
+- Video is converted through FFmpeg/FFprobe to frames or a streaming manifest, can select
+  localized WAV audio and subtitle tracks with relative gain, and plays on the audio clock.
 
 Async saves, achievements, web, debugger, and shipping tools added in this round are in [Capability upgrades](UPGRADES.md).
 
@@ -188,6 +189,9 @@ Full capability bounds are in [Roadmap](ROADMAP.md) and [Gap with Ren’Py](RENP
    build farms, or a large online dashboard before real productions require them.
 
 ### 9.2 Agent collaboration
+
+This direction is currently paused. `SKILL.md`, `llms.txt`, and a read-only MCP server
+are not part of this delivery round.
 
 The deterministic runtime, headless checks, story graph, and route tests are suitable for
 agent use. Agent support extends the authoring toolchain; it does not replace basic authoring

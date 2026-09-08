@@ -1,19 +1,68 @@
-import { parseVideoManifest, type VideoManifest } from './protocol';
+import {
+  parseVideoManifest,
+  type SubtitleTrack,
+  type VideoAudioTrack,
+  type VideoManifest,
+} from './protocol';
 import type { PlayerApp, VideoEffect } from './types';
 import { releaseSoundtrack, resumeMedia, soundtrack } from './video-audio';
 
 const clips = new Map<string, VideoManifest>();
 
+function localizedTrack<T extends { language?: string | null; default: boolean }>(
+  tracks: T[],
+  language: string,
+): T | undefined {
+  if (language) {
+    const exact = tracks.find((track) => track.language?.toLowerCase() === language.toLowerCase());
+    if (exact) return exact;
+    const base = language.split('-')[0].toLowerCase();
+    const related = tracks.find((track) => {
+      const candidate = track.language?.toLowerCase();
+      return candidate === base || candidate?.startsWith(`${base}-`);
+    });
+    if (related) return related;
+  }
+  return (
+    tracks.find((track) => track.default) ?? tracks.find((track) => !track.language) ?? tracks[0]
+  );
+}
+
+export function selectVideoAudio(
+  clip: VideoManifest,
+  language: string,
+): VideoAudioTrack | undefined {
+  if (clip.audio) return { path: clip.audio, default: true, volume: 1 };
+  return localizedTrack(clip.audio_tracks, language);
+}
+
+export function selectVideoSubtitle(
+  clip: VideoManifest,
+  language: string,
+): SubtitleTrack | undefined {
+  return localizedTrack(clip.subtitles, language);
+}
+
+function showCaption(app: PlayerApp, track: SubtitleTrack | undefined, seconds: number): void {
+  const caption = app.$('video-caption');
+  const cue = track?.cues.find((cue) => seconds >= cue.start && seconds < cue.end);
+  caption.textContent = cue?.text ?? '';
+  caption.hidden = !cue;
+}
+
 export async function showVideo(app: PlayerApp, effect?: VideoEffect, elapsed = 0): Promise<void> {
   app.mediaGeneration = (app.mediaGeneration || 0) + 1;
   const generation = app.mediaGeneration;
   const video = app.$('video');
+  const caption = app.$('video-caption');
   releaseSoundtrack(app);
   app.mediaNeedsGesture = false;
   app.streamingVideo = false;
   video.onended = video.onerror = null;
   video.pause();
   video.hidden = true;
+  caption.hidden = true;
+  caption.textContent = '';
   video.removeAttribute('src');
   video.load();
   if (!effect) return;
@@ -26,7 +75,11 @@ export async function showVideo(app: PlayerApp, effect?: VideoEffect, elapsed = 
   }
   const clip = clips.get(effect.path);
   if (!clip) throw new Error(`Video manifest missing: ${effect.path}`);
-  const audio = clip.audio ? await soundtrack(app, clip.audio, elapsed) : null;
+  const audioTrack = selectVideoAudio(clip, app.settings.language);
+  const subtitleTrack = selectVideoSubtitle(clip, app.settings.language);
+  const audio = audioTrack
+    ? await soundtrack(app, audioTrack.path, elapsed, audioTrack.volume)
+    : null;
   const stream = clip.stream;
   if (stream) {
     app.streamingVideo = true;
@@ -52,15 +105,15 @@ export async function showVideo(app: PlayerApp, effect?: VideoEffect, elapsed = 
     video.onended = app.guard(() => app.act('next'));
     video.onerror = () => app.notify(`Could not play ${stream.path}`);
     if (!app.$('modal').open) await resumeMedia(app);
-    if (audio) {
-      const sync = () => {
-        if (generation !== app.mediaGeneration) return;
-        if (!app.$('modal').open && Math.abs(video.currentTime - audio.currentTime) > 0.12)
-          video.currentTime = Math.min(video.duration, audio.currentTime);
-        requestAnimationFrame(sync);
-      };
+    const sync = () => {
+      if (generation !== app.mediaGeneration) return;
+      const clock = audio?.currentTime ?? video.currentTime;
+      showCaption(app, subtitleTrack, clock);
+      if (audio && !app.$('modal').open && Math.abs(video.currentTime - clock) > 0.12)
+        video.currentTime = Math.min(video.duration, clock);
       requestAnimationFrame(sync);
-    }
+    };
+    requestAnimationFrame(sync);
     return;
   }
   const frames = clip.frames;
@@ -85,6 +138,7 @@ export async function showVideo(app: PlayerApp, effect?: VideoEffect, elapsed = 
       app.$('background').hidden = false;
       current = index;
     }
+    showCaption(app, subtitleTrack, played / 1000);
     if (played < videoEffect.seconds * 1000) requestAnimationFrame(frame);
   }
   frame();

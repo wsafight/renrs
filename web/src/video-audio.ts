@@ -4,10 +4,12 @@ export async function soundtrack(
   app: PlayerApp,
   path: string,
   elapsed: number,
+  relativeVolume = 1,
 ): Promise<HTMLAudioElement> {
   const audio = new Audio(app.asset(path));
   app.clipAudio = audio;
-  audio.volume = app.settings.sound_volume;
+  app.clipAudioGain = relativeVolume;
+  audio.volume = app.settings.sound_volume * relativeVolume;
   audio.preload = 'auto';
   await new Promise<void>((resolve, reject) => {
     audio.onloadeddata = () => resolve();
@@ -28,6 +30,7 @@ export function releaseSoundtrack(app: PlayerApp): void {
     audio.load();
   }
   app.clipAudio = null;
+  app.clipAudioGain = 1;
 }
 
 export async function resumeMedia(app: PlayerApp): Promise<void> {

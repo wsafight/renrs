@@ -36,6 +36,7 @@ transactional editor hot reload remain supported.
 - [x] Named/default label arguments, dynamic parameter scope and static migration.
 - [x] Ordered named sprite layers, layer clearing, save/rollback and transactional reload.
 - [x] Static per-track music/sound gain across native/Web playback, queues, saves and migration.
+- [x] Localized video audio tracks, bounded relative gain, subtitle cues and native/Web fallback.
 - [ ] Physical-device acceptance, platform services and store publication.
 
 ## External Acceptance

@@ -13,6 +13,10 @@ interface Props {
 }
 const {title, titleZh = title, description, descriptionZh = description, home = false} = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
+const english = new URL(Astro.url.pathname, Astro.site);
+english.searchParams.set('lang', 'en');
+const chinese = new URL(Astro.url.pathname, Astro.site);
+chinese.searchParams.set('lang', 'zh');
 ---
 <!doctype html>
 <html
@@ -31,6 +35,9 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta name="description" content={description} />
     <meta name="theme-color" content="#0c0d10" />
     <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="en" href={english} />
+    <link rel="alternate" hreflang="zh-CN" href={chinese} />
+    <link rel="alternate" hreflang="x-default" href={canonical} />
     <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}favicon.svg`} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />

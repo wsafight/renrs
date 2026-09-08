@@ -83,6 +83,10 @@ impl ProjectSource {
                     .and_then(|bytes| crate::video::VideoClip::from_slice(&bytes))
                     .and_then(|clip| {
                         if clip.audio.as_ref().is_some_and(|path| !self.contains(path))
+                            || clip
+                                .audio_tracks
+                                .iter()
+                                .any(|track| !self.contains(&track.path))
                             || clip.frames.iter().any(|frame| !self.contains(frame))
                             || clip
                                 .stream

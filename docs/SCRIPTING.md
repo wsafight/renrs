@@ -96,7 +96,10 @@ ATL、layer camera、背景层拆分或任意 displayable。
 
 `timeline:` 块可串行组合 transform、move 和 pause；`transition dissolve seconds` 混合前后舞台。
 `video "clips/name/clip.json" over seconds` 支持图片帧清单（v1）和 MP4/WebM 流式清单（v2），时长必须匹配清单。使用 `renrs-video input.mp4 my-project clips/name --stream` 生成流式版本；转换需 FFmpeg 与 FFprobe，原生流式播放需 FFmpeg，Web 使用浏览器视频播放。
-转换器从输入提取可选 `audio.wav`，音轨位置驱动播放、暂停和读档。无音轨的旧清单继续可用；视频音量使用音效通道。
+转换器从输入提取可选 `audio.wav`，音轨位置驱动播放、暂停和读档。清单也可配置按当前语言
+选择的 `audio_tracks`、每轨相对音量和内嵌 `subtitles`；原生/Web 使用相同的回退顺序和校验边界。
+无音轨的旧清单继续可用；视频音量使用音效通道。完整字段和限制见
+[新增能力](UPGRADES.md#media-and-screen-controls)。
 转换命令、示例和媒体限制见 [新增能力](UPGRADES.md#media-and-screen-controls)。
 
 并行编排使用 2 到 16 条独立时间线；同一 alias 不能由多条轨道同时修改，每条最多 256 步：

@@ -123,6 +123,21 @@ main {
   background: black;
   z-index: 4;
 }
+#video-caption {
+  position: absolute;
+  z-index: 5;
+  inset: auto 8% 5%;
+  width: auto;
+  padding: 10px 16px;
+  color: #fff;
+  background: #101214e6;
+  border: 1px solid #ffffff2e;
+  border-radius: 4px;
+  font-size: clamp(16px, 2.2vmin, 24px);
+  line-height: 1.4;
+  text-align: center;
+  white-space: pre-line;
+}
 #dialogue {
   position: relative;
   background: rgb(15 18 21 / 94%);

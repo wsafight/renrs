@@ -33,14 +33,14 @@ npx playwright install chromium
 npm test
 ```
 
-## GitHub Actions
+## 本地门禁与发布
 
-`.github/workflows/docs.yml` 在文档及站点相关改动的推送、PR 和手动触发时运行。
-所有构建执行类型检查、生成静态页面、全文索引和链接检查，并上传站点产物。
-默认分支推送或手动运行时，通过 GitHub Pages 发布；PR 只检查构建。
+文档站的质量门禁在本地执行，以 `npm run check`、`npm run build` 为准；需要浏览器回归时
+再单独运行现有 `npm test`。本轮不新增 GitHub Actions CI。
 
-首次在仓库 **Settings → Pages → Build and deployment** 中选择 **GitHub Actions**。
-仓库需要已推送到 GitHub。当前本地仓库未配置远程地址，工作流本地准备完成不代表线上发布成功。
+现有 `.github/workflows/docs.yml` 只保留为文档产物和 GitHub Pages 的可选发布通道，不作为
+本地验收的替代。需要发布时，在仓库 **Settings → Pages → Build and deployment** 中选择
+**GitHub Actions**；仓库必须已推送到 GitHub。本地检查通过不代表线上发布成功。
 
 ## 站点地址与子路径
 

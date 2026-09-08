@@ -392,6 +392,7 @@ export interface PlayerApp {
   read: ReadStore;
   reading: ReadingController;
   clipAudio: HTMLAudioElement | null;
+  clipAudioGain: number;
   streamingVideo: boolean;
   mediaNeedsGesture: boolean;
   mediaGeneration: number;

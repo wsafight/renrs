@@ -88,8 +88,9 @@ Implementation details and limits:
   Native output is limited to 1920x1080, with two queued frames, one in-flight
   frame, one pending frame and one reusable GPU texture. FFmpeg's own process
   memory is separate. Archive video uses a temporary file, removed on close.
-- Video supports an optional WAV soundtrack synchronized with playback, pause,
-  seek and save restoration. Native streaming requires `ffmpeg` or
+- Video supports legacy optional WAV audio or bounded localized WAV audio/subtitle
+  tracks synchronized with playback, pause, seek and save restoration. Per-track gain
+  multiplies the sound-channel volume. Native streaming requires `ffmpeg` or
   `RENRS_FFMPEG`. PNG-frame v1 clips remain supported without a runtime FFmpeg
   dependency.
 

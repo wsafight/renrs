@@ -26,7 +26,7 @@ migration report must reject it or list it as todo.
 | Transition | partial | Serializable fade, dissolve | Composite transitions still missing |
 | Screen/style/UI | partial | Shared desktop/web JSON screens, scroll, data controls, drag/drop, extension buttons | Arbitrary displayables and full screen language still missing |
 | Audio | partial | music/sound/voice, music queue, fades, static music/sound relative gain | Arbitrary mixers, sync, and more formats are P2 |
-| Video | partial | Image frames or streaming video, optional WAV bed, pause/resume on the audio clock | Extra audio/subtitle tracks and more platform measurement still pending |
+| Video | partial | Image frames or streaming video, localized WAV audio/subtitle tracks, pause/resume on the audio clock | More platform and long-form sync measurement still pending |
 | Reading and a11y | partial | NVL, underline, ruby, RTL shaping, shaped-cluster wrapping, keyboard controls, self-voicing, Web semantics | Vertical text, color emoji, and a native OS accessibility tree still missing |
 | Localization | done | JSON catalog, stable IDs, alias, fallback, CLDR plurals, RTL shaping, font families | Full ICU rich text and screen-reader trees still missing |
 | Saves | done | Snapshot v7, async saves, explicit-ID content-update restore, desktop/web container exchange and load acceptance | Old-format migration and cloud sync still missing |

@@ -113,7 +113,8 @@ Launcher 和 VS Code 扩展已经提供创作入口，但非程序员创作者�
 - 核心运行时不依赖窗口，可进行无 GPU、无音频设备测试。
 - parser、compiler、analysis、runtime、player、migration 和 LSP 按职责拆分。
 - 测试会拒绝根包和所有 workspace crates 中超过 500 行的 Rust 源码文件。
-- 视频通过 FFmpeg/FFprobe 转为帧或流式清单，可配套 WAV 音轨并按音频时钟播放。
+- 视频通过 FFmpeg/FFprobe 转为帧或流式清单，可按语言选择 WAV 音轨和字幕、组合相对音量，
+  并按音频时钟播放。
 
 本轮增加的异步存档、成就、Web、调试器和发行工具范围见 [新增能力](UPGRADES.md)。
 
@@ -176,6 +177,8 @@ Launcher 和 VS Code 扩展已经提供创作入口，但非程序员创作者�
    或大型在线 Dashboard。
 
 ### 9.2 Agent 协作方向
+
+本方向当前暂缓；`SKILL.md`、`llms.txt` 和只读 MCP Server 不属于本轮交付。
 
 确定性运行时、无窗口检查、剧情图和路线测试适合被 Agent 调用，但 Agent 能力是创作工具链的扩展，
 不能代替基础创作体验、引擎可靠性或真实作品验证。产品定位仍以视觉小说引擎为主，目标是让 Agent

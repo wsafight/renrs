@@ -72,6 +72,30 @@ v1 在没有它时仍可移植。Web v2 使用 HTML video。输入音轨变成�
 音轨时钟控制视频位置；暂停和读档恢复保留偏移。音乐和语音保持独立。预算、兼容性和测量见
 [性能测量](PERFORMANCE.md)。
 
+帧清单和流式清单都可以用最多 16 条本地化 WAV 音轨替代旧的 `audio` 字段，并内嵌最多
+16 条字幕轨。播放器依次选择语言精确匹配、同一基础语言、唯一默认轨、无语言音轨和第一条轨道。
+音轨音量与音效通道音量相乘。字幕 cue 必须按时间排序、互不重叠、不超出片段时长，除换行外
+不得包含控制字符。
+
+```json
+{
+  "version": 2,
+  "fps": 24,
+  "stream": {"path": "clips/intro/video.mp4", "seconds": 2, "width": 1280, "height": 720},
+  "audio_tracks": [
+    {"path": "clips/intro/en.wav", "language": "en", "default": true, "volume": 0.7},
+    {"path": "clips/intro/zh.wav", "language": "zh-Hans", "label": "简体中文"}
+  ],
+  "subtitles": [
+    {"language": "en", "default": true, "cues": [{"start": 0, "end": 1.5, "text": "Signal received."}]},
+    {"language": "zh-Hans", "cues": [{"start": 0, "end": 1.5, "text": "信号已收到。"}]}
+  ]
+}
+```
+
+`audio` 与 `audio_tracks` 不能同时出现。这些可选字段不改变 v1/v2 清单版本；不兼容的结构变更
+仍必须提升版本。
+
 桌面 `screens.json` 增加 `high_contrast`、`reduced_motion` 和 `wait_voice` 的 `toggle`，
 以及已声明字符串变量的 `input`：
 

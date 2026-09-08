@@ -3,6 +3,10 @@
 范围：按优先级补齐剩余产品和性能缺口。商业项目验收、跨平台验收和上架由所有者排除。
 旧存档格式不必保持兼容。
 
+当前范围决定（2026-09-08）：发布类 P0、真机和真实项目验收暂缓。仓库内可闭环的 P1/P2
+以 `node scripts/verify-local.mjs` 作为验收门禁，不再扩展 GitHub Actions CI。
+面向 Agent 的 `SKILL.md`、`llms.txt`、只读 MCP Server 及相关集成也暂缓。
+
 - [x] P0：共享快照编码，以及轻量原生/Web 存档列表。
 - [x] P1：可组合界面、滚动容器、数据驱动控件和拖放。
 - [x] P1：镜头、运行时角色层和更丰富的呈现。
@@ -11,15 +15,20 @@
 - [x] P0：拆分本地验收门禁，测试 Launcher/Web 协议边界，建立 30–60 分钟第一方参考 fixture。
 - [x] P1：shaped cluster 换行、Web 辅助语义、常用静态 ATL/master camera 迁移、媒体门禁、移动 wrapper 验证和 `0.1.0-rc.1` 契约。
 - [x] P2：项目 Launcher、SDK 流程、模板和作者文档；本地端到端验证通过。
-- [ ] P2：媒体配置、图形扩展和平台服务适配（命名立绘层和静态单音轨增益已交付；重型后端仍待处理）。
+- [x] P2：v1 机器协议、只读项目检查、基线/候选影响分析和 Launcher 质量报告。
+- [x] P2：有界媒体配置，包括本地化视频音轨、相对音量、字幕 cue，以及原生/Web 一致的回退规则。
+- [ ] P2：重型图形和平台服务后端（Live2D、自定义 shader、云/商店 SDK 和原生移动渲染）。
 
 每一项都要先实现再做针对性验证才能勾选。外部 SDK 和服务在不可用时必须明确标出。
 
 Launcher 用 `node scripts/launcher.mjs` 启动；SDK 包用
 `node scripts/package-sdk.mjs <new-directory> <binary-directory>` 组装。
-Launcher 把 check、run、graph、pack 和 build 交给现有 Rust 工具，日志有界，
-能发现过期脚本编辑，并且只存储本地路径。主题文件支持回退字体族。独立的音乐、
-音效、语音音量默认值现在会与有界的 music/sound 单音轨增益组合；这仍不等同于任意 mixer、媒体同步、图形或
+Launcher 把 inspect、check、run、graph、pack 和 build 交给现有 Rust 工具，日志有界，
+能发现过期脚本编辑，并且只存储本地路径。质量视图区分静态可达性和实际路线覆盖，
+展示诊断、路线结果和本地化缺口。面向机器的检查、调试、验收、项目检查和影响分析命令
+共用版本化 v1 包装。主题文件支持回退字体族。独立的音乐、
+音效、语音音量默认值现在会与有界的 music/sound 单音轨增益组合。视频清单支持原生/Web 一致的
+本地化 WAV 音轨、相对音量和有界字幕 cue；这仍不等同于任意 mixer、长片/真机媒体验证、图形或
 平台服务扩展。Live2D、自定义 shader 和云/商店服务仍未实现。商业项目和跨平台
 验收不在本开发范围内。
 

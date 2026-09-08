@@ -1,4 +1,5 @@
 import {langFromStorage, ui, type Lang} from '../i18n';
+import {href, pages} from '../catalog';
 
 const header = document.querySelector<HTMLElement>('#site-header');
 const menu = document.querySelector<HTMLElement>('#mobile-menu');
@@ -7,11 +8,16 @@ const dialog = document.querySelector<HTMLDialogElement>('#search-dialog');
 const searchInput = document.querySelector<HTMLInputElement>('[data-search-input]');
 const results = document.querySelector<HTMLElement>('[data-search-results]');
 const empty = document.querySelector<HTMLElement>('[data-search-empty]');
-const catalog = (window as Window & {__RENRS_SEARCH__?: {catalog: SearchItem[]; pagefindUrl: string}}).__RENRS_SEARCH__;
 
 type SearchItem = {title: {en: string; zh: string}; description: {en: string; zh: string}; url: string};
+const catalog: SearchItem[] = pages.map(page => ({
+  title: page.title,
+  description: page.description,
+  url: href(page.slug),
+}));
 let pagefind: {init(): Promise<void>; search(query: string): Promise<{results: Array<{data(): Promise<{url: string; meta: {title?: string}; excerpt?: string}>}>}>} | undefined;
 let lastScroll = window.scrollY;
+let searchRevision = 0;
 
 function currentLang(): Lang {
   return langFromStorage(document.documentElement.dataset.lang || localStorage.getItem('renrs-lang'));
@@ -84,10 +90,10 @@ function moveIndicator(target?: HTMLElement | null) {
 }
 
 async function loadPagefind() {
-  if (pagefind || !catalog) return;
+  if (pagefind || !dialog?.dataset.pagefindUrl) return;
   try {
     const loaded = await Promise.race([
-      import(/* @vite-ignore */ catalog.pagefindUrl),
+      import(/* @vite-ignore */ dialog.dataset.pagefindUrl),
       new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('pagefind timeout')), 1500)),
     ]);
     pagefind = loaded;
@@ -115,30 +121,42 @@ function renderItems(items: SearchItem[]) {
 }
 
 async function search(query: string) {
+  const revision = ++searchRevision;
   const value = query.trim();
   if (!value) {
     renderItems([]);
     if (empty) empty.hidden = true;
     return;
   }
-  if (pagefind) {
-    const found = await pagefind.search(value);
-    const items = await Promise.all(found.results.slice(0, 8).map(async result => {
-      const data = await result.data();
-      return {
-        title: {en: data.meta.title || data.url, zh: data.meta.title || data.url},
-        description: {en: data.excerpt?.replace(/<[^>]+>/g, '') || '', zh: data.excerpt?.replace(/<[^>]+>/g, '') || ''},
-        url: data.url,
-      };
-    }));
-    if (items.length) {
-      renderItems(items);
-      return;
+  searchInput?.setAttribute('aria-busy', 'true');
+  try {
+    if (pagefind) {
+      const found = await pagefind.search(value);
+      const items = await Promise.all(found.results.slice(0, 8).map(async result => {
+        const data = await result.data();
+        const pathname = new URL(data.url, location.href).pathname.replace(/\/$/, '');
+        const localized = catalog.find(item => new URL(item.url, location.href).pathname.replace(/\/$/, '') === pathname);
+        return {
+          title: localized?.title ?? {en: data.meta.title || data.url, zh: data.meta.title || data.url},
+          description: {
+            en: data.excerpt?.replace(/<[^>]+>/g, '') || localized?.description.en || '',
+            zh: data.excerpt?.replace(/<[^>]+>/g, '') || localized?.description.zh || '',
+          },
+          url: data.url,
+        };
+      }));
+      if (revision !== searchRevision) return;
+      if (items.length) {
+        renderItems(items);
+        return;
+      }
     }
+    const items = catalog.filter(item =>
+      `${item.title.en} ${item.title.zh} ${item.description.en} ${item.description.zh}`.toLowerCase().includes(value.toLowerCase()));
+    if (revision === searchRevision) renderItems(items);
+  } finally {
+    if (revision === searchRevision) searchInput?.removeAttribute('aria-busy');
   }
-  const items = (catalog?.catalog || []).filter(item =>
-    `${item.title.en} ${item.title.zh} ${item.description.en} ${item.description.zh}`.toLowerCase().includes(value.toLowerCase()));
-  renderItems(items);
 }
 
 header?.querySelectorAll('.desktop-nav a').forEach(link => {

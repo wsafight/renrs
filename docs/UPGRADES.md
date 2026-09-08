@@ -87,6 +87,32 @@ files referenced by the manifest. The soundtrack clock controls video position;
 pause and save restoration retain the offset. Music and voice stay independent.
 See [performance work](PERFORMANCE.md) for budgets, compatibility and measurements.
 
+Frame and stream manifests can replace the legacy `audio` field with up to 16 localized
+WAV tracks and can embed up to 16 subtitle tracks. The player chooses an exact language,
+then a related base language, the single default, an untagged audio track, and finally
+the first track. Track volume is combined with the sound-channel volume. Subtitle cues
+must be ordered, non-overlapping, within the clip duration, and contain no control
+characters other than newlines.
+
+```json
+{
+  "version": 2,
+  "fps": 24,
+  "stream": {"path": "clips/intro/video.mp4", "seconds": 2, "width": 1280, "height": 720},
+  "audio_tracks": [
+    {"path": "clips/intro/en.wav", "language": "en", "default": true, "volume": 0.7},
+    {"path": "clips/intro/zh.wav", "language": "zh-Hans", "label": "简体中文"}
+  ],
+  "subtitles": [
+    {"language": "en", "default": true, "cues": [{"start": 0, "end": 1.5, "text": "Signal received."}]},
+    {"language": "zh-Hans", "cues": [{"start": 0, "end": 1.5, "text": "信号已收到。"}]}
+  ]
+}
+```
+
+`audio` and `audio_tracks` are mutually exclusive. These optional fields preserve the
+v1/v2 manifest versions; incompatible structural changes still require a version bump.
+
 Desktop `screens.json` adds `toggle` widgets for `high_contrast`, `reduced_motion`
 and `wait_voice`, and `input` widgets for declared string variables:
 

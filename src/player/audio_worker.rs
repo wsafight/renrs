@@ -13,6 +13,7 @@ pub(super) enum Command {
         path: Option<String>,
         position: f32,
         paused: bool,
+        relative_volume: f32,
     },
     Music(Option<MusicState>),
     Voice(Option<String>),
@@ -212,7 +213,18 @@ fn run(
                 path,
                 position,
                 paused,
-            }) => video.sync(source, mixer, path, position, paused, volumes[1]),
+                relative_volume,
+            }) => video.sync(
+                source,
+                mixer,
+                path,
+                position,
+                paused,
+                super::video_audio::VideoGain {
+                    channel: volumes[1],
+                    track: relative_volume,
+                },
+            ),
             Some(Command::Music(Some(state))) => {
                 music = None;
                 track(

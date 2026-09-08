@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseImportedSave, parseRuntimeState } from '../src/protocol';
+import { selectVideoAudio, selectVideoSubtitle } from '../src/media';
+import { parseImportedSave, parseRuntimeState, parseVideoManifest } from '../src/protocol';
 
 describe('web protocol boundaries', () => {
   it('accepts the empty wait state emitted while the debugger is paused', () => {
@@ -50,5 +51,82 @@ describe('web protocol boundaries', () => {
     });
     expect(save).not.toHaveProperty('id');
     expect(save).not.toHaveProperty('slot');
+  });
+
+  it('validates and selects localized video tracks', () => {
+    const clip = parseVideoManifest({
+      version: 2,
+      fps: 24,
+      stream: { path: 'video.mp4', seconds: 2, width: 1280, height: 720 },
+      audio_tracks: [
+        { path: 'en.wav', language: 'en', default: true, volume: 0.5 },
+        { path: 'zh.wav', language: 'zh-Hans' },
+      ],
+      subtitles: [
+        { language: 'en', default: true, cues: [{ start: 0, end: 1, text: 'Hello' }] },
+        { language: 'zh', cues: [{ start: 0, end: 1, text: 'Ni hao' }] },
+      ],
+    });
+
+    expect(selectVideoAudio(clip, 'zh-CN')).toMatchObject({ path: 'zh.wav', volume: 1 });
+    expect(selectVideoAudio(clip, 'fr')).toMatchObject({ path: 'en.wav', volume: 0.5 });
+    expect(selectVideoSubtitle(clip, 'zh-CN')?.cues[0].text).toBe('Ni hao');
+    expect(() =>
+      parseVideoManifest({
+        version: 1,
+        fps: 24,
+        frames: ['frame.png'],
+        audio: 'old.wav',
+        audio_tracks: [{ path: 'new.wav' }],
+      }),
+    ).toThrow();
+  });
+
+  it.each([
+    {
+      name: 'unsafe soundtrack path',
+      manifest: { version: 1, fps: 24, frames: ['frame.png'], audio: '../audio.wav' },
+    },
+    {
+      name: 'missing stream dimensions',
+      manifest: { version: 2, fps: 24, stream: { path: 'video.mp4', seconds: 2 } },
+    },
+    {
+      name: 'too many audio tracks',
+      manifest: {
+        version: 1,
+        fps: 24,
+        frames: ['frame.png'],
+        audio_tracks: Array.from({ length: 17 }, (_, index) => ({ path: `${index}.wav` })),
+      },
+    },
+    {
+      name: 'invalid subtitle language',
+      manifest: {
+        version: 1,
+        fps: 1,
+        frames: ['frame.png'],
+        subtitles: [{ language: 'zh_CN', cues: [] }],
+      },
+    },
+    {
+      name: 'overlapping subtitle cues',
+      manifest: {
+        version: 1,
+        fps: 1,
+        frames: ['one.png', 'two.png'],
+        subtitles: [
+          {
+            language: 'en',
+            cues: [
+              { start: 0, end: 1, text: 'One' },
+              { start: 0.5, end: 1.5, text: 'Two' },
+            ],
+          },
+        ],
+      },
+    },
+  ])('rejects $name at the video protocol boundary', ({ manifest }) => {
+    expect(() => parseVideoManifest(manifest)).toThrow();
   });
 });

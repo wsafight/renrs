@@ -1,4 +1,6 @@
 use super::app::App;
+use super::text::draw_text;
+use super::ui_common::{color, color_alpha, wrap_lines};
 use super::video_worker::{VideoFrame, VideoWorker};
 use macroquad::prelude::*;
 use renrs::WaitState;
@@ -25,10 +27,12 @@ impl App {
                     effect: VisualEffect::Video { path, seconds },
                 } = wait
                 {
-                    self.clips
-                        .get(path)
-                        .and_then(|clip| clip.audio.clone())
-                        .map(|path| (path, seconds - self.effect_remaining))
+                    self.clips.get(path).and_then(|clip| {
+                        clip.audio_for(self.settings.language.as_deref())
+                            .map(|(path, volume)| {
+                                (path.to_owned(), seconds - self.effect_remaining, volume)
+                            })
+                    })
                 } else {
                     None
                 }
@@ -38,8 +42,8 @@ impl App {
             || !self.assets.is_ready()
             || self.storage.loading
             || self.storage.quit_after_save;
-        if let Some((path, position)) = state {
-            self.audio.sync_video(Some(path), position, paused);
+        if let Some((path, position, volume)) = state {
+            self.audio.sync_video(Some(path), position, paused, volume);
         } else {
             self.audio.stop_video();
         }
@@ -51,7 +55,7 @@ impl App {
             && self
                 .clips
                 .get(path)
-                .is_some_and(|clip| clip.audio.is_some())
+                .is_some_and(|clip| clip.audio_for(self.settings.language.as_deref()).is_some())
         {
             return self.audio.video_position();
         }
@@ -181,6 +185,7 @@ impl App {
                             ..Default::default()
                         },
                     );
+                    self.draw_video_subtitle(path, *seconds);
                     return;
                 }
                 if let Some(clip) = self.clips.get(path) {
@@ -190,6 +195,7 @@ impl App {
                             .map(String::as_str),
                     );
                 }
+                self.draw_video_subtitle(path, *seconds);
             }
             VisualEffect::Dissolve { from, seconds } if !self.theme.reduced_motion => {
                 let alpha = if *seconds > f32::EPSILON {
@@ -207,5 +213,40 @@ impl App {
         self.video.as_ref().is_none_or(|video| {
             video.failed || video.current.is_some_and(|index| index >= video.requested)
         })
+    }
+
+    fn draw_video_subtitle(&self, path: &str, seconds: f32) {
+        let elapsed = seconds - self.effect_remaining;
+        let Some(text) = self
+            .clips
+            .get(path)
+            .and_then(|clip| clip.subtitle_at(self.settings.language.as_deref(), elapsed))
+        else {
+            return;
+        };
+        let lines = wrap_lines(text, 960.0, self.theme.ui_font_size)
+            .into_iter()
+            .take(3);
+        let lines = lines.collect::<Vec<_>>();
+        let line_height = f32::from(self.theme.ui_font_size) * 1.35;
+        let height = line_height * lines.len() as f32 + 28.0;
+        let top = super::CANVAS_HEIGHT - height - 36.0;
+        draw_rectangle(
+            120.0,
+            top,
+            1040.0,
+            height,
+            color_alpha(&self.theme.panel_color, 0.9),
+        );
+        for (index, line) in lines.iter().enumerate() {
+            let width = super::text::measure_width(line, self.theme.ui_font_size);
+            draw_text(
+                line,
+                (super::CANVAS_WIDTH - width) / 2.0,
+                top + 18.0 + line_height * index as f32,
+                f32::from(self.theme.ui_font_size),
+                color(&self.theme.text_color),
+            );
+        }
     }
 }

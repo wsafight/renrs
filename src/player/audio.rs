@@ -15,17 +15,24 @@ pub(super) struct AudioManager {
     replay: Option<String>,
     volumes: Option<[f32; 3]>,
     notices: Vec<String>,
-    video: Option<(Option<String>, bool)>,
+    video: Option<(Option<String>, bool, f32)>,
 }
 
 impl AudioManager {
-    pub(super) fn sync_video(&mut self, path: Option<String>, position: f32, paused: bool) {
-        let state = (path, paused);
+    pub(super) fn sync_video(
+        &mut self,
+        path: Option<String>,
+        position: f32,
+        paused: bool,
+        relative_volume: f32,
+    ) {
+        let state = (path, paused, relative_volume);
         if self.video.as_ref() != Some(&state)
             && self.send(Command::Video {
                 path: state.0.clone(),
                 position,
                 paused,
+                relative_volume,
             })
         {
             self.video = Some(state);
@@ -35,7 +42,7 @@ impl AudioManager {
         self.worker.as_ref().and_then(AudioWorker::video_position)
     }
     pub(super) fn stop_video(&mut self) {
-        self.sync_video(None, 0.0, true);
+        self.sync_video(None, 0.0, true, 1.0);
     }
     pub(super) fn prepare(&mut self, source: &ProjectSource) {
         self.worker

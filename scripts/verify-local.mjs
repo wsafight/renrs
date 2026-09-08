@@ -85,6 +85,7 @@ try {
     'Run npm ci --prefix editors/vscode-renrs.',
   );
   run('Biome formatting and linting', 'npm', ['exec', 'biome', '--', 'check', '.']);
+  run('Dependency advisories', process.execPath, ['scripts/audit-local.mjs']);
   run('Release contract versions', process.execPath, ['scripts/check-release.mjs']);
   run('Web TypeScript, unit tests and build', 'npm', ['run', 'check', '--prefix', 'web']);
   run('Launcher TypeScript and build', 'npm', ['run', 'check', '--prefix', 'launcher']);

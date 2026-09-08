@@ -15,7 +15,7 @@
 | Runtime snapshot | `7` | 只接受当前版本 | 提高版本；旧开发存档可以丢弃 |
 | 桌面/Web 存档容器 | `2` | 只接受当前版本并验证校验和 | 提高版本并同步两端解析器 |
 | extension/composition | `1` | 拒绝未知版本 | 提高对应 manifest 版本 |
-| 帧视频/流式视频 | `1` / `2` | 按 manifest 形态和版本严格校验 | 提高对应视频 manifest 版本 |
+| 帧视频/流式视频 | `1` / `2` | 严格校验形态、版本及可选的本地化音轨/字幕轨 | 提高对应视频 manifest 版本 |
 
 `tests/release_contract.rs` 检查发布版本、机器协议、snapshot、存档和界面格式与编译代码一致。
 格式常量改变时必须先更新实现、fixture、兼容矩阵和升级说明，不能只改 `release.json`。

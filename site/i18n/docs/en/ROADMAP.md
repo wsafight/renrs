@@ -68,7 +68,8 @@ a real backend.
    CJK wrapping, ruby, and shaped-cluster-aware wrapping. Vertical layout, color emoji,
    and native screen-reader semantics remain.
 3. **Advanced presentation**: named sprite layers are shipped; full ATL, layer cameras, arbitrary displayables, composite transitions, shaders, particles, and Live2D remain.
-4. **Video**: extra audio and subtitle tracks, more device and long-form sync acceptance.
+4. **Video**: localized audio tracks, relative volume, and subtitle tracks are shipped;
+   more device and long-form sync acceptance remains.
 5. **Performance**: real project samples and font-cache budgets. Incremental compile is shipped.
    Execution already uses a linear `Program` instruction IR; only evaluate compact opcodes
    or expression bytecode when profiling identifies expression evaluation or dispatch as a bottleneck.
@@ -128,6 +129,9 @@ a real backend.
   Svelte prototypes on bundle size, accessibility, tests, and mobile behavior.
 
 ## Agent collaboration proposal
+
+Status: paused. `SKILL.md`, `llms.txt`, a read-only MCP server, and other agent
+integration are outside the current P1/P2 round. The items below remain a future proposal.
 
 This path builds on existing static checks, deterministic runtime, headless debugging, and
 route tests. It does not claim the capabilities below are implemented. Agent layers must

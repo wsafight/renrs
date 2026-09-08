@@ -152,6 +152,7 @@ export const app: PlayerApp = {
   profile: { achievements: [], gallery: [], endings: [] },
   profileRevision: null,
   clipAudio: null,
+  clipAudioGain: 1,
   streamingVideo: false,
   mediaNeedsGesture: false,
   mediaGeneration: 0,
@@ -188,7 +189,7 @@ export const app: PlayerApp = {
     for (const [channel, audio] of app.voices) {
       audio.volume = audioVolume(app.settings, channel, Number(audio.dataset.relativeVolume ?? 1));
     }
-    if (app.clipAudio) app.clipAudio.volume = app.settings.sound_volume;
+    if (app.clipAudio) app.clipAudio.volume = app.settings.sound_volume * app.clipAudioGain;
     if (!app.settings.self_voicing && 'speechSynthesis' in window) speechSynthesis.cancel();
     localStorage.setItem(settingsKey(app.data.program.project_id), JSON.stringify(app.settings));
   },

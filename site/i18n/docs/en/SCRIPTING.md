@@ -114,7 +114,9 @@ the manifest. Use `renrs-video input.mp4 my-project clips/name --stream` for a s
 version. Conversion needs FFmpeg and FFprobe. Native streaming playback needs FFmpeg;
 web uses the browser video player. The converter may extract `audio.wav`; the audio
 clock drives play, pause, and load. Older manifests without audio still work. Video
-volume uses the sound channel. Commands, examples, and media limits are in
+manifests may also configure language-selected `audio_tracks`, per-track relative
+volume, and embedded `subtitles`; native and Web players share selection fallback and
+validation bounds. Video volume uses the sound channel. Commands, examples, and media limits are in
 [Capability upgrades](UPGRADES.md#media-and-screen-controls).
 
 Parallel staging uses 2 to 16 independent timelines. The same alias cannot be mutated

@@ -40,17 +40,17 @@ npx playwright install chromium
 npm test
 ```
 
-## GitHub Actions
+## Local gate and deployment
 
-`.github/workflows/docs.yml` runs on push, pull request, and manual dispatch when
-docs or site files change. Every build type-checks, emits static pages, builds the
-full-text index, checks links, and uploads the site artifact. A push to the default
-branch or a manual run publishes with GitHub Pages. Pull requests only check the
-build.
+The docs quality gate runs locally. `npm run check` and `npm run build` are the
+authoritative checks; run the existing `npm test` separately when browser regression
+coverage is needed. This round does not add GitHub Actions CI.
 
-The first time, choose **GitHub Actions** under **Settings → Pages → Build and
-deployment**. The repository must already be on GitHub. A local workflow dry run
-does not mean a live publish succeeded.
+The existing `.github/workflows/docs.yml` remains only as an optional artifact and
+GitHub Pages publishing channel, not a replacement for local acceptance. To publish,
+choose **GitHub Actions** under **Settings → Pages → Build and deployment**. The
+repository must already be on GitHub. Passing local checks does not mean a live
+publish succeeded.
 
 ## Site URL and subpath
 

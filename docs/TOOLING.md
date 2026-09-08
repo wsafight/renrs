@@ -199,6 +199,7 @@ SDK 对应构建机器的平台。签名、公证和商店文件使用 `scripts/
 
 ```sh
 node scripts/verify-local.mjs
+npm run audit
 
 cargo fmt --all -- --check
 cargo check --offline --workspace --all-targets
@@ -207,7 +208,13 @@ cargo test --offline --workspace --all-targets
 ```
 
 上述 core 门禁还会检查 Biome、demo、脚手架路线、产品和第一方参考 fixture、Web/Launcher 单测，
-以及 Web、VS Code 与 Launcher 的 strict TypeScript 和生产构建。扩展门禁可以单独或组合执行：
+以及 Web、VS Code 与 Launcher 的 strict TypeScript 和生产构建。它也运行各 Node 工作区的
+生产依赖审计和 `cargo audit --deny warnings`，因此本机需安装 `cargo-audit`。当前精确豁免
+`RUSTSEC-2025-0035`、`RUSTSEC-2026-0192`、`RUSTSEC-2026-0206` 和
+`RUSTSEC-2026-0249`：它们分别来自 Macroquad soundness、无维护的 ttf-parser/rustybuzz，
+以及 Rhai 的 smartstring 传递依赖，当前均无可直接升级的修复版本。豁免不代表风险消失；
+升级或替换对应渲染、文本和脚本依赖时应复核并删除，任何新 advisory 仍会使门禁失败。
+扩展门禁可以单独或组合执行：
 
 ```sh
 node scripts/verify-local.mjs --web      # 非媒体浏览器流程
