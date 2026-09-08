@@ -11,6 +11,7 @@ fn rust_source_files_stay_below_the_cohesion_limit() {
         root.join("src"),
         root.join("tests"),
         root.join("crates/syntax/src"),
+        root.join("crates/model/src"),
         root.join("crates/compiler/src"),
         root.join("crates/runtime/src"),
         root.join("crates/project/src"),

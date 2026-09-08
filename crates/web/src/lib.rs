@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc)] // Exported errors are JavaScript values, not Rust API errors.
+
 use renrs_runtime::{Program, Runtime, RuntimeError};
 use wasm_bindgen::prelude::*;
 
@@ -108,7 +110,7 @@ impl Engine {
     }
 
     pub fn screen_text(&self, text: &str) -> Result<String, JsValue> {
-        use renrs_runtime::syntax::Value;
+        use renrs_syntax::syntax::Value;
         let mut variables = self.runtime.variables().clone();
         variables.insert(
             "title".to_owned(),
@@ -133,8 +135,11 @@ impl Engine {
     }
 
     pub fn apply_expression(&mut self, name: &str, expression: &str) -> Result<String, JsValue> {
+        let expression =
+            renrs_compiler::expression::parse_expression(expression, "screens.json", 1, 1)
+                .map_err(js_error)?;
         self.runtime
-            .apply_screen_expression(name, expression)
+            .apply_screen_expression(name, &expression)
             .map_err(js_error)?;
         self.state()
     }
@@ -145,12 +150,15 @@ impl Engine {
         name: &str,
         input: &str,
     ) -> Result<String, JsValue> {
+        let input = renrs_compiler::expression::parse_expression(input, "screens.json", 1, 1)
+            .map_err(js_error)?;
         self.runtime
-            .apply_extension_expression(target, name, input)
+            .apply_extension_expression(target, name, &input)
             .map_err(js_error)?;
         self.state()
     }
 
+    #[must_use]
     pub fn translate_ui(&self, text: &str) -> String {
         let key = format!(
             "ui.{}",

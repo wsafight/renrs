@@ -102,9 +102,9 @@ pub fn build_distribution(
     fs::copy(player, staging.join(executable_name))?;
     let manifest = BuildManifest {
         engine_version: env!("CARGO_PKG_VERSION").to_owned(),
-        project_id: program.project_id,
-        title: program.title,
-        script_fingerprint: program.fingerprint,
+        project_id: program.project_id.clone(),
+        title: program.title.clone(),
+        script_fingerprint: program.fingerprint.clone(),
         archive: "game.renrs".to_owned(),
         executable: executable_name.to_owned(),
     };

@@ -426,10 +426,10 @@ pub(super) fn evaluate_defaults(
 }
 
 pub(super) fn visible_choices<'a>(
-    options: &'a [crate::compiler::ChoiceTarget],
+    options: &'a [renrs_model::ChoiceTarget],
     variables: &BTreeMap<String, Value>,
     line: usize,
-) -> Result<Vec<&'a crate::compiler::ChoiceTarget>, RuntimeError> {
+) -> Result<Vec<&'a renrs_model::ChoiceTarget>, RuntimeError> {
     options
         .iter()
         .filter_map(|option| match &option.condition {
@@ -451,7 +451,7 @@ pub(super) fn visible_choices<'a>(
 }
 
 pub(super) fn visible_choice_labels(
-    options: &[crate::compiler::ChoiceTarget],
+    options: &[renrs_model::ChoiceTarget],
     variables: &BTreeMap<String, Value>,
     localizer: &Localizer,
     line: usize,

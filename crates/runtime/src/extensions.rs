@@ -1,4 +1,4 @@
-use crate::syntax::Value;
+use crate::syntax::{Expr, Value};
 use crate::{Runtime, RuntimeError, WaitState};
 
 impl Runtime {
@@ -9,14 +9,9 @@ impl Runtime {
         &mut self,
         target: &str,
         name: &str,
-        input: &str,
+        input: &Expr,
     ) -> Result<(), RuntimeError> {
-        let expression = renrs_compiler::expression::parse_expression(input, "screens.json", 1, 1)
-            .map_err(|error| RuntimeError::Execution {
-                line: 0,
-                message: error.to_string(),
-            })?;
-        let input = self.evaluate_expression(&expression)?;
+        let input = self.evaluate_expression(input)?;
         self.apply_extension(target, name, &input)
     }
     /// Runs a project extension as a pure function without changing story state.

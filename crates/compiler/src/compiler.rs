@@ -2,12 +2,12 @@
 mod calls;
 #[path = "compiler/display.rs"]
 mod display;
+#[path = "compiler/error.rs"]
+mod error;
 #[path = "compiler/ids.rs"]
 mod ids;
 #[path = "compiler/lower.rs"]
 mod lower;
-#[path = "compiler/model.rs"]
-mod model;
 
 use std::collections::{HashMap, HashSet};
 
@@ -15,12 +15,13 @@ use indexmap::IndexMap;
 use sha2::{Digest, Sha256};
 
 use crate::syntax::{Script, Span};
+use renrs_model::CompiledProgram;
 
+pub use error::CompileError;
 use ids::stable_statement_id;
 use lower::Compiler;
-pub use model::{
-    ChoicePrompt, ChoiceTarget, CompileError, Instruction, InstructionId, InstructionKind, Program,
-    StatementId,
+pub use renrs_model::{
+    ChoicePrompt, ChoiceTarget, Instruction, InstructionId, InstructionKind, Program, StatementId,
 };
 
 /// Compiles a validated syntax tree into executable, flat instructions.
@@ -93,10 +94,7 @@ pub fn compile(script: &Script) -> Result<Program, CompileError> {
 
     let encoded = serde_json::to_vec(script).map_err(CompileError::Fingerprint)?;
     let fingerprint = format!("{:x}", Sha256::digest(encoded));
-    Ok(Program {
-        extensions: std::collections::BTreeMap::default(),
-        layered_images: std::collections::BTreeMap::default(),
-        progress: crate::progress::ProgressConfig::default(),
+    Ok(CompiledProgram {
         title: script.title.clone(),
         project_id: script.project_id.clone(),
         fingerprint,
@@ -121,7 +119,8 @@ pub fn compile(script: &Script) -> Result<Program, CompileError> {
         instruction_by_id,
         instruction_aliases: compiler.instruction_aliases,
         explicit_instruction_ids: compiler.explicit_instruction_ids,
-    })
+    }
+    .into())
 }
 
 fn resolve_display_layers(
@@ -233,6 +232,16 @@ mod tests {
         assert_eq!(options.len(), 2);
         assert_ne!(options[0].target, options[1].target);
         assert_eq!(program.instruction_by_id.len(), program.instructions.len());
+    }
+
+    #[test]
+    fn project_bundle_keeps_the_flat_program_json_contract() {
+        let program =
+            compile(&parse_script("label start:\n    return", "test.rns").unwrap()).unwrap();
+        let encoded = serde_json::to_value(program).unwrap();
+        assert!(encoded.get("compiled").is_none());
+        assert!(encoded.get("instructions").is_some());
+        assert!(encoded.get("extensions").is_some());
     }
 
     #[test]

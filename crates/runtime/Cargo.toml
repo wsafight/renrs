@@ -1,17 +1,21 @@
 [package]
 name = "renrs-runtime"
-version = "0.1.0-rc.1"
-edition = "2024"
-rust-version = "1.88"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
-renrs-compiler = { path = "../compiler" }
-renrs-extensions = { path = "../extensions" }
-serde = { version = "1", features = ["derive", "rc"] }
-serde_json = "1"
-thiserror = "2"
-sha2 = "0.10"
+renrs-extensions.workspace = true
+renrs-model.workspace = true
+renrs-syntax.workspace = true
+serde = { workspace = true, features = ["derive", "rc"] }
+serde_json.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+renrs-compiler.workspace = true
 
 [lints]
 workspace = true

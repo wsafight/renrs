@@ -10,8 +10,29 @@ repository = "https://github.com/wsafight/renrs"
 homepage = "https://wsafight.github.io/renrs/"
 
 [workspace]
-members = ["crates/syntax", "crates/compiler", "crates/runtime", "crates/project", "crates/editor", "crates/web", "crates/extensions"]
+members = ["crates/syntax", "crates/model", "crates/compiler", "crates/runtime", "crates/project", "crates/editor", "crates/web", "crates/extensions"]
 resolver = "3"
+
+[workspace.package]
+version = "0.1.0-rc.1"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+
+[workspace.dependencies]
+renrs-compiler = { path = "crates/compiler" }
+renrs-editor = { path = "crates/editor" }
+renrs-extensions = { path = "crates/extensions" }
+renrs-model = { path = "crates/model" }
+renrs-project = { path = "crates/project" }
+renrs-runtime = { path = "crates/runtime" }
+renrs-syntax = { path = "crates/syntax" }
+indexmap = { version = "2.11", features = ["serde"] }
+serde = "1"
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3.22"
+thiserror = "2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -21,11 +42,13 @@ all = "warn"
 pedantic = "warn"
 
 [dependencies]
-renrs-compiler = { path = "crates/compiler" }
-renrs-runtime = { path = "crates/runtime" }
-renrs-project = { path = "crates/project" }
-renrs-editor = { path = "crates/editor" }
-indexmap = { version = "2.11", features = ["serde"] }
+renrs-model.workspace = true
+renrs-compiler.workspace = true
+renrs-runtime.workspace = true
+renrs-project.workspace = true
+renrs-editor.workspace = true
+renrs-syntax.workspace = true
+indexmap.workspace = true
 hound = "3.5"
 lewton = "0.9"
 image = { version = "0.24", default-features = false, features = ["png", "tga"] }
@@ -36,11 +59,11 @@ rustybuzz = "0.20"
 unicode-bidi = "0.3"
 unicode-segmentation = "1.12"
 unicode-script = "0.5"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-sha2 = "0.10"
-thiserror = "2.0"
-tempfile = "3.22"
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tempfile.workspace = true
 sysinfo = { version = "0.31", default-features = false, features = ["system"] }
 ed25519-dalek = "2.2"
 getrandom = "0.3"

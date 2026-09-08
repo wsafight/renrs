@@ -7,8 +7,11 @@ pub mod reading;
 pub mod runtime;
 pub mod save_format;
 mod snapshot;
-pub use renrs_compiler::{
-    InstructionId, Localizer, Program, StatementId, TranslationCatalog, TranslationId, compile,
-    compiler, localization, parse_script, syntax, text,
-};
+pub use renrs_model::{InstructionId, ModelError, Program, ProjectBundle, StatementId};
+pub use renrs_syntax::localization::{Localizer, TranslationCatalog, TranslationId};
 pub use runtime::{Runtime, RuntimeError, WaitState};
+
+pub(crate) use renrs_syntax::{localization, syntax, text};
+
+#[cfg(test)]
+pub(crate) use renrs_compiler::{compile, parse_script};

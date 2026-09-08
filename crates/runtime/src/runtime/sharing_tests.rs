@@ -32,8 +32,10 @@ fn checkpoints_share_large_inventory_but_edits_rollback_and_saved_copies_are_ind
     assert_eq!(runtime.variables["bag"], saved.variables["bag"]);
     assert_eq!(runtime.variables["score"], Value::Integer(1));
     let mut restored = Runtime::restore(runtime.program.clone(), saved.clone()).unwrap();
+    let expression =
+        renrs_compiler::expression::parse_expression("push(bag, \"extra\")", "test", 1, 1).unwrap();
     restored
-        .apply_screen_expression("bag", "push(bag, \"extra\")")
+        .apply_screen_expression("bag", &expression)
         .unwrap();
     assert_eq!(saved.variables["bag"], Value::List(inventory));
 }

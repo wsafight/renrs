@@ -30,8 +30,9 @@ fn script_and_screen_extensions_preserve_exact_values_and_rollback() {
         restored.variables()["value"],
         Value::Integer(9_007_199_254_740_993)
     );
+    let input = renrs::expression::parse_expression("value", "screen", 1, 1).unwrap();
     restored
-        .apply_extension_expression("value", "double", "value")
+        .apply_extension_expression("value", "double", &input)
         .unwrap();
     assert_eq!(
         restored.variables()["value"],

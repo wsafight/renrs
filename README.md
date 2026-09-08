@@ -107,10 +107,12 @@ preferences are kept.
 
 ```text
 crates/syntax         AST, values, diagnostics, text, localization
-crates/compiler       Parse, lower, Program, static analysis
+crates/model          Compiled program and project bundle contracts
+crates/compiler       Parse, lower, static analysis
 crates/runtime        Execute, snapshot, rollback, debugger
 crates/project        Sources, assets, archives, theme, screens
 crates/editor         LSP, symbols, format, story graph
+crates/extensions     Sandboxed deterministic extension execution
 crates/web            Shared runtime WASM bindings
 src/player/*          Native UI, render, audio
 src/migration/*       Supported Ren'Py static subset

@@ -1,5 +1,6 @@
-use crate::syntax::LayeredImage;
 use crate::{Program, ProjectSource, diagnostic::Diagnostic};
+use renrs_model::{CompiledImageLayer, CompiledLayeredImage};
+use renrs_syntax::presentation::LayeredImage;
 use sha2::{Digest, Sha256};
 
 pub(crate) fn load(source: &ProjectSource, program: &mut Program) -> Result<(), Vec<Diagnostic>> {
@@ -7,7 +8,7 @@ pub(crate) fn load(source: &ProjectSource, program: &mut Program) -> Result<(), 
         .instructions
         .iter()
         .filter_map(|instruction| {
-            if let crate::compiler::InstructionKind::Show { path, alias, .. } = &instruction.kind {
+            if let renrs_model::InstructionKind::Show { path, alias, .. } = &instruction.kind {
                 if alias == "camera" {
                     return Some(Err("camera is a reserved image alias".to_owned()));
                 }
@@ -35,7 +36,7 @@ pub(crate) fn load(source: &ProjectSource, program: &mut Program) -> Result<(), 
     Ok(())
 }
 
-fn parse(source: &ProjectSource, path: &str) -> Result<LayeredImage, String> {
+fn parse(source: &ProjectSource, path: &str) -> Result<CompiledLayeredImage, String> {
     let definition: LayeredImage = serde_json::from_slice(
         &source
             .read_limited(path, 1024 * 1024)
@@ -64,10 +65,32 @@ fn parse(source: &ProjectSource, path: &str) -> Result<LayeredImage, String> {
                 return Err(format!("missing or unsafe layer image: {image}"));
             }
         }
-        if let Some(condition) = &layer.when {
-            renrs_compiler::expression::parse_expression(condition, path, 1, 1)
-                .map_err(|error| error.to_string())?;
-        }
     }
-    Ok(definition)
+    let layers = definition
+        .layers
+        .into_iter()
+        .map(|layer| {
+            let condition = layer
+                .when
+                .as_deref()
+                .map(|condition| {
+                    renrs_compiler::expression::parse_expression(condition, path, 1, 1)
+                        .map_err(|error| error.to_string())
+                })
+                .transpose()?;
+            Ok(CompiledImageLayer {
+                path: layer.path,
+                condition,
+                x: layer.x,
+                y: layer.y,
+                frames: layer.frames,
+                speaking: layer.speaking,
+            })
+        })
+        .collect::<Result<_, String>>()?;
+    Ok(CompiledLayeredImage {
+        width: definition.width,
+        height: definition.height,
+        layers,
+    })
 }

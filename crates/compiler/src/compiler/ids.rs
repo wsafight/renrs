@@ -5,14 +5,14 @@ use crate::localization::TranslationId;
 use super::{InstructionId, StatementId};
 
 pub(super) fn stable_statement_id(source: &str, label: &str, path: &str) -> StatementId {
-    StatementId(format!(
+    StatementId::generated(format!(
         "stmt_{}",
         stable_hash("renrs-statement-v1", &[source, label, path])
     ))
 }
 
 pub(super) fn stable_anchored_statement_id(anchor: &TranslationId) -> StatementId {
-    StatementId(format!(
+    StatementId::generated(format!(
         "stmt_{}",
         stable_hash("renrs-statement-anchor-v1", &[anchor.as_str()])
     ))
@@ -32,7 +32,7 @@ pub(super) fn translation_id(
 }
 
 pub(super) fn stable_instruction_id(statement_id: &StatementId, role: &str) -> InstructionId {
-    InstructionId(format!(
+    InstructionId::generated(format!(
         "inst_{}",
         stable_hash("renrs-instruction-v1", &[statement_id.as_str(), role])
     ))

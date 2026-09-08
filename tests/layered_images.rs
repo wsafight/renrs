@@ -9,6 +9,10 @@ fn layers_resolve_on_show_and_restore_without_rechecking_current_conditions() {
     fs::write(root.path().join("actor.layers.json"), br#"{"width":400,"height":600,"layers":[{"path":"body.png"},{"path":"face.png","when":"smile"}]}"#).unwrap();
     fs::write(root.path().join("script.rns"), "default smile = true\nlabel start:\n    show \"actor.layers.json\" as actor\n    \"First\"\n    set smile = false\n    show \"actor.layers.json\" as actor\n    \"Second\"").unwrap();
     let program = ProjectSource::open(root.path()).unwrap().compile().unwrap();
+    let encoded = serde_json::to_value(&program).unwrap();
+    let layer = &encoded["layered_images"]["actor.layers.json"]["layers"][1];
+    assert!(layer.get("condition").is_some());
+    assert!(layer.get("when").is_none());
     let mut runtime = Runtime::new(program.clone()).unwrap();
     runtime.advance().unwrap();
     assert_eq!(runtime.stage().sprites[0].image_paths().len(), 2);

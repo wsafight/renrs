@@ -3,7 +3,7 @@ use crate::{Runtime, RuntimeError};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use renrs_compiler::progress::{PROGRESS_FILE, ProgressConfig, Unlock};
+pub use renrs_model::progress::{PROGRESS_FILE, ProgressConfig, Unlock};
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

@@ -1,20 +1,33 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
+use std::ops::{Deref, DerefMut};
 
 use indexmap::IndexMap;
+use renrs_syntax::localization::TranslationId;
+use renrs_syntax::syntax::{
+    AnimationStep, CharacterDef, DefaultDef, Easing, Expr, Position, Span, TransformProperties,
+    TransitionKind,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::localization::TranslationId;
-use crate::syntax::{
-    CharacterDef, DefaultDef, Easing, Expr, Position, Span, TransformProperties, TransitionKind,
-};
+pub mod presentation;
+pub mod progress;
+
+pub use presentation::{CompiledImageLayer, CompiledLayeredImage};
+pub use progress::{PROGRESS_FILE, ProgressConfig, Unlock};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct StatementId(pub(super) String);
+pub struct StatementId(String);
 
 impl StatementId {
+    #[doc(hidden)]
+    #[must_use]
+    pub fn generated(value: String) -> Self {
+        Self(value)
+    }
+
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -29,7 +42,7 @@ impl fmt::Display for StatementId {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct InstructionId(pub(super) String);
+pub struct InstructionId(String);
 
 impl InstructionId {
     /// Creates an instruction ID for a sidecar alias map.
@@ -37,7 +50,7 @@ impl InstructionId {
     /// # Errors
     ///
     /// IDs must use the engine's `inst_` prefix and ASCII hex payload.
-    pub fn new(value: impl Into<String>) -> Result<Self, CompileError> {
+    pub fn new(value: impl Into<String>) -> Result<Self, ModelError> {
         let value = value.into();
         let valid = value.strip_prefix("inst_").is_some_and(|hash| {
             !hash.is_empty() && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
@@ -45,8 +58,14 @@ impl InstructionId {
         if valid {
             Ok(Self(value))
         } else {
-            Err(CompileError::InvalidInstructionId(value))
+            Err(ModelError::InvalidInstructionId(value))
         }
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn generated(value: String) -> Self {
+        Self(value)
     }
 
     #[must_use]
@@ -62,20 +81,14 @@ impl fmt::Display for InstructionId {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Program {
-    #[serde(default)]
-    pub extensions: std::collections::BTreeMap<String, String>,
-    #[serde(default)]
-    pub layered_images: std::collections::BTreeMap<String, crate::syntax::LayeredImage>,
-    #[serde(default)]
-    pub progress: crate::progress::ProgressConfig,
+pub struct CompiledProgram {
     pub title: String,
     pub project_id: String,
     pub fingerprint: String,
     pub characters: IndexMap<String, CharacterDef>,
     pub defaults: IndexMap<String, DefaultDef>,
     #[serde(default)]
-    pub display_layers: std::collections::BTreeMap<String, i32>,
+    pub display_layers: BTreeMap<String, i32>,
     pub instructions: Vec<Instruction>,
     pub labels: IndexMap<String, usize>,
     pub label_parameters: IndexMap<String, Vec<String>>,
@@ -86,7 +99,7 @@ pub struct Program {
     pub explicit_instruction_ids: HashSet<InstructionId>,
 }
 
-impl Program {
+impl CompiledProgram {
     #[must_use]
     pub fn instruction_index(&self, id: &InstructionId) -> Option<usize> {
         let canonical = self.instruction_aliases.get(id).unwrap_or(id);
@@ -121,9 +134,9 @@ impl Program {
         &mut self,
         old: InstructionId,
         current: InstructionId,
-    ) -> Result<(), CompileError> {
+    ) -> Result<(), ModelError> {
         if !self.instruction_by_id.contains_key(&current) {
-            return Err(CompileError::UnknownAliasTarget(current));
+            return Err(ModelError::UnknownAliasTarget(current));
         }
         if self.instruction_by_id.contains_key(&old)
             || self
@@ -131,9 +144,50 @@ impl Program {
                 .insert(old.clone(), current)
                 .is_some()
         {
-            return Err(CompileError::DuplicateInstructionId(old));
+            return Err(ModelError::DuplicateInstructionId(old));
         }
         Ok(())
+    }
+}
+
+/// A compiled script plus the project resources needed by every runtime frontend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectBundle {
+    #[serde(flatten)]
+    pub compiled: CompiledProgram,
+    #[serde(default)]
+    pub extensions: BTreeMap<String, String>,
+    #[serde(default)]
+    pub layered_images: BTreeMap<String, CompiledLayeredImage>,
+    #[serde(default)]
+    pub progress: ProgressConfig,
+}
+
+/// Compatibility name for the runtime's complete project contract.
+pub type Program = ProjectBundle;
+
+impl From<CompiledProgram> for ProjectBundle {
+    fn from(compiled: CompiledProgram) -> Self {
+        Self {
+            compiled,
+            extensions: BTreeMap::new(),
+            layered_images: BTreeMap::new(),
+            progress: ProgressConfig::default(),
+        }
+    }
+}
+
+impl Deref for ProjectBundle {
+    type Target = CompiledProgram;
+
+    fn deref(&self) -> &Self::Target {
+        &self.compiled
+    }
+}
+
+impl DerefMut for ProjectBundle {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.compiled
     }
 }
 
@@ -157,7 +211,7 @@ pub enum InstructionKind {
         mode: String,
     },
     Parallel {
-        tracks: Vec<Vec<crate::syntax::AnimationStep>>,
+        tracks: Vec<Vec<AnimationStep>>,
     },
     Video {
         path: String,
@@ -266,72 +320,11 @@ pub struct ChoicePrompt {
 }
 
 #[derive(Debug, Error)]
-pub enum CompileError {
-    #[error("unknown label `{label}` referenced at {file}:{line}")]
-    UnknownLabel {
-        label: String,
-        file: String,
-        line: usize,
-    },
+pub enum ModelError {
     #[error("stable instruction id collision `{0}")]
     DuplicateInstructionId(InstructionId),
     #[error("invalid instruction id `{0}")]
     InvalidInstructionId(String),
     #[error("instruction alias target `{0}` does not exist")]
     UnknownAliasTarget(InstructionId),
-    #[error("translation id `{0}` is used more than once")]
-    DuplicateTranslationId(TranslationId),
-    #[error("unknown image `{name}` referenced at {file}:{line}")]
-    UnknownImage {
-        name: String,
-        file: String,
-        line: usize,
-    },
-    #[error("unknown display layer `{name}` referenced at {file}:{line}")]
-    UnknownDisplayLayer {
-        name: String,
-        file: String,
-        line: usize,
-    },
-    #[error(
-        "label `{label}` accepts at most {maximum} positional arguments but received {found} at {file}:{line}"
-    )]
-    TooManyLabelArguments {
-        label: String,
-        maximum: usize,
-        found: usize,
-        file: String,
-        line: usize,
-    },
-    #[error("label `{label}` has no parameter named `{argument}` at {file}:{line}")]
-    UnknownLabelArgument {
-        label: String,
-        argument: String,
-        file: String,
-        line: usize,
-    },
-    #[error("label `{label}` receives parameter `{argument}` more than once at {file}:{line}")]
-    DuplicateLabelArgument {
-        label: String,
-        argument: String,
-        file: String,
-        line: usize,
-    },
-    #[error("label `{label}` is missing required argument `{argument}` at {file}:{line}")]
-    MissingLabelArgument {
-        label: String,
-        argument: String,
-        file: String,
-        line: usize,
-    },
-    #[error("entry label `start` cannot declare parameters at {file}:{line}")]
-    ParameterizedStart { file: String, line: usize },
-    #[error("jump cannot enter parameterized label `{label}` at {file}:{line}; use `call`")]
-    ParameterizedJump {
-        label: String,
-        file: String,
-        line: usize,
-    },
-    #[error("failed to fingerprint script: {0}")]
-    Fingerprint(serde_json::Error),
 }

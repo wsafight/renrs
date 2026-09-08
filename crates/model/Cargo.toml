@@ -1,17 +1,15 @@
 [package]
-name = "renrs-syntax"
+name = "renrs-model"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+renrs-syntax.workspace = true
 indexmap.workspace = true
-serde = { workspace = true, features = ["derive", "rc"] }
-serde_json.workspace = true
+serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
-intl_pluralrules = "7"
-unic-langid = "0.9"
 
 [lints]
 workspace = true

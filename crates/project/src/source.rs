@@ -76,7 +76,7 @@ impl ProjectSource {
         crate::layered_images::load(self, &mut program)?;
         crate::extensions::load(self, &mut program)?;
         for instruction in &program.instructions {
-            if let crate::compiler::InstructionKind::Video { path, seconds } = &instruction.kind {
+            if let renrs_model::InstructionKind::Video { path, seconds } = &instruction.kind {
                 let result = self
                     .read(path)
                     .map_err(|error| error.to_string())

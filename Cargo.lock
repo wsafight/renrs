@@ -1389,8 +1389,10 @@ dependencies = [
  "objc2-foundation",
  "renrs-compiler",
  "renrs-editor",
+ "renrs-model",
  "renrs-project",
  "renrs-runtime",
+ "renrs-syntax",
  "rodio",
  "rustybuzz",
  "serde",
@@ -1409,6 +1411,7 @@ name = "renrs-compiler"
 version = "0.1.0-rc.1"
 dependencies = [
  "indexmap",
+ "renrs-model",
  "renrs-syntax",
  "serde",
  "serde_json",
@@ -1422,6 +1425,7 @@ version = "0.1.0-rc.1"
 dependencies = [
  "renrs-compiler",
  "renrs-project",
+ "renrs-syntax",
  "serde",
  "serde_json",
  "tempfile",
@@ -1437,12 +1441,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "renrs-model"
+version = "0.1.0-rc.1"
+dependencies = [
+ "indexmap",
+ "renrs-syntax",
+ "serde",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "renrs-project"
 version = "0.1.0-rc.1"
 dependencies = [
  "indexmap",
  "renrs-compiler",
  "renrs-extensions",
+ "renrs-model",
+ "renrs-syntax",
  "serde",
  "serde_json",
  "sha2",
@@ -1456,6 +1472,8 @@ version = "0.1.0-rc.1"
 dependencies = [
  "renrs-compiler",
  "renrs-extensions",
+ "renrs-model",
+ "renrs-syntax",
  "serde",
  "serde_json",
  "sha2",
@@ -1478,7 +1496,9 @@ dependencies = [
 name = "renrs-web"
 version = "0.1.0-rc.1"
 dependencies = [
+ "renrs-compiler",
  "renrs-runtime",
+ "renrs-syntax",
  "serde_json",
  "wasm-bindgen",
 ]

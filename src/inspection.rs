@@ -365,7 +365,7 @@ fn referenced_resources(program: &Program) -> BTreeSet<String> {
             .layered_images
             .values()
             .flat_map(|image| image.layers.iter())
-            .flat_map(crate::syntax::ImageLayer::paths)
+            .flat_map(renrs_model::CompiledImageLayer::paths)
             .map(str::to_owned),
     );
     resources.extend(

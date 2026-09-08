@@ -41,7 +41,7 @@ P0 验证：本地 114 项测试、格式化和严格 Clippy 通过。当前快�
 后续性能工作增加了流式音视频、后台编译、有界解码和紧凑 Web 状态。见
 [性能测量](PERFORMANCE.md)。
 
-共享 Rust 实现验证：拆成 syntax、compiler、runtime、project、editor 和 web crate 后
+共享 Rust 实现验证：拆成 syntax、model、compiler、runtime、project、editor 和 web crate 后
 125 项测试通过。原生播放器和 CLI 入口仍在根包。常用 UI 标签已本地化；部分诊断和
 收藏文案仍是英文。
 

@@ -42,7 +42,7 @@ fn load_inner(source: &ProjectSource, program: &mut Program) -> Result<(), Strin
         program.fingerprint = format!("{:x}", hash.finalize());
     }
     for instruction in &program.instructions {
-        if let crate::compiler::InstructionKind::Extension { name, .. } = &instruction.kind
+        if let renrs_model::InstructionKind::Extension { name, .. } = &instruction.kind
             && !program.extensions.contains_key(name)
         {
             return Err(format!(

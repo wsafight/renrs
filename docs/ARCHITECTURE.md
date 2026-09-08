@@ -6,15 +6,19 @@ The root `renrs` package assembles the native player and command-line tools.
 | Crate | Responsibility | Direct Internal Dependencies |
 | --- | --- | --- |
 | `renrs-syntax` | AST, values, spans, diagnostics, text markup and localization data | None |
-| `renrs-compiler` | Parsing, lowering, compiled Program/IDs, static analysis and catalog extraction | syntax |
-| `renrs-runtime` | Interpreter, current-format snapshots, hot reload, rollback, profiles, debugger and route exploration | compiler |
-| `renrs-project` | Project assembly, resources, archives, themes, screens and video manifests | compiler |
-| `renrs-editor` | Symbols, references, formatting, story graphs and LSP server | compiler, project |
-| `renrs-web` | WASM bindings to the shared runtime | runtime |
-| `renrs` (root) | Native presentation, audio, save repository, distributions and CLI entry points | compiler, runtime, project, editor |
+| `renrs-model` | Compiled instructions/IDs and the runtime-facing project bundle | syntax |
+| `renrs-compiler` | Parsing, lowering, static analysis and catalog extraction | syntax, model |
+| `renrs-runtime` | Interpreter, current-format snapshots, hot reload, rollback, profiles, debugger and route exploration | syntax, model, extensions |
+| `renrs-project` | Project assembly, resources, archives, themes, screens and video manifests | syntax, model, compiler, extensions |
+| `renrs-editor` | Symbols, references, formatting, story graphs and LSP server | syntax, compiler, project |
+| `renrs-web` | WASM bindings and expression parsing at the browser boundary | syntax, compiler, runtime |
+| `renrs` (root) | Native presentation, audio, save repository, distributions and CLI entry points | syntax, model, compiler, runtime, project, editor |
 
-`Program` is the compiler/runtime contract. Runtime depends on its compiled model;
-it does not load files, initialize graphics or invoke the parser during execution.
+`CompiledProgram` is the pure script output. `ProjectBundle` adds extensions, compiled
+layered images and progress configuration; `Program` remains its compatibility name.
+Runtime depends on this model directly. It does not load files, initialize graphics or
+invoke the parser during execution. Native and Web adapters parse interactive expressions
+into `Expr` before calling runtime APIs.
 Editor integration can be built and tested without the native player or audio stack.
 Project resource rules are shared by desktop loading, archive creation, watching,
 Web distribution and editor disk indexing.
@@ -23,7 +27,8 @@ The VS Code extension source stays in `editors/vscode-renrs/src` and compiles to
 CommonJS bundle; its Rust LSP is in `crates/editor`. The strict TypeScript browser UI
 stays in `web`; only its WASM interface is Rust. The Launcher uses a separate Vite shell
 with Zod-validated local API responses while its Node server remains an `.mjs` script.
-The root library re-exports the module paths used by the player and CLI.
+The root library is the public facade used by the player and CLI. Leaf crates do not
+re-export parser and syntax modules from their upstream dependencies.
 Pre-release APIs and storage formats may change without backward compatibility.
 There is no catch-all core crate and no cross-crate source-path inclusion.
 

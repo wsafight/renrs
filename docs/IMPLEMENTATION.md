@@ -48,7 +48,7 @@ Subsequent performance work added streaming audio/video, background compilation,
 bounded decoding and compact Web state. See [PERFORMANCE.md](PERFORMANCE.md).
 
 Shared Rust implementation verification: 125 tests passed after splitting the
-workspace into syntax, compiler, runtime, project, editor and web crates. The native
+workspace into syntax, model, compiler, runtime, project, editor and web crates. The native
 player and CLI entry points remain in the root package. Common UI labels are
 localized; some diagnostics and collection text still use English.
 

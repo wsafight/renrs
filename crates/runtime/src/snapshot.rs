@@ -1,8 +1,8 @@
-use crate::compiler::InstructionId;
 use crate::runtime::{
     CallFrame, DialogueState, RollbackCheckpoint, RuntimeSnapshot, StageState, WaitState,
 };
 use crate::syntax::Value;
+use renrs_model::InstructionId;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::Arc;

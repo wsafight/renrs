@@ -100,10 +100,12 @@ Web 与移动端见 [命令行工具](https://wsafight.github.io/renrs/reference
 
 ```text
 crates/syntax         AST、值、诊断、文本、本地化
-crates/compiler       解析、降低、Program、静态分析
+crates/model          编译产物与项目包契约
+crates/compiler       解析、降低、静态分析
 crates/runtime        执行、快照、回滚、调试器
 crates/project        来源、资源、归档、主题、界面
 crates/editor         LSP、符号、格式化、剧情图
+crates/extensions     沙箱化确定性扩展执行
 crates/web            共享运行时的 WASM 绑定
 src/player/*          原生 UI、渲染、音频
 src/migration/*       支持的 Ren'Py 静态子集

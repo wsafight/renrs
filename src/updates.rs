@@ -106,7 +106,7 @@ pub fn create(old: &Path, new: &Path, destination: &Path, secret: &[u8; 32]) -> 
     let count = entries.iter().filter(|entry| entry.changed).count();
     let manifest = Manifest {
         version: 1,
-        project_id: new_program.project_id,
+        project_id: new_program.project_id.clone(),
         base_sha256: file_hash(old)?,
         target_sha256: file_hash(new)?,
         entries,

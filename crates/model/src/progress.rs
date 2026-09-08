@@ -1,6 +1,9 @@
-use crate::Program;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+
+use serde::{Deserialize, Serialize};
+
+use crate::CompiledProgram;
+
 pub const PROGRESS_FILE: &str = "progress.json";
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -26,7 +29,7 @@ impl ProgressConfig {
     /// Validates collection identities and label references.
     /// # Errors
     /// Rejects duplicate IDs, absent labels and unsafe gallery paths.
-    pub fn validate(&self, program: &Program) -> Result<(), String> {
+    pub fn validate(&self, program: &CompiledProgram) -> Result<(), String> {
         for items in [&self.achievements, &self.gallery, &self.endings] {
             let mut ids = BTreeSet::new();
             for item in items {

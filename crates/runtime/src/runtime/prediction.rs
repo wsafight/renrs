@@ -37,7 +37,7 @@ impl Runtime {
                             image
                                 .layers
                                 .iter()
-                                .flat_map(crate::syntax::ImageLayer::paths)
+                                .flat_map(renrs_model::CompiledImageLayer::paths)
                                 .collect()
                         },
                     );

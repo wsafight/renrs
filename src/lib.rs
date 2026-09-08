@@ -1,11 +1,11 @@
-pub use renrs_compiler::{
-    analysis, compiler, diagnostic, expression, localization, parser, syntax, text,
-};
+pub use renrs_compiler::{analysis, compiler, expression, localization, parser};
 pub use renrs_editor::tooling;
+pub use renrs_model as model;
 pub use renrs_project::{
     archive, project, resources, screens, source, theme, validator, video, watch,
 };
 pub use renrs_runtime::{debugger, progress, runtime};
+pub use renrs_syntax::{diagnostic, syntax, text};
 pub mod audio;
 pub mod benchmark;
 pub mod composition;

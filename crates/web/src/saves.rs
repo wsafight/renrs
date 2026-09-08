@@ -66,6 +66,7 @@ impl Engine {
     }
 }
 
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn remaining(metadata: &serde_json::Value) -> u32 {
     metadata["remaining"]
         .as_f64()

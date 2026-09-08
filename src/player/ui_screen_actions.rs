@@ -41,9 +41,20 @@ impl App {
         match command {
             ScreenCommand::Extension(variable, name, input) => {
                 if let Some(runtime) = &mut self.runtime {
-                    if let Err(error) = runtime.apply_extension_expression(&variable, &name, &input)
-                    {
-                        self.notice = Some((error.to_string(), 5.0));
+                    let result = renrs::expression::parse_expression(
+                        &input,
+                        renrs::screens::SCREENS_FILE,
+                        1,
+                        1,
+                    )
+                    .map_err(|error| error.to_string())
+                    .and_then(|input| {
+                        runtime
+                            .apply_extension_expression(&variable, &name, &input)
+                            .map_err(|error| error.to_string())
+                    });
+                    if let Err(error) = result {
+                        self.notice = Some((error, 5.0));
                     } else {
                         self.storage.progress_dirty = true;
                     }
@@ -51,8 +62,20 @@ impl App {
             }
             ScreenCommand::Set(variable, expression) => {
                 if let Some(runtime) = &mut self.runtime {
-                    if let Err(error) = runtime.apply_screen_expression(&variable, &expression) {
-                        self.notice = Some((error.to_string(), 5.0));
+                    let result = renrs::expression::parse_expression(
+                        &expression,
+                        renrs::screens::SCREENS_FILE,
+                        1,
+                        1,
+                    )
+                    .map_err(|error| error.to_string())
+                    .and_then(|expression| {
+                        runtime
+                            .apply_screen_expression(&variable, &expression)
+                            .map_err(|error| error.to_string())
+                    });
+                    if let Err(error) = result {
+                        self.notice = Some((error, 5.0));
                     } else {
                         self.storage.progress_dirty = true;
                     }

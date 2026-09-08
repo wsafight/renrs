@@ -11,8 +11,13 @@ pub mod theme;
 pub mod validator;
 pub mod video;
 pub mod watch;
-pub use renrs_compiler::{
-    Diagnostic, Program, TranslationCatalog, analyze, compile, compiler, diagnostic, localization,
-    parse_script, parser, progress, syntax,
-};
+pub use renrs_model::{Program, ProjectBundle};
 pub use source::{ProjectSource, ProjectSourceError};
+
+pub(crate) use renrs_compiler::{analyze, compile, parser};
+pub(crate) use renrs_model::progress;
+pub(crate) use renrs_syntax::diagnostic::Diagnostic;
+pub(crate) use renrs_syntax::{diagnostic, localization, syntax};
+
+#[cfg(test)]
+pub(crate) use renrs_compiler::parse_script;

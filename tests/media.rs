@@ -32,14 +32,18 @@ fn rejected_screen_edit_preserves_variables_profile_and_snapshot() {
     );
     assert_eq!(serde_json::to_value(runtime.snapshot()).unwrap(), before);
     assert_eq!(runtime.profile(), &profile);
+    let invalid = renrs::expression::parse_expression("get(list(0), 0)", "screen", 1, 1).unwrap();
     assert!(
         runtime
-            .apply_screen_expression("persistent_divisor", "get(list(0), 0)")
+            .apply_screen_expression("persistent_divisor", &invalid)
             .is_err()
     );
     assert_eq!(serde_json::to_value(runtime.snapshot()).unwrap(), before);
+    let valid =
+        renrs::expression::parse_expression("get(record(\"safe\", 2), \"safe\")", "screen", 1, 1)
+            .unwrap();
     runtime
-        .apply_screen_expression("persistent_divisor", "get(record(\"safe\", 2), \"safe\")")
+        .apply_screen_expression("persistent_divisor", &valid)
         .unwrap();
     let restored = renrs::Runtime::restore(runtime.shared_program(), runtime.snapshot()).unwrap();
     assert_eq!(

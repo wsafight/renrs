@@ -4,12 +4,12 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::compiler::{InstructionId, InstructionKind, Program, StatementId};
 use crate::localization::{LocalizationError, Localizer, TranslationCatalog, TranslationId};
 use crate::syntax::{
     BinaryOp, Easing, Expr, Position, TransformState, TransitionKind, UnaryOp, Value,
 };
 use crate::text::{TextRun, is_text_tag, parse_text_markup};
+use renrs_model::{InstructionId, InstructionKind, Program, StatementId};
 
 const MAX_IMMEDIATE_STEPS: usize = 10_000;
 const MAX_ROLLBACK_CHECKPOINTS: usize = 256;

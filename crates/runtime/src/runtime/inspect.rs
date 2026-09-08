@@ -2,7 +2,7 @@ use super::{
     BTreeMap, InstructionId, InstructionKind, Runtime, RuntimeError, TranslationId, Value,
     WaitState, visible_choices,
 };
-use crate::syntax::Span;
+use crate::syntax::{Expr, Span};
 use serde::Serialize;
 
 #[derive(Debug, Default)]
@@ -32,7 +32,7 @@ impl Runtime {
     pub fn apply_screen_expression(
         &mut self,
         name: &str,
-        expression: &str,
+        expression: &Expr,
     ) -> Result<(), RuntimeError> {
         if !matches!(
             self.waiting(),
@@ -43,10 +43,7 @@ impl Runtime {
                 "screen expressions require dialogue or choices",
             ));
         }
-        let expression =
-            renrs_compiler::expression::parse_expression(expression, "screens.json", 1, 1)
-                .map_err(|error| super::execution(0, error.to_string()))?;
-        let value = super::value::evaluate(&expression, &self.variables, 0)?;
+        let value = super::value::evaluate(expression, &self.variables, 0)?;
         self.set_screen_variable(name, value)
     }
     /// Updates a declared variable from a screen and includes it in the current checkpoint.

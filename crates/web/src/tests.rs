@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn native_save_exchange_preserves_large_integers_and_presentation() {
-    let program = renrs_runtime::compile(&renrs_runtime::parse_script(
+    let program = renrs_compiler::compile(&renrs_compiler::parse_script(
         "config id \"org.test.exchange\"\ndefault value = 9007199254740993\nlabel start:\n    @id \"opening\" \"Value {value}\"\n    return\n", "save.rns").unwrap()).unwrap();
     let mut engine = Engine::new(&serde_json::to_string(&program).unwrap(), "").unwrap();
     engine.action("start", 0).unwrap();
@@ -13,7 +13,7 @@ fn native_save_exchange_preserves_large_integers_and_presentation() {
     assert_eq!(native.presentation.as_ref().unwrap().dialogue_page, 2);
     assert_eq!(
         native.snapshot.variables["value"],
-        renrs_runtime::syntax::Value::Integer(9_007_199_254_740_993)
+        renrs_syntax::syntax::Value::Integer(9_007_199_254_740_993)
     );
     let imported: serde_json::Value =
         serde_json::from_str(&engine.import_save(&exported).unwrap()).unwrap();
@@ -31,7 +31,8 @@ fn action_payload_is_bounded_as_history_grows() {
         "    \"A line of dialogue\"\n".repeat(1200)
     );
     let program =
-        renrs_runtime::compile(&renrs_runtime::parse_script(&script, "test.rns").unwrap()).unwrap();
+        renrs_compiler::compile(&renrs_compiler::parse_script(&script, "test.rns").unwrap())
+            .unwrap();
     let mut engine = Engine::new(&serde_json::to_string(&program).unwrap(), "").unwrap();
     let initial = engine.action("start", 0).unwrap().len();
     for _ in 0..1100 {

@@ -407,7 +407,7 @@ fn validate_data_widget(kind: ScreenKind, widget: &Widget) -> Result<(), String>
     for variable in variables {
         if !matches!(
             renrs_compiler::expression::parse_expression(variable, SCREENS_FILE, 1, 1),
-            Ok(renrs_compiler::syntax::Expr::Variable(_))
+            Ok(renrs_syntax::syntax::Expr::Variable(_))
         ) {
             return Err("data control target must be a variable name".to_owned());
         }
@@ -451,7 +451,7 @@ fn validate_set_widget(kind: ScreenKind, widget: &Widget) -> Result<(), String> 
     }
     if !matches!(
         renrs_compiler::expression::parse_expression(variable, SCREENS_FILE, 1, 1),
-        Ok(renrs_compiler::syntax::Expr::Variable(_))
+        Ok(renrs_syntax::syntax::Expr::Variable(_))
     ) {
         return Err("set target must be a variable name".to_owned());
     }
