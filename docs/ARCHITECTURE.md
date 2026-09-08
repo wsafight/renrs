@@ -19,8 +19,10 @@ Editor integration can be built and tested without the native player or audio st
 Project resource rules are shared by desktop loading, archive creation, watching,
 Web distribution and editor disk indexing.
 
-The VS Code JavaScript extension stays in `editors/vscode-renrs`; its Rust LSP is
-in `crates/editor`. The browser UI stays in `web`; only its WASM interface is Rust.
+The VS Code extension source stays in `editors/vscode-renrs/src` and compiles to a
+CommonJS bundle; its Rust LSP is in `crates/editor`. The strict TypeScript browser UI
+stays in `web`; only its WASM interface is Rust. The Launcher uses a separate Vite shell
+with Zod-validated local API responses while its Node server remains an `.mjs` script.
 The root library re-exports the module paths used by the player and CLI.
 Pre-release APIs and storage formats may change without backward compatibility.
 There is no catch-all core crate and no cross-crate source-path inclusion.

@@ -1,7 +1,7 @@
-import {spawn} from 'node:child_process';
-import {existsSync} from 'node:fs';
-import {mkdir, mkdtemp, readFile, realpath, rm, writeFile} from 'node:fs/promises';
-import {tmpdir} from 'node:os';
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const [sdkArgument] = process.argv.slice(2);
@@ -11,17 +11,21 @@ const launcher = path.join(sdk, 'scripts/launcher.mjs');
 if (!existsSync(launcher)) throw new Error(`Packaged launcher is missing: ${launcher}`);
 
 const temporary = await mkdtemp(path.join(tmpdir(), 'renrs-launcher-'));
-const child = spawn(process.execPath, [launcher, '--port', '0', '--state', path.join(temporary, 'state.json')], {
-  cwd: sdk,
-  stdio: ['ignore', 'pipe', 'inherit'],
-});
+const child = spawn(
+  process.execPath,
+  [launcher, '--port', '0', '--state', path.join(temporary, 'state.json')],
+  {
+    cwd: sdk,
+    stdio: ['ignore', 'pipe', 'inherit'],
+  },
+);
 
 async function origin() {
   return new Promise((resolve, reject) => {
     let output = '';
     const timer = setTimeout(() => reject(new Error('Timed out waiting for Launcher')), 10_000);
     child.once('error', reject);
-    child.stdout.on('data', chunk => {
+    child.stdout.on('data', (chunk) => {
       output += chunk;
       const match = output.match(/RenRS Launcher: (http:\/\/127\.0\.0\.1:\d+)/);
       if (match) {
@@ -29,16 +33,21 @@ async function origin() {
         resolve(match[1]);
       }
     });
-    child.once('exit', code => reject(new Error(`Launcher exited early with code ${code}`)));
+    child.once('exit', (code) => reject(new Error(`Launcher exited early with code ${code}`)));
   });
 }
 
 async function request(base, pathname, data) {
-  const response = await fetch(`${base}${pathname}`, data === undefined ? {} : {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(data),
-  });
+  const response = await fetch(
+    `${base}${pathname}`,
+    data === undefined
+      ? {}
+      : {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        },
+  );
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || `${pathname} returned ${response.status}`);
   return result;
@@ -47,16 +56,16 @@ async function request(base, pathname, data) {
 async function job(base, started) {
   for (let attempt = 0; attempt < 600; attempt += 1) {
     const state = await request(base, '/api/state');
-    const current = state.jobs.find(item => item.id === started.id);
+    const current = state.jobs.find((item) => item.id === started.id);
     if (current?.code === 0) return current;
     if (current?.code != null) throw new Error(`${current.name} failed:\n${current.log}`);
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error(`${started.name} did not finish`);
 }
 
 async function task(base, id, action, output) {
-  const started = await request(base, '/api/task', {id, action, output});
+  const started = await request(base, '/api/task', { id, action, output });
   return job(base, started);
 }
 
@@ -64,51 +73,71 @@ try {
   const base = await origin();
   const initial = await request(base, '/api/state');
   if (!initial.sdk.ready) throw new Error('Packaged SDK does not expose all Launcher tools');
-  if (!initial.sdk.tools['renrs-migrate'] || !initial.sdk.tools['renrs-impact']) throw new Error('Launcher SDK status omits migration or impact tools');
+  if (!initial.sdk.tools['renrs-migrate'] || !initial.sdk.tools['renrs-impact'])
+    throw new Error('Launcher SDK status omits migration or impact tools');
 
   const projectPath = path.join(temporary, 'story');
-  await job(base, await request(base, '/api/create', {
-    path: projectPath,
-    title: 'Launcher Acceptance',
-    projectId: 'org.renrs.launcher_acceptance',
-    template: 'story',
-  }));
+  await job(
+    base,
+    await request(base, '/api/create', {
+      path: projectPath,
+      title: 'Launcher Acceptance',
+      projectId: 'org.renrs.launcher_acceptance',
+      template: 'story',
+    }),
+  );
   const state = await request(base, '/api/state');
   const canonicalProject = await realpath(projectPath);
-  const project = state.projects.find(item => item.path === canonicalProject);
+  const project = state.projects.find((item) => item.path === canonicalProject);
   if (!project) throw new Error('Created project was not registered');
 
   const comparisonPath = path.join(temporary, 'comparison');
-  await job(base, await request(base, '/api/create', {
-    path: comparisonPath,
-    title: 'Launcher Acceptance',
-    projectId: 'org.renrs.launcher_acceptance',
-    template: 'story',
-  }));
+  await job(
+    base,
+    await request(base, '/api/create', {
+      path: comparisonPath,
+      title: 'Launcher Acceptance',
+      projectId: 'org.renrs.launcher_acceptance',
+      template: 'story',
+    }),
+  );
   const comparisonState = await request(base, '/api/state');
   const canonicalComparison = await realpath(comparisonPath);
-  const comparison = comparisonState.projects.find(item => item.path === canonicalComparison);
-  const impact = await request(base, '/api/impact', {baseline: project.id, candidate: comparison.id});
-  if (impact.protocol_version !== 1 || !impact.ok || impact.data.changed) throw new Error('Launcher impact analysis did not compare equivalent projects');
+  const comparison = comparisonState.projects.find((item) => item.path === canonicalComparison);
+  const impact = await request(base, '/api/impact', {
+    baseline: project.id,
+    candidate: comparison.id,
+  });
+  if (impact.protocol_version !== 1 || !impact.ok || impact.data.changed)
+    throw new Error('Launcher impact analysis did not compare equivalent projects');
 
   const renpyPath = path.join(temporary, 'renpy');
   const migratedPath = path.join(temporary, 'migrated');
   await mkdir(renpyPath);
   await writeFile(path.join(renpyPath, 'script.rpy'), 'label start:\n    "Migrated"\n    return\n');
-  await job(base, await request(base, '/api/migrate', {source: renpyPath, output: migratedPath}));
+  await job(base, await request(base, '/api/migrate', { source: renpyPath, output: migratedPath }));
   const migratedState = await request(base, '/api/state');
   const canonicalMigrated = await realpath(migratedPath);
-  const migrated = migratedState.projects.find(item => item.path === canonicalMigrated);
+  const migrated = migratedState.projects.find((item) => item.path === canonicalMigrated);
   if (!migrated) throw new Error('Migrated project was not registered');
-  const migrationReport = await request(base, `/api/migration-report?id=${encodeURIComponent(migrated.id)}`);
-  if (migrationReport.version !== 1 || migrationReport.post_validation_diagnostics.length) throw new Error('Launcher did not expose the migration report');
+  const migrationReport = await request(
+    base,
+    `/api/migration-report?id=${encodeURIComponent(migrated.id)}`,
+  );
+  if (migrationReport.version !== 1 || migrationReport.post_validation_diagnostics.length)
+    throw new Error('Launcher did not expose the migration report');
 
   const inspection = await request(base, `/api/inspection?id=${encodeURIComponent(project.id)}`);
-  if (inspection.protocol_version !== 1 || !inspection.ok) throw new Error('Launcher inspection did not return a valid machine report');
-  if (inspection.data.routes.passed !== 2 || inspection.data.routes.coverage.uncovered_labels.length) throw new Error('Launcher inspection route coverage is incomplete');
+  if (inspection.protocol_version !== 1 || !inspection.ok)
+    throw new Error('Launcher inspection did not return a valid machine report');
+  if (
+    inspection.data.routes.passed !== 2 ||
+    inspection.data.routes.coverage.uncovered_labels.length
+  )
+    throw new Error('Launcher inspection route coverage is incomplete');
 
   const files = await request(base, `/api/scripts?id=${encodeURIComponent(project.id)}`);
-  const scriptFile = files.find(file => file.endsWith('.rns'));
+  const scriptFile = files.find((file) => file.endsWith('.rns'));
   if (!scriptFile) throw new Error('Created project scripts were not indexed');
   const query = `?id=${encodeURIComponent(project.id)}&file=${encodeURIComponent(scriptFile)}`;
   const script = await request(base, `/api/script${query}`);
@@ -120,8 +149,14 @@ try {
   });
   if (updated.revision === script.revision) throw new Error('Script revision did not change');
   const stale = await fetch(`${base}/api/script`, {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({id: project.id, file: scriptFile, revision: script.revision, text: script.text}),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: project.id,
+      file: scriptFile,
+      revision: script.revision,
+      text: script.text,
+    }),
   });
   if (stale.ok) throw new Error('Launcher accepted a stale script overwrite');
 
@@ -133,25 +168,31 @@ try {
   await task(base, project.id, 'pack', archive);
   await task(base, project.id, 'build', distribution);
   await task(base, project.id, 'web', web);
-  for (const artifact of [archive, path.join(distribution, 'game.renrs'), path.join(web, 'index.html')]) {
+  for (const artifact of [
+    archive,
+    path.join(distribution, 'game.renrs'),
+    path.join(web, 'index.html'),
+  ]) {
     if (!existsSync(artifact)) throw new Error(`Launcher task did not create ${artifact}`);
   }
 
-  await request(base, '/api/remove', {id: project.id});
-  await request(base, '/api/remove', {id: comparison.id});
-  await request(base, '/api/remove', {id: migrated.id});
-  if (!existsSync(path.join(projectPath, scriptFile))) throw new Error('Removing a project deleted its files');
-  if ((await request(base, '/api/state')).projects.some(item => item.id === project.id)) {
+  await request(base, '/api/remove', { id: project.id });
+  await request(base, '/api/remove', { id: comparison.id });
+  await request(base, '/api/remove', { id: migrated.id });
+  if (!existsSync(path.join(projectPath, scriptFile)))
+    throw new Error('Removing a project deleted its files');
+  if ((await request(base, '/api/state')).projects.some((item) => item.id === project.id)) {
     throw new Error('Removed project is still registered');
   }
   const persisted = JSON.parse(await readFile(path.join(temporary, 'state.json'), 'utf8'));
-  if (persisted.projects.length !== 0) throw new Error('Removed project remained in persisted state');
+  if (persisted.projects.length !== 0)
+    throw new Error('Removed project remained in persisted state');
   console.log('Packaged Launcher and SDK acceptance passed.');
 } finally {
   if (child.exitCode === null) {
-    const exited = new Promise(resolve => child.once('exit', resolve));
+    const exited = new Promise((resolve) => child.once('exit', resolve));
     child.kill('SIGTERM');
     await exited;
   }
-  await rm(temporary, {recursive: true, force: true});
+  await rm(temporary, { recursive: true, force: true });
 }

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "biome.json",
+      "package.json",
+      "web/src/**",
+      "web/unit/**",
+      "web/tests/**",
+      "web/playwright.config.ts",
+      "web/vite.config.ts",
+      "web/package.json",
+      "web/tsconfig.json",
+      "site/playwright.config.ts",
+      "site/tests/**",
+      "launcher/index.html",
+      "launcher/style.css",
+      "launcher/src/**",
+      "launcher/vite.config.ts",
+      "launcher/package.json",
+      "launcher/tsconfig.json",
+      "editors/vscode-renrs/src/**",
+      "editors/vscode-renrs/package.json",
+      "editors/vscode-renrs/tsconfig.json",
+      "scripts/**"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "suspicious": {
+        "noExplicitAny": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["scripts/**", "launcher/style.css", "web/src/style.css"],
+      "linter": { "enabled": false },
+      "assist": { "enabled": false }
+    }
+  ]
+}

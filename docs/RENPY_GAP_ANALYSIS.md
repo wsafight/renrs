@@ -23,7 +23,7 @@
 | Screen/style/UI | 部分 | 桌面/Web 共用 JSON 界面、滚动容器、数据控件、拖放和扩展按钮 | 任意 displayable、完整 screen language 仍缺失 |
 | 音频 | 部分 | music/sound/voice，音乐队列、淡入淡出、静态 music/sound 相对音量 | 任意 mixer、同步、更多格式为 P2 |
 | 视频 | 部分 | 图片帧或流式视频、可选 WAV 音轨，按音轨时钟暂停/恢复 | 多音轨、字幕轨与更多平台实测仍待补齐 |
-| 阅读与无障碍 | 部分 | NVL、下划线、注音、键盘控件、自助朗读 | RTL、复杂排版、完整屏幕阅读器语义树仍缺失 |
+| 阅读与无障碍 | 部分 | NVL、下划线、注音、RTL shaping、键盘控件、自助朗读 | shaped cluster 换行、竖排、彩色 emoji、完整屏幕阅读器语义树仍缺失 |
 | 本地化 | 完成 | JSON catalog、稳定 ID、alias、fallback、CLDR 复数、RTL shaping、字体族 | 完整 ICU 富文本和屏幕阅读器语义树仍缺失 |
 | 存档 | 完成 | 快照 v7、异步存档、显式 ID 内容更新恢复、桌面/Web 容器交换与读档验收 | 旧格式迁移与云同步仍缺失 |
 | 回滚/已读/自动/跳过 | 完成 | 有界检查点、独立 profile、回滚屏障 | 固定回滚与高级偏好同步仍缺失 |

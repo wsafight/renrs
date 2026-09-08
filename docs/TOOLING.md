@@ -206,7 +206,8 @@ cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
 cargo test --offline --workspace --all-targets
 ```
 
-上述本地门禁还会检查 demo、脚手架路线、产品 fixture、Web 单测、VS Code 与 Launcher 语法。
+上述本地门禁还会检查 Biome、demo、脚手架路线、产品 fixture、Web 单测，以及 Web、VS Code 与
+Launcher 的 strict TypeScript 和生产构建。
 加 `--full` 会继续运行 Web 浏览器、VS Code 宿主、release 二进制与 SDK 打包验收；它要求先安装
 对应的 npm、WASM、`wasm-bindgen` 与浏览器依赖。
 

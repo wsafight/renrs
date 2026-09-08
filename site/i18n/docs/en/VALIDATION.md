@@ -141,7 +141,7 @@ player. Captures and reports are in `target/validation/`, grouped as `demo-*`,
 
 - Local fmt, all-target check, strict Clippy, and 109 automated tests passed. Every Rust file in `src/` and `tests/` is under 500 lines.
 - Tests cover old snapshots/containers, stable ID aliases, rollback, directory/archive consistency, corrupt saves, the migrator, language transactions, and route assertions.
-- The VS Code extension passed JavaScript syntax checks and regenerated a VSIX with LSP deps, grammar, and license.
+- The VS Code extension passed strict TypeScript checks and regenerated a VSIX with the compiled LSP bundle, grammar, and license.
 - CI configures three-desktop Rust checks, template and route tests, VSIX pack, Linux Xvfb/Mesa captures, and shipping startup.
 
 This historical stage did not actually run remote three-platform CI, VS Code

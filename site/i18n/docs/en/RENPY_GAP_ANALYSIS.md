@@ -27,7 +27,7 @@ migration report must reject it or list it as todo.
 | Screen/style/UI | partial | Shared desktop/web JSON screens, scroll, data controls, drag/drop, extension buttons | Arbitrary displayables and full screen language still missing |
 | Audio | partial | music/sound/voice, music queue, fades, static music/sound relative gain | Arbitrary mixers, sync, and more formats are P2 |
 | Video | partial | Image frames or streaming video, optional WAV bed, pause/resume on the audio clock | Extra audio/subtitle tracks and more platform measurement still pending |
-| Reading and a11y | partial | NVL, underline, ruby, keyboard controls, self-voicing | RTL, complex layout, full screen-reader trees still missing |
+| Reading and a11y | partial | NVL, underline, ruby, RTL shaping, keyboard controls, self-voicing | Shaped-cluster wrapping, vertical text, color emoji, and full screen-reader trees still missing |
 | Localization | done | JSON catalog, stable IDs, alias, fallback, CLDR plurals, RTL shaping, font families | Full ICU rich text and screen-reader trees still missing |
 | Saves | done | Snapshot v7, async saves, explicit-ID content-update restore, desktop/web container exchange and load acceptance | Old-format migration and cloud sync still missing |
 | Rollback/read/auto/skip | done | Bounded checkpoints, independent profile, rollback barrier | Fixed rollback and advanced preference sync still missing |

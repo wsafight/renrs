@@ -16,7 +16,8 @@ For Web builds, set `renrs.webShellPath` to the built `web/dist` directory or th
 release package's `web-shell` directory. If unset, the extension looks for
 `web-shell` beside the resolved tool binary.
 
-Run `npm install` and `npm run package` here to produce a local VSIX, then use
+Run `npm install` and `npm run build` here to type-check and generate
+`dist/extension.js`. Run `npm run package` to produce a local VSIX, then use
 VS Code's Install from VSIX command. Reload VS Code after changing the tool or
 project path if the language server does not restart with the new configuration.
 

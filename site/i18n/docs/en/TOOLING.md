@@ -230,8 +230,9 @@ cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
 cargo test --offline --workspace --all-targets
 ```
 
-This local gate also checks the demo, scaffold routes, product fixture, Web unit tests,
-and VS Code/Launcher syntax. Add `--full` for Web browser, VS Code host, release binary,
+This local gate also checks Biome, the demo, scaffold routes, product fixture, Web unit
+tests, and strict TypeScript plus production builds for Web, VS Code, and Launcher. Add
+`--full` for Web browser, VS Code host, release binary,
 and SDK packaging acceptance after installing the npm, WASM, `wasm-bindgen`, and browser tooling.
 
 `tests/source_size.rs` recursively checks `src/`, `tests/`, and every workspace crate.

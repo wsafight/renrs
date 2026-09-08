@@ -1,6 +1,8 @@
-node_modules/@vscode/vsce/**
+node_modules/**
 *.vsix
 package-lock.json
 **/*.test.js
 .vscode-test/**
 test/**
+src/**
+tsconfig.json

@@ -8,7 +8,8 @@ job logs, and SDK path configuration.
 
 ```sh
 cargo build --bins
-npm ci --prefix web
+npm ci --prefix launcher
+npm run build --prefix launcher
 node scripts/launcher.mjs --port 4185
 ```
 
@@ -51,11 +52,13 @@ installed first. Full commands are in [Command-line tools](TOOLING.md#web-and-mo
 
 ```sh
 cargo build --release --bins
+npm run build --prefix launcher
+npm run build --prefix editors/vscode-renrs
 node scripts/package-sdk.mjs dist/renrs-sdk target/release
 ```
 
-The web shell must already exist. The SDK includes tools, the launcher, the web
-shell, editor extension sources, and docs. `sdk.json` records version, target
+The web shell and Launcher Vite output must already exist. The SDK includes tools,
+the compiled launcher and editor extension, the web shell, and docs. `sdk.json` records version, target
 platform, and file checksums. It still requires Node.js 22 or later on the host.
 Native binaries match the machine that built them; this is not a universal SDK.
 

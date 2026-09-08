@@ -1,7 +1,7 @@
 # RenRS roadmap
 
 This page keeps early milestones. The latest implementation and acceptance as of
-2026-09-06 is [Product upgrades](PRODUCT_UPGRADES.md). Shared screens/saves, parallel
+2026-09-08 is [Product upgrades](PRODUCT_UPGRADES.md). Shared screens/saves, parallel
 animation, NVL, video with an audio bed, collection expressions, and Capacitor mobile
 builds have been added. The project is not released. Breaking changes are allowed.
 Old-version compatibility and save migration left the current implementation scope.
@@ -58,23 +58,68 @@ These are still clearly missing versus Ren'Py. They cannot be marked supported w
 a real backend.
 
 1. **Custom screen extensions**: composable displayables, nested viewports, drag/drop, and full AT semantics.
-2. **Advanced presentation**: named sprite layers are shipped; full ATL, layer cameras, arbitrary displayables, composite transitions, shaders, particles, and Live2D remain.
-3. **Video**: extra audio and subtitle tracks, more device and long-form sync acceptance.
-4. **Performance**: real project samples and font-cache budgets. Incremental compile is shipped.
-5. **Shipping platforms**: native Rust mobile rendering, Capacitor device matrix, signing/notarization external acceptance, store SDKs, and a network auto-update client.
-6. **Advanced narrative state**: fixed rollback, finer preference sync, and cloud saves.
-7. **Migration coverage**: default screens, a common static ATL subset, and the first
+2. **Advanced text layout**: build on the current `rustybuzz` shaping, BiDi, font fallback,
+   CJK wrapping, and ruby with shaped-cluster-aware wrapping, vertical layout, color emoji,
+   and screen-reader semantics.
+3. **Advanced presentation**: named sprite layers are shipped; full ATL, layer cameras, arbitrary displayables, composite transitions, shaders, particles, and Live2D remain.
+4. **Video**: extra audio and subtitle tracks, more device and long-form sync acceptance.
+5. **Performance**: real project samples and font-cache budgets. Incremental compile is shipped.
+   Execution already uses a linear `Program` instruction IR; only evaluate compact opcodes
+   or expression bytecode when profiling identifies expression evaluation or dispatch as a bottleneck.
+6. **Shipping platforms**: native Rust mobile rendering, Capacitor device matrix, signing/notarization external acceptance, store SDKs, and a network auto-update client.
+7. **Advanced narrative state**: fixed rollback, finer preference sync, and cloud saves.
+8. **Migration coverage**: default screens, a common static ATL subset, and the first
    real-sample baseline are shipped. Complex image expressions, parameterized/looping
    ATL, dynamic jump/call, custom statements, and a broader real-project corpus remain.
-8. **Extension mechanism**: do not embed Python. If needed, evaluate a least-privilege WASM plugin API separately.
+9. **Extension mechanism**: do not embed Python. If needed, evaluate a least-privilege WASM plugin API separately.
 
 ## Recommended order
 
-1. Add a real mid-size project on the existing synthetic bench. Measure frame time, resource peaks, first save read and write.
-2. Accept the authoring flow in a VS Code host. Extend JSON screen controls and accessibility as the project needs.
-3. Validate the current FFmpeg/Rodio/HTML media clock with real video and long clips, and fill the platform matrix.
-4. Drive migrator expansion with real Ren'Py samples. Each new mapping needs a report, tests, and a fallback policy.
-5. Handle mobile, stores, and updates last. They depend on stable input, lifecycle, and shipping format.
+1. Use a real 30-to-60-minute mid-size work to establish authoring, performance,
+   migration, and shipping baselines. Record frame time, resource peaks, save I/O,
+   production time, and platform issues.
+2. Address real-work blockers in advanced text layout, JSON screen controls,
+   accessibility, ATL, and migration coverage. Every addition needs shared desktop/Web
+   semantics, structured diagnostics, and a fallback policy.
+3. Maintain the completed Web toolchain typing: the Web player, VS Code extension, and
+   Launcher view all use strict TypeScript. Explicit parsers protect WASM boundaries,
+   Zod validates Launcher machine-protocol responses, and Biome formats stable Node
+   operations scripts that remain `.mjs` or `.cjs`.
+4. Validate the FFmpeg/Rodio/HTML media clock with real long-form video and complete
+   desktop, browser, and Capacitor device matrices.
+5. After the first real work passes, define separate compatibility windows for `.rns`,
+   machine protocols, screen schemas, archives, and saves. Publish `0.1.0-rc.1`, verify
+   upgrade notes and shipping, then publish `0.1.0`.
+6. Optimize expression IR or introduce bytecode only when real profiling identifies
+   execution IR as a user-visible bottleneck. Do not presume a full VM rewrite is the
+   player's performance foundation.
+
+## Technical evolution boundaries
+
+- **Execution model**: the compiler already lowers scripts to linear `Program`
+  instructions with stable IDs and jump targets. Runtime advances an instruction cursor;
+  only expressions inside instructions are currently evaluated recursively. Do not
+  describe the whole runtime as tree-walking.
+- **Text system**: keep the current `rustybuzz`, BiDi, Unicode segmentation, and font
+  cache. Before adopting a heavier dependency such as `cosmic-text`, compare complex
+  scripts, ruby, vertical text, memory, and cross-platform rendering in an isolated prototype.
+- **Storage boundary**: saves keep temporary-file writes, `fsync`, atomic replacement,
+  versions, and checksums. A mini KV, WAL, or LSM tree belongs in an independent systems
+  experiment until cloud sync or large incremental state creates a product requirement.
+- **Ren'Py gap**: do not target feature-by-feature parity. Python, Ren'Py saves, and
+  arbitrary host code remain non-goals. Add only capabilities that a real work proves
+  necessary for authoring, presentation, migration, or shipping.
+- **TypeScript and Web**: `web/src` now uses strict TypeScript under Vite with explicit
+  types and runtime validation at WASM/JSON boundaries. The VS Code extension compiles
+  from strict TypeScript to a distributable CommonJS bundle. Vite builds the Launcher
+  view, whose API responses are validated with Zod. Keep Astro's TypeScript support and
+  retain short, stable `.mjs`/`.cjs` build, release, and test scripts. Biome provides the
+  shared formatting and static-analysis gate for maintained Web and Node sources.
+- **Framework choice**: Vite, Astro, Playwright, and Capacitor already cover the current
+  build and platform boundaries. The Web player is centered on a game stage and WASM
+  state machine, so do not add a general SPA framework yet. If component lifecycle and
+  state synchronization repeatedly cause defects in a real project, compare Lit or
+  Svelte prototypes on bundle size, accessibility, tests, and mobile behavior.
 
 ## Agent collaboration proposal
 

@@ -17,9 +17,10 @@
     "Programming Languages",
     "Debuggers"
   ],
-  "main": "./extension.js",
+  "main": "./dist/extension.js",
   "activationEvents": [
-    "onLanguage:renrs", "onView:renrs.project"
+    "onLanguage:renrs",
+    "onView:renrs.project"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -27,19 +28,33 @@
     }
   },
   "scripts": {
-    "check": "node --check extension.js",
+    "build": "tsc --noEmit && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js",
+    "check": "tsc --noEmit",
+    "prepackage": "npm run build",
     "package": "vsce package --allow-missing-repository",
+    "pretest:host": "npm run build",
     "test:host": "node test/run.cjs"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/vscode": "^1.85.0",
     "@vscode/test-electron": "^3.1.0",
-    "@vscode/vsce": "^3.6.0"
+    "@vscode/vsce": "^3.6.0",
+    "esbuild": "^0.25.9",
+    "typescript": "5.9.3"
   },
   "contributes": {
-    "views": {"explorer": [{"id": "renrs.project", "name": "RenRS Project"}]},
+    "views": {
+      "explorer": [
+        {
+          "id": "renrs.project",
+          "name": "RenRS Project"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "renrs",
@@ -60,16 +75,46 @@
       }
     ],
     "commands": [
-      {"command": "renrs.webBuild", "title": "RenRS: Build Web"},
-      {"command": "renrs.accept", "title": "RenRS: Release Acceptance"},
-      {"command": "renrs.checkSaves", "title": "RenRS: Check Saved Games"},
-      {"command": "renrs.openScreens", "title": "RenRS: Open Screens"},
-      {"command": "renrs.openTheme", "title": "RenRS: Open Theme"},
-      {"command": "renrs.migrate", "title": "RenRS: Migrate Ren'Py Project"},
-      {"command": "renrs.migrationReport", "title": "RenRS: Open Migration Report"},
-      {"command": "renrs.inspect", "title": "RenRS: Inspect Story"},
-      {"command": "renrs.impact", "title": "RenRS: Analyze Project Impact"},
-      {"command": "renrs.graph", "title": "RenRS: Story Graph"},
+      {
+        "command": "renrs.webBuild",
+        "title": "RenRS: Build Web"
+      },
+      {
+        "command": "renrs.accept",
+        "title": "RenRS: Release Acceptance"
+      },
+      {
+        "command": "renrs.checkSaves",
+        "title": "RenRS: Check Saved Games"
+      },
+      {
+        "command": "renrs.openScreens",
+        "title": "RenRS: Open Screens"
+      },
+      {
+        "command": "renrs.openTheme",
+        "title": "RenRS: Open Theme"
+      },
+      {
+        "command": "renrs.migrate",
+        "title": "RenRS: Migrate Ren'Py Project"
+      },
+      {
+        "command": "renrs.migrationReport",
+        "title": "RenRS: Open Migration Report"
+      },
+      {
+        "command": "renrs.inspect",
+        "title": "RenRS: Inspect Story"
+      },
+      {
+        "command": "renrs.impact",
+        "title": "RenRS: Analyze Project Impact"
+      },
+      {
+        "command": "renrs.graph",
+        "title": "RenRS: Story Graph"
+      },
       {
         "command": "renrs.init",
         "title": "RenRS: New Project"
@@ -106,7 +151,11 @@
     "configuration": {
       "title": "RenRS",
       "properties": {
-        "renrs.webShellPath": {"type": "string", "default": "", "description": "Built Web player shell. Empty uses web-shell beside the tools."},
+        "renrs.webShellPath": {
+          "type": "string",
+          "default": "",
+          "description": "Built Web player shell. Empty uses web-shell beside the tools."
+        },
         "renrs.toolsPath": {
           "type": "string",
           "default": "",

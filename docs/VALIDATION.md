@@ -114,7 +114,7 @@ debug 与 release 播放器均完成截图和快速读档恢复，验证了基�
 
 - 本机 fmt、全目标 check、严格 Clippy、109 项自动测试通过，所有 `src/` 和 `tests/` Rust 文件不超过 500 行。
 - 测试覆盖旧快照/容器、稳定 ID alias、回滚、目录与归档一致性、损坏存档、迁移器、语言事务和路线断言。
-- VS Code 扩展通过 JavaScript 语法检查并重新生成 VSIX，包含 LSP 依赖、语法定义与许可证。
+- VS Code 扩展通过 strict TypeScript 检查并重新生成 VSIX，包含编译后的 LSP bundle、语法定义与许可证。
 - CI 配置三桌面平台 Rust 检查、模板及路线测试、VSIX 打包、Linux Xvfb/Mesa 截图和发行启动。
 
 此历史阶段尚未实际运行远程三平台 CI、VS Code 扩展宿主验收或人工音频试听。窗口自动验收没有模拟

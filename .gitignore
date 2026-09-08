@@ -4,6 +4,8 @@ target/
 # JavaScript dependencies and generated Web assets.
 node_modules/
 /web/dist/
+/launcher/dist/
+/editors/vscode-renrs/dist/
 /web/public/engine/
 /site/.astro/
 /site/.generated/

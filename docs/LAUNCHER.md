@@ -7,7 +7,8 @@ Launcher 是本地项目工作区，复用 Rust 命令行工具完成迁移、�
 
 ```sh
 cargo build --bins
-npm ci --prefix web
+npm ci --prefix launcher
+npm run build --prefix launcher
 node scripts/launcher.mjs --port 4185
 ```
 
@@ -47,10 +48,13 @@ node scripts/build-web.mjs
 
 ```sh
 cargo build --release --bins
+npm run build --prefix launcher
+npm run build --prefix editors/vscode-renrs
 node scripts/package-sdk.mjs dist/renrs-sdk target/release
 ```
 
-打包前必须已生成 Web shell。SDK 包含工具、Launcher、Web shell、编辑器扩展源码及文档，
+打包前必须已生成 Web shell 和 Launcher Vite 产物。SDK 包含工具、Launcher 产物、Web shell、
+编辑器扩展编译产物及文档，
 `sdk.json` 记录版本、目标平台与文件校验值。它仍要求本机安装 Node.js 22 或更新版本，
 原生二进制对应构建机器的平台，不能当作全平台 SDK。
 
