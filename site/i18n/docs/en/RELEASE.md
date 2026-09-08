@@ -5,6 +5,11 @@ must use the same version. Starting with `0.1.0-rc.1`, the existing formats belo
 Adding optional object fields is compatible; removing fields, changing their meaning, or changing
 acceptance rules requires a new format version. Pre-RC scripts and saves are not guaranteed.
 
+Use this page when preparing a release. For everyday authoring, start with
+[Quick start](QUICKSTART.md) and [Scripting language](SCRIPTING.md). External release
+gates are currently paused. Their unchecked items remain a future shipping checklist and
+do not block completion of the current repository-contained P1/P2 scope.
+
 ## Compatibility matrix
 
 | Boundary | RC version | Reader policy | Breaking change |

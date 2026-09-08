@@ -4,6 +4,19 @@ Except the `renrs` player, every tool is a headless command for editors, CI, and
 shipping. Examples below use `cargo run` in the source repository. A shipping package
 can call the same binary names directly.
 
+Choose an entry by goal; this page does not need to be read in order:
+
+| Goal | Start with |
+| --- | --- |
+| Check or format a project | [`renrs-check` / `renrs-fmt`](#check-and-format) |
+| Create a project and start editing | [`renrs-init` and the editor](#create-a-project-and-the-editor) |
+| Verify routes, inspect coverage, or compare changes | [Project inspection and impact analysis](#project-inspection-and-impact-analysis), [Story debugging](DEBUGGING.md) |
+| Extract and maintain translations | [`renrs-i18n`](#localization) |
+| Build a native shipping directory or asset archive | [Build a shipping directory](#build-a-shipping-directory), [Asset archives](#asset-archives) |
+| Build for web, mobile, or an SDK | [Web and mobile](#web-and-mobile), [Workspace and SDK](LAUNCHER.md) |
+| Run pre-release checks | [Current-version acceptance](#current-version-acceptance), [Release contract](RELEASE.md) |
+| Migrate a Ren'Py project | [Ren'Py migration](#renpy-migration) |
+
 ## Check and format
 
 ```sh

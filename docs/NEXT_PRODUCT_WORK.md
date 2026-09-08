@@ -9,6 +9,18 @@ acceptance are paused. Repository-closed P1/P2 work uses `node scripts/verify-lo
 as the acceptance gate; no additional GitHub Actions CI is planned. Agent-facing
 `SKILL.md`, `llms.txt`, a read-only MCP server, and related integration work are also paused.
 
+## At a glance
+
+| State | Scope |
+| --- | --- |
+| Complete in the repository | P1/P2 authoring, bounded media, Launcher/SDK, machine protocol, site, and local verification |
+| Paused | P0 publication work, real-project acceptance, physical-device checks, and Agent integration |
+| Deferred P2 | Live2D, custom shaders, cloud/store SDKs, native mobile rendering, and other heavy backends |
+
+For using RenRS, start with [Quick start](QUICKSTART.md). For release readiness and the
+remaining external checks, use the [release contract](RELEASE.md). The detailed list below
+is an implementation record rather than a required reading sequence.
+
 - [x] P0: shared snapshot encoding and lightweight native/Web save listing.
 - [x] P1: composable UI, scroll containers, data-driven controls and drag/drop.
 - [x] P1: camera, runtime character layers and richer presentation.

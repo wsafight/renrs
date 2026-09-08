@@ -1,5 +1,10 @@
 # RenRS product document
 
+This page records the product definition, fit, and acceptance baseline. It is not the
+current development status. Start with [Quick start](QUICKSTART.md); use
+[Current status](NEXT_PRODUCT_WORK.md) and the [release contract](RELEASE.md) for
+completed, paused, and deferred scope.
+
 ## 1. Product definition
 
 RenRS is a visual novel engine written independently in Rust and inspired by Ren'Py.

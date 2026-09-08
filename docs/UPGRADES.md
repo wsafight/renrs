@@ -5,7 +5,7 @@ Cargo boundaries are in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Current Saves And Resources
 
-Runtime snapshots use version 4 inside version 2 save containers. Other formats
+Runtime snapshots use version 7 inside version 2 save containers. Other formats
 and different compiled-script fingerprints are rejected. The project is pre-release;
 old save migration and backward compatibility are not required. Current saves
 retain call-site IDs, runtime state and rollback history with checksum validation.

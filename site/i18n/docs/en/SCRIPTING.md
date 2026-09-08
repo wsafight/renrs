@@ -1,5 +1,18 @@
 # RenRS authoring guide
 
+This is a task-oriented syntax reference, not a linear tutorial. Complete the
+[Quick start](QUICKSTART.md) before your first project, then jump directly to the
+section that matches the work at hand.
+
+| Task | Section |
+| --- | --- |
+| Organize files and declare characters, images, and variables | [Project layout](#project-layout), [Config and declarations](#config-and-declarations) |
+| Write dialogue, rich text, NVL, and paged text | [Dialogue, interpolation, and text tags](#dialogue-interpolation-and-text-tags) |
+| Control sprites, animation, transitions, and video | [Stage and transform](#stage-and-transform) |
+| Build variables, conditions, menus, and reusable labels | [Variables and expressions](#variables-and-expressions), [Conditions and menus](#conditions-and-menus) |
+| Configure audio, localization, themes, and fonts | [Audio and pause](#audio-and-pause), [Stable IDs and localization](#stable-ids-and-localization) |
+| Diagnose scripts and understand hot reload | [Check and hot reload](#check-and-hot-reload) |
+
 ## Project layout
 
 ```text

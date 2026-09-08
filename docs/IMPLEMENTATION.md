@@ -2,6 +2,9 @@
 
 This tracks the P0 to P2 work requested on 2026-09-06. A checked item includes
 implementation and relevant verification; external acceptance remains explicit.
+It is a dated delivery record, not the live project summary. See
+[Current status](NEXT_PRODUCT_WORK.md) for the active scope decision and
+[Quick start](QUICKSTART.md) for the reader path.
 
 ## P0
 

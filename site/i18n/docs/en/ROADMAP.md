@@ -1,11 +1,13 @@
 # RenRS roadmap
 
-This page keeps early milestones. The latest implementation and acceptance as of
-2026-09-08 is [Product upgrades](PRODUCT_UPGRADES.md). Shared screens/saves, parallel
-animation, NVL, video with an audio bed, collection expressions, and Capacitor mobile
-builds have been added. The project is not released. Starting at `0.1.0-rc.1`, v1 machine,
-archive, and screen contracts are frozen. Pre-RC compatibility and save migration remain outside
-the current scope; see the [release contract](RELEASE.md).
+This page preserves early priorities and milestones as planning context. It is not the
+onboarding path or the current status checklist. Start with [Quick start](QUICKSTART.md),
+use [Current status](NEXT_PRODUCT_WORK.md) for completed, paused, and deferred scope,
+and read [Product upgrades](PRODUCT_UPGRADES.md) for detailed delivery history.
+
+The project is not released. Starting at `0.1.0-rc.1`, v1 machine, archive, and screen
+contracts are frozen. Pre-RC compatibility and save migration remain outside the current
+scope; see the [release contract](RELEASE.md).
 
 ## Priority
 

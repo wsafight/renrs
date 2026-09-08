@@ -7,6 +7,17 @@
 以 `node scripts/verify-local.mjs` 作为验收门禁，不再扩展 GitHub Actions CI。
 面向 Agent 的 `SKILL.md`、`llms.txt`、只读 MCP Server 及相关集成也暂缓。
 
+## 当前结论
+
+| 状态 | 范围 |
+| --- | --- |
+| 仓库内已完成 | P1/P2 创作能力、有界媒体、Launcher/SDK、机器协议、文档站和本地验证 |
+| 暂缓 | P0 发布工作、真实项目验收、真机检查和 Agent 集成 |
+| 延后 P2 | Live2D、自定义 shader、云/商店 SDK、原生移动渲染及其他重型后端 |
+
+要开始使用 RenRS，请先读 [快速开始](QUICKSTART.md)；要判断发布条件，请读
+[发布契约](RELEASE.md)。下面的详细清单是实施记录，不是必须顺序阅读的教程。
+
 - [x] P0：共享快照编码，以及轻量原生/Web 存档列表。
 - [x] P1：可组合界面、滚动容器、数据驱动控件和拖放。
 - [x] P1：镜头、运行时角色层和更丰富的呈现。
