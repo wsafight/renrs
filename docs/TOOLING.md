@@ -206,10 +206,18 @@ cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
 cargo test --offline --workspace --all-targets
 ```
 
-上述本地门禁还会检查 Biome、demo、脚手架路线、产品 fixture、Web 单测，以及 Web、VS Code 与
-Launcher 的 strict TypeScript 和生产构建。
-加 `--full` 会继续运行 Web 浏览器、VS Code 宿主、release 二进制与 SDK 打包验收；它要求先安装
-对应的 npm、WASM、`wasm-bindgen` 与浏览器依赖。
+上述 core 门禁还会检查 Biome、demo、脚手架路线、产品和第一方参考 fixture、Web/Launcher 单测，
+以及 Web、VS Code 与 Launcher 的 strict TypeScript 和生产构建。扩展门禁可以单独或组合执行：
+
+```sh
+node scripts/verify-local.mjs --web      # 非媒体浏览器流程
+node scripts/verify-local.mjs --media    # 并行动画、帧视频、流式视频；要求完整 FFmpeg
+node scripts/verify-local.mjs --editor   # VS Code host 与 VSIX
+node scripts/verify-local.mjs --release  # release/native/SDK/Capacitor wrapper
+node scripts/verify-local.mjs --full     # 上述全部
+```
+
+完整依赖和 RC 兼容矩阵见 [发布契约](RELEASE.md)。
 
 `tests/source_size.rs` 递归检查 `src/`、`tests/` 和各个 workspace crate 的源码，
 任何超过 500 行的 Rust 文件都会使测试失败。

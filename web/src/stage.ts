@@ -209,6 +209,7 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
   background.style.objectFit = effect?.Video ? 'contain' : 'cover';
   if (stage.background) {
     background.src = app.asset(stage.background);
+    background.setAttribute('alt', stage.background);
     background.hidden = false;
   } else background.hidden = true;
   const sprites = app.$('sprites');
@@ -274,9 +275,13 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
 async function layerNode(app: PlayerApp, sprite: SpriteState): Promise<HTMLElement> {
   const composition = sprite.composition;
   if (!composition) throw new Error(`Layered sprite ${sprite.alias} has no composition`);
-  const root = app.element('div', null, { className: 'sprite-layers' });
+  const root = app.element('div', null, {
+    className: 'sprite-layers',
+    role: 'img',
+    ariaLabel: sprite.alias,
+  });
   for (const layer of composition.layers) {
-    const image = app.element('img', null, { src: app.asset(layer.path), alt: sprite.alias });
+    const image = app.element('img', null, { src: app.asset(layer.path), alt: '' });
     const updateSize = () =>
       Object.assign(image.style, {
         left: `${(layer.x / composition.width) * 100}%`,

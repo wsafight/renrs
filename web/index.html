@@ -11,11 +11,12 @@
     <button id="settings" title="Settings" aria-label="Settings"><i data-lucide="settings"></i></button>
     <button id="debug-toggle" title="Debugger" aria-label="Debugger"><i data-lucide="bug"></i></button>
   </nav></header>
-  <main>
+  <main aria-labelledby="title">
     <section id="game" aria-label="Story">
-      <div id="stage"><img id="background" alt=""><div id="sprites"></div><video id="video" playsinline controls hidden></video></div>
+      <div id="stage" role="group" aria-label="Scene"><img id="background" alt=""><div id="sprites"></div><video id="video" aria-label="Story video" playsinline controls hidden></video></div>
       <div id="choices" role="group" aria-label="Choices"></div>
-      <section id="dialogue" aria-live="polite"><strong id="speaker"></strong><p id="text"></p><footer><span id="chapter"></span><button id="next" title="Continue" aria-label="Continue"><i data-lucide="chevron-right"></i></button></footer></section>
+      <section id="dialogue" aria-labelledby="speaker text"><strong id="speaker"></strong><p id="text"></p><footer><span id="chapter"></span><button id="next" title="Continue" aria-label="Continue"><i data-lucide="chevron-right"></i></button></footer></section>
+      <output id="story-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></output>
     </section>
     <aside id="debug" hidden>
       <div class="debug-actions"><button id="resume" title="Resume" aria-label="Resume"><i data-lucide="play"></i></button><button id="step" title="Step instruction" aria-label="Step instruction"><i data-lucide="step-forward"></i></button><output id="coverage"></output><button id="export-coverage" title="Export coverage" aria-label="Export coverage"><i data-lucide="download"></i></button></div>
@@ -23,6 +24,6 @@
     </aside>
   </main>
   <output id="notice" role="status" hidden></output>
-  <dialog id="modal"><div class="modal-header"><h2 id="modal-title"></h2><button id="close" title="Close" aria-label="Close"><i data-lucide="x"></i></button></div><div id="modal-body"></div></dialog>
+  <dialog id="modal" aria-labelledby="modal-title"><div class="modal-header"><h2 id="modal-title"></h2><button id="close" title="Close" aria-label="Close"><i data-lucide="x"></i></button></div><div id="modal-body"></div></dialog>
   <script type="module" src="/src/main.ts"></script>
 </body></html>

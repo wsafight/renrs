@@ -40,12 +40,31 @@ enum Token {
     Break,
 }
 
+#[cfg(test)]
 pub fn layout_runs(
     runs: &[TextRun],
     fallback: &str,
     visible_characters: usize,
     maximum_width: f32,
+    measure: impl FnMut(&str) -> f32,
+) -> Vec<TextLine> {
+    layout_runs_with_clusters(
+        runs,
+        fallback,
+        visible_characters,
+        maximum_width,
+        measure,
+        grapheme_boundaries,
+    )
+}
+
+pub fn layout_runs_with_clusters(
+    runs: &[TextRun],
+    fallback: &str,
+    visible_characters: usize,
+    maximum_width: f32,
     mut measure: impl FnMut(&str) -> f32,
+    mut cluster_boundaries: impl FnMut(&str) -> Vec<usize>,
 ) -> Vec<TextLine> {
     let owned_fallback;
     let runs = if runs.is_empty() {
@@ -102,11 +121,19 @@ pub fn layout_runs(
                 }
                 if width > maximum_width {
                     let token: String = characters.iter().map(|ch| ch.character).collect();
-                    let mut offset = 0;
-                    for text in token.graphemes(true) {
+                    let boundaries = cluster_boundaries(&token);
+                    let boundaries = if valid_boundaries(&token, &boundaries) {
+                        boundaries
+                    } else {
+                        grapheme_boundaries(&token)
+                    };
+                    let mut character_offset = 0;
+                    for offsets in boundaries.windows(2) {
+                        let text = &token[offsets[0]..offsets[1]];
                         let count = text.chars().count();
-                        let cluster = characters[offset..offset + count].to_vec();
-                        offset += count;
+                        let cluster =
+                            characters[character_offset..character_offset + count].to_vec();
+                        character_offset += count;
                         let character_width = measure(text);
                         if current.width > 0.0 && current.width + character_width > maximum_width {
                             finish_line(&mut lines, &mut current, false);
@@ -132,6 +159,22 @@ pub fn layout_runs(
     lines
 }
 
+fn grapheme_boundaries(text: &str) -> Vec<usize> {
+    text.grapheme_indices(true)
+        .map(|(offset, _)| offset)
+        .chain(std::iter::once(text.len()))
+        .collect()
+}
+
+fn valid_boundaries(text: &str, boundaries: &[usize]) -> bool {
+    boundaries.first() == Some(&0)
+        && boundaries.last() == Some(&text.len())
+        && boundaries
+            .windows(2)
+            .all(|pair| pair[0] < pair[1] && text.is_char_boundary(pair[1]))
+}
+
+#[cfg(test)]
 pub fn wrap_plain(text: &str, maximum_width: f32, measure: impl FnMut(&str) -> f32) -> Vec<String> {
     layout_runs(&[], text, usize::MAX, maximum_width, measure)
         .into_iter()
@@ -428,5 +471,20 @@ mod tests {
                 text.chars().take(count).collect::<String>()
             );
         }
+    }
+
+    #[test]
+    fn custom_shaping_clusters_are_never_split_across_lines() {
+        let lines =
+            layout_runs_with_clusters(&[], "office", usize::MAX, 2.0, character_width, |_| {
+                vec![0, 1, 4, 6]
+            });
+        assert_eq!(
+            lines
+                .into_iter()
+                .map(|line| line.fragments[0].text.clone())
+                .collect::<Vec<_>>(),
+            ["o", "ffi", "ce"]
+        );
     }
 }

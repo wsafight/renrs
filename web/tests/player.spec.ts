@@ -127,3 +127,14 @@ test('blocked startup music resumes on the first player gesture', async ({ page 
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.startedAudio)).toBe(true);
 });
+
+test('story exposes stable dialogue, scene and choice semantics', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('group', { name: 'Scene' })).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('receiver');
+  await expect(page.locator('#text')).toHaveAttribute('aria-busy', 'true');
+  await page.locator('#next').click();
+  await page.locator('#next').click();
+  const choices = page.getByRole('group', { name: 'Choices' });
+  await expect(choices.getByRole('button')).toHaveCount(2);
+});

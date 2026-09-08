@@ -31,7 +31,7 @@ Local output:
   captures and snapshot restore from `/private/tmp`.
 - `target/validation/release-distribution/`: a startable release-mode sample with
   engine and font licenses.
-- `editors/vscode-renrs/renrs-0.1.0.vsix`: an installable editor extension.
+- `editors/vscode-renrs/renrs-0.1.0-rc.1.vsix`: an installable editor extension.
 
 Six native runs produced 81 PNGs, all reported pass. Captures include the second
 page of long dialogue, 12 long choices, history ends, Chinese switch, custom
@@ -41,8 +41,9 @@ shipping-package lookup that does not depend on the working directory.
 
 Authoring entry is in [Command-line tools](TOOLING.md), route assertions in
 [Story debugging](DEBUGGING.md), screen format in [Screens and interaction](SCREENS.md).
-CI added template/route, VSIX, and Linux Xvfb/Mesa window checks. Remote three-platform
-CI, a VS Code host, and human audio listening were not run in this round.
+Template/route, VSIX, and window checks now run through the layered local gates; GitHub
+Actions retains only documentation deployment. Remote three-platform acceptance and
+human audio listening were not run in this round.
 
 Performance bounds: texture cache target 256 MiB; audio cache estimated from decoded
 size, target 64 MiB. The current stage and playing audio are not force-evicted, so

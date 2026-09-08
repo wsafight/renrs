@@ -129,6 +129,21 @@ pub(super) fn measure_width(text: impl AsRef<str>, size: u16) -> f32 {
     })
 }
 
+pub(super) fn cluster_boundaries(text: &str) -> Vec<usize> {
+    RENDERER.with_borrow_mut(|renderer| {
+        let mut boundaries = renderer
+            .shape(text)
+            .iter()
+            .map(|glyph| glyph.cluster)
+            .filter(|offset| text.is_char_boundary(*offset))
+            .collect::<Vec<_>>();
+        boundaries.extend([0, text.len()]);
+        boundaries.sort_unstable();
+        boundaries.dedup();
+        boundaries
+    })
+}
+
 pub(super) fn draw_text(text: impl AsRef<str>, x: f32, y: f32, size: f32, tint: Color) {
     if size <= 0.0 || !size.is_finite() {
         return;

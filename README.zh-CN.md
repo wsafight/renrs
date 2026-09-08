@@ -9,7 +9,7 @@
 RenRS 是用 Rust 独立实现、受 Ren'Py 启发的视觉小说引擎。用 `.rns` 写剧情，先检查再运行，
 可生成本地播放器或只读归档。它不执行 Python，不运行 `.rpy`，也不读取 Ren'Py 存档。
 
-> 预发布 `0.1.0`。允许破坏格式变更。存档必须使用当前容器与快照格式；内容更新后恢复还要求
+> 候选版本 `0.1.0-rc.1`。机器协议、归档和界面 v1 契约已经冻结。存档必须使用当前容器与快照格式；内容更新后恢复还要求
 > 所有活动执行位置都有显式稳定的 `@id`/`alias`。
 
 ## 运行示例
@@ -83,6 +83,7 @@ Web 与移动端见 [命令行工具](https://wsafight.github.io/renrs/reference
 另外：[VS Code 扩展](editors/vscode-renrs/README.md)、
 [剧情调试](https://wsafight.github.io/renrs/guides/debugging/?lang=zh)、
 [架构](https://wsafight.github.io/renrs/engine/architecture/?lang=zh)。
+已冻结的兼容矩阵和 RC 门禁见 [发布契约](docs/RELEASE.md)。
 
 ## 能力
 

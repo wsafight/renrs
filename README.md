@@ -10,7 +10,8 @@ RenRS is a visual novel engine written in Rust. Write story in `.rns`, check it,
 then run a native player or ship a read-only archive. It is inspired by Ren'Py,
 but it does not execute Python, run `.rpy`, or load Ren'Py saves.
 
-> Pre-release `0.1.0`. Breaking format changes are allowed. Saves require the
+> Release candidate `0.1.0-rc.1`. The v1 machine/archive/screen contracts are frozen;
+> saves require the
 > current container and snapshot formats; content updates additionally require
 > explicit stable `@id`/`alias` positions wherever execution is active.
 
@@ -88,6 +89,7 @@ The [docs site](https://wsafight.github.io/renrs/) is English by default. Append
 Also: [VS Code extension](editors/vscode-renrs/README.md),
 [story debugging](https://wsafight.github.io/renrs/guides/debugging/),
 [architecture](https://wsafight.github.io/renrs/engine/architecture/).
+The checked compatibility matrix and RC gates are in [docs/RELEASE.md](docs/RELEASE.md).
 
 ## Capabilities
 

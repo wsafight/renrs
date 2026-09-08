@@ -1,5 +1,9 @@
 import { cp, mkdir, readFile, writeFile, lstat } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const workspace = fileURLToPath(new URL('../', import.meta.url));
+const release = JSON.parse(await readFile(path.join(workspace, 'release.json'), 'utf8'));
 
 const [source, destination, ...extra] = process.argv.slice(2);
 if (!source || !destination || extra.length)
@@ -37,7 +41,7 @@ await writeFile(
   path.join(output, 'package.json'),
   json({
     name: id.replaceAll('.', '-').toLowerCase(),
-    version: '0.1.0',
+    version: release.engine_version,
     private: true,
     scripts: {
       'android:add': 'cap add android',

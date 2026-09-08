@@ -3,8 +3,9 @@
 This page keeps early milestones. The latest implementation and acceptance as of
 2026-09-08 is [Product upgrades](PRODUCT_UPGRADES.md). Shared screens/saves, parallel
 animation, NVL, video with an audio bed, collection expressions, and Capacitor mobile
-builds have been added. The project is not released. Breaking changes are allowed.
-Old-version compatibility and save migration left the current implementation scope.
+builds have been added. The project is not released. Starting at `0.1.0-rc.1`, v1 machine,
+archive, and screen contracts are frozen. Pre-RC compatibility and save migration remain outside
+the current scope; see the [release contract](RELEASE.md).
 
 ## Priority
 
@@ -44,6 +45,11 @@ detailed matrix is [Gap with Ren’Py](RENPY_GAP_ANALYSIS.md).
 - [x] Offline migrator covers the supported Ren'Py static subset. Uncertain or dynamic syntax goes into a structured report, not silent guesses.
 - [x] Parser, runtime, compiler, analysis, migrator, player, and LSP split by duty.
 - [x] Tests force every Rust file under `src/` and `tests/` to stay under 500 lines.
+- [x] Split core/Web/media/editor/release local gates and test Launcher protocol and Web semantic boundaries.
+- [x] Add a 10-chapter, 500-dialogue, two-route, 30-60 minute first-party reference fixture; external author acceptance remains open.
+- [x] Use shaped-cluster boundaries for native wrapping; expose stable Web dialogue status and scene, choice, and control semantics.
+- [x] Migrate static `easein`/`easeout`, ATL pause, and master camera; report dynamic, looping, and layer-camera cases.
+- [x] Freeze the release-format matrix, prepare `0.1.0-rc.1`, and include mobile wrapper validation in the release gate.
 
 ## P2: remaining extensions
 
@@ -57,10 +63,10 @@ subsets as unimplemented.
 These are still clearly missing versus Ren'Py. They cannot be marked supported without
 a real backend.
 
-1. **Custom screen extensions**: composable displayables, nested viewports, drag/drop, and full AT semantics.
+1. **Custom screen extensions**: nested viewports, drag/drop, and Web semantics are shipped; arbitrary displayables and a native OS AT tree remain.
 2. **Advanced text layout**: build on the current `rustybuzz` shaping, BiDi, font fallback,
-   CJK wrapping, and ruby with shaped-cluster-aware wrapping, vertical layout, color emoji,
-   and screen-reader semantics.
+   CJK wrapping, ruby, and shaped-cluster-aware wrapping. Vertical layout, color emoji,
+   and native screen-reader semantics remain.
 3. **Advanced presentation**: named sprite layers are shipped; full ATL, layer cameras, arbitrary displayables, composite transitions, shaders, particles, and Live2D remain.
 4. **Video**: extra audio and subtitle tracks, more device and long-form sync acceptance.
 5. **Performance**: real project samples and font-cache budgets. Incremental compile is shipped.
@@ -68,16 +74,16 @@ a real backend.
    or expression bytecode when profiling identifies expression evaluation or dispatch as a bottleneck.
 6. **Shipping platforms**: native Rust mobile rendering, Capacitor device matrix, signing/notarization external acceptance, store SDKs, and a network auto-update client.
 7. **Advanced narrative state**: fixed rollback, finer preference sync, and cloud saves.
-8. **Migration coverage**: default screens, a common static ATL subset, and the first
-   real-sample baseline are shipped. Complex image expressions, parameterized/looping
+8. **Migration coverage**: default screens, common static ATL/master camera, and a first-party
+   reference baseline are shipped. Complex image expressions, parameterized/looping
    ATL, dynamic jump/call, custom statements, and a broader real-project corpus remain.
 9. **Extension mechanism**: do not embed Python. If needed, evaluate a least-privilege WASM plugin API separately.
 
 ## Recommended order
 
-1. Use a real 30-to-60-minute mid-size work to establish authoring, performance,
-   migration, and shipping baselines. Record frame time, resource peaks, save I/O,
-   production time, and platform issues.
+1. The first-party 30-to-60-minute fixture now covers regression. An external author's real
+   mid-size work is still required for authoring, migration, and shipping baselines. Record frame
+   time, resource peaks, save I/O, production time, and platform issues.
 2. Address real-work blockers in advanced text layout, JSON screen controls,
    accessibility, ATL, and migration coverage. Every addition needs shared desktop/Web
    semantics, structured diagnostics, and a fallback policy.
@@ -87,9 +93,9 @@ a real backend.
    operations scripts that remain `.mjs` or `.cjs`.
 4. Validate the FFmpeg/Rodio/HTML media clock with real long-form video and complete
    desktop, browser, and Capacitor device matrices.
-5. After the first real work passes, define separate compatibility windows for `.rns`,
-   machine protocols, screen schemas, archives, and saves. Publish `0.1.0-rc.1`, verify
-   upgrade notes and shipping, then publish `0.1.0`.
+5. Compatibility windows for `.rns`, machine protocols, screen schemas, archives, and saves are
+   defined and `0.1.0-rc.1` is prepared. Publish `0.1.0` only after external work, target-platform,
+   and publisher-credential gates pass.
 6. Optimize expression IR or introduce bytecode only when real profiling identifies
    execution IR as a user-visible bottleneck. Do not presume a full VM rewrite is the
    player's performance foundation.

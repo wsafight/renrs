@@ -1,6 +1,8 @@
 use super::text::{draw_text, measure_width};
 use super::ui_common::color;
-use crate::text_layout::{TextLine, layout_runs};
+#[cfg(test)]
+use crate::text_layout::layout_runs;
+use crate::text_layout::{TextLine, layout_runs_with_clusters};
 use macroquad::prelude::*;
 use renrs::runtime::DialogueState;
 use renrs::theme::Theme;
@@ -62,12 +64,13 @@ impl DialogueView {
         if self.dialogue.as_ref() == Some(dialogue) && self.theme.as_ref() == Some(theme) {
             return;
         }
-        self.lines = layout_runs(
+        self.lines = layout_runs_with_clusters(
             &dialogue.runs,
             &dialogue.text,
             usize::MAX,
             (theme.layout.dialogue_rect.width - 68.0).max(40.0),
             |text| measure_width(text, theme.dialogue_font_size),
+            super::text::cluster_boundaries,
         );
         let line_height = reading_line_height(dialogue, theme);
         self.rows = ((theme.layout.dialogue_rect.height - 64.0) / line_height)

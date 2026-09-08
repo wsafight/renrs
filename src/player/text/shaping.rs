@@ -15,6 +15,7 @@ pub(super) struct Glyph {
     pub(super) x: f32,
     pub(super) y: f32,
     pub(super) advance: f32,
+    pub(super) cluster: usize,
 }
 
 pub(super) fn shape(faces: &[Face], text: &str) -> Vec<Glyph> {
@@ -24,8 +25,9 @@ pub(super) fn shape(faces: &[Face], text: &str) -> Vec<Glyph> {
         let (levels, runs) = bidi.visual_runs(paragraph, paragraph.range.clone());
         for run in runs {
             let rtl = levels[run.start].is_rtl();
-            let mut spans: Vec<(usize, Script, String)> = Vec::new();
-            for grapheme in text[run].graphemes(true) {
+            let run_start = run.start;
+            let mut spans: Vec<(usize, Script, usize, String)> = Vec::new();
+            for (offset, grapheme) in text[run].grapheme_indices(true) {
                 let face = faces
                     .iter()
                     .position(|face| {
@@ -41,7 +43,7 @@ pub(super) fn shape(faces: &[Face], text: &str) -> Vec<Glyph> {
                     .map(|ch| ch.script())
                     .find(|script| !matches!(script, Script::Common | Script::Inherited))
                     .unwrap_or(Script::Common);
-                if let Some((previous_face, previous_script, text)) = spans.last_mut()
+                if let Some((previous_face, previous_script, _, text)) = spans.last_mut()
                     && *previous_face == face
                     && (script == Script::Common
                         || *previous_script == Script::Common
@@ -52,13 +54,13 @@ pub(super) fn shape(faces: &[Face], text: &str) -> Vec<Glyph> {
                         *previous_script = script;
                     }
                 } else {
-                    spans.push((face, script, grapheme.to_owned()));
+                    spans.push((face, script, run_start + offset, grapheme.to_owned()));
                 }
             }
             if rtl {
                 spans.reverse();
             }
-            for (index, _, span) in spans {
+            for (index, _, span_start, span) in spans {
                 let face =
                     rustybuzz::Face::from_slice(faces[index].data(), 0).expect("validated font");
                 let mut buffer = UnicodeBuffer::new();
@@ -78,6 +80,7 @@ pub(super) fn shape(faces: &[Face], text: &str) -> Vec<Glyph> {
                         x: position.x_offset as f32 * scale,
                         y: -position.y_offset as f32 * scale,
                         advance: position.x_advance as f32 * scale,
+                        cluster: span_start + info.cluster as usize,
                     });
                 }
             }

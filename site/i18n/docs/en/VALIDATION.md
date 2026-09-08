@@ -102,6 +102,18 @@ and are not the player main-thread stall.
 The measurer advances at most 100,000 interactions. Oversized or looping projects
 error. The generate target must not exist.
 
+The fixed first-party reference entry point is:
+
+```sh
+target/release/renrs-bench generate-reference target/reference-story
+target/release/renrs-accept target/reference-story
+target/release/renrs-bench target/reference-story 5
+```
+
+It fixes 10 chapters, 500 dialogue lines, 585 instructions, and two routes, with an estimated
+30-60 minute reading time. This fixture detects scale regressions; it does not pretend to be an
+external author's work. Real authoring, migration, and shipping acceptance remains separate.
+
 ## Native window acceptance
 
 ```sh
@@ -142,10 +154,11 @@ player. Captures and reports are in `target/validation/`, grouped as `demo-*`,
 - Local fmt, all-target check, strict Clippy, and 109 automated tests passed. Every Rust file in `src/` and `tests/` is under 500 lines.
 - Tests cover old snapshots/containers, stable ID aliases, rollback, directory/archive consistency, corrupt saves, the migrator, language transactions, and route assertions.
 - The VS Code extension passed strict TypeScript checks and regenerated a VSIX with the compiled LSP bundle, grammar, and license.
-- CI configures three-desktop Rust checks, template and route tests, VSIX pack, Linux Xvfb/Mesa captures, and shipping startup.
+- Rust checks, template and route tests, VSIX packaging, window captures, and shipping
+  startup run through layered local gates; GitHub Actions retains only documentation deployment.
 
-This historical stage did not actually run remote three-platform CI, VS Code
-extension-host acceptance, or human audio listening. Window automated acceptance
+This historical stage did not actually run remote three-platform acceptance or human
+audio listening. Window automated acceptance
 does not simulate full OS mouse events and does not replace real usability tests.
 Font families/RTL, background audio decode, save screenshots, exact dialogue page
 restore, mobile, code signing, and notarization were still unimplemented at that

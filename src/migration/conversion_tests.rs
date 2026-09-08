@@ -75,3 +75,34 @@ fn inlines_supported_static_transform_at_show_site() {
         "show \"images/hero.png\" as hero at left\n    transform hero alpha 0\n    transform hero alpha 1 over 0.5 ease linear"
     ));
 }
+
+#[test]
+fn inlines_static_master_camera_and_directional_easing() {
+    let converted = convert_script(
+        "transform focus:\n    zoom 1.1\n    easein .4 xoffset -20\n    pause .2\nlabel start:\n    camera master at focus\n    return\n",
+        "script.rpy",
+        &AssetCatalog::empty(),
+    );
+    assert!(matches!(
+        converted.issues.as_slice(),
+        [issue] if issue.kind == MigrationIssueKind::Assumption
+            && issue.message.contains("blocking RenRS pause")
+    ));
+    assert!(converted.output.contains(
+        "transform camera scale 1.1\n    transform camera x -20 over 0.4 ease in\n    pause 0.2"
+    ));
+}
+
+#[test]
+fn reports_non_master_layer_cameras_without_guessing() {
+    let converted = convert_script(
+        "transform focus:\n    zoom 1.1\nlabel start:\n    camera screens at focus\n    return\n",
+        "script.rpy",
+        &AssetCatalog::empty(),
+    );
+    assert!(matches!(
+        converted.issues.as_slice(),
+        [issue] if issue.kind == MigrationIssueKind::Unsupported
+            && issue.code == "display_statement_unsupported"
+    ));
+}

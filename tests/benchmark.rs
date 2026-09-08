@@ -15,3 +15,22 @@ fn generated_workload_checks_routes_and_archives_consistently() {
     assert!(report.snapshot_bytes > 1000);
     assert!(report.archive_bytes > 1000);
 }
+
+#[test]
+fn first_party_reference_has_a_fixed_acceptance_profile() {
+    let temporary = tempfile::tempdir().unwrap();
+    let game = temporary.path().join("reference");
+    renrs::benchmark::generate_reference(&game).unwrap();
+    let profile: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(game.join("reference.json")).unwrap()).unwrap();
+    assert_eq!(profile["kind"], "first_party_reference_fixture");
+    assert_eq!(profile["estimated_reading_minutes"]["minimum"], 30);
+    assert_eq!(profile["estimated_reading_minutes"]["maximum"], 60);
+    assert_eq!(profile["dialogue_lines"], 500);
+    assert_eq!(profile["external_author_validation"], false);
+    let program = renrs::ProjectSource::open(&game)
+        .unwrap()
+        .compile()
+        .unwrap();
+    assert_eq!(program.instructions.len(), 585);
+}

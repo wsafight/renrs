@@ -15,15 +15,15 @@
 - `target/validation/demo-*`、`visual-*`：内置与自定义界面的 1280x720/800x600 窗口截图。
 - `target/validation/package-800`、`package-release-800`：从 `/private/tmp` 启动发行包的截图与快照恢复结果。
 - `target/validation/release-distribution/`：可直接启动的发布模式示例，含引擎与字体许可证。
-- `editors/vscode-renrs/renrs-0.1.0.vsix`：可安装的编辑器扩展。
+- `editors/vscode-renrs/renrs-0.1.0-rc.1.vsix`：可安装的编辑器扩展。
 
 六次原生运行共输出 81 张 PNG，报告均为通过；长对白第二页、12 个长选项、历史首尾、中文切换、
 自定义滑块/列表与手动/快速/自动存档均有截图。最后补齐了自定义历史缓存、超长标签排版、
 容器样式误用校验、存档缓存 Send/Sync 属性，以及与工作目录无关的发行包查找。
 
 创作入口见 [工具链](TOOLING.md)，路线断言见 [剧情调试](DEBUGGING.md)，界面格式见
-[声明式界面](SCREENS.md)。CI 已加入模板/路线、VSIX 和 Linux Xvfb/Mesa 窗口检查；
-远程三平台 CI、VS Code 宿主和人工音频试听未在本轮实际执行。
+[声明式界面](SCREENS.md)。模板/路线、VSIX 和窗口检查现由本地分层门禁执行；GitHub Actions
+只保留文档站发布。远程三平台验收和人工音频试听未在本轮实际执行。
 
 性能边界：纹理缓存目标 256 MiB，音频缓存按解码体积估算、目标 64 MiB；当前舞台和正在播放的音频不会被强制淘汰，
 因此活跃资源本身超过预算时仍可能超出目标。图片后台队列有界；GPU 上传和现有音频后端解码仍在主线程。

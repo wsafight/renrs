@@ -5,8 +5,9 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome lint .",
+    "check:release": "node scripts/check-release.mjs",
     "check:web": "npm run check --prefix web && npm run check --prefix launcher && npm run build --prefix editors/vscode-renrs",
-    "check": "biome check . && npm run check:web"
+    "check": "biome check . && npm run check:release && npm run check:web"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12"

@@ -6,7 +6,8 @@
     "build": "vite build",
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run build"
+    "test:unit": "vitest run",
+    "check": "npm run typecheck && npm run test:unit && npm run build"
   },
   "dependencies": {
     "lucide": "^0.468.0",
@@ -15,6 +16,7 @@
   "devDependencies": {
     "@types/node": "^22.15.0",
     "typescript": "5.9.3",
-    "vite": "^6.3.0"
+    "vite": "^6.3.0",
+    "vitest": "^3.2.4"
   }
 }

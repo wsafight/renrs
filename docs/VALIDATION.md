@@ -83,6 +83,17 @@ target/release/renrs-bench target/benchmark-story 5
 生成器允许 1–200 章、每章 1–1000 段；测量器最多推进 100,000 次交互，过大或循环项目会报错。
 生成目标必须不存在。
 
+固定的第一方参考入口为：
+
+```sh
+target/release/renrs-bench generate-reference target/reference-story
+target/release/renrs-accept target/reference-story
+target/release/renrs-bench target/reference-story 5
+```
+
+它固定为 10 章、500 条对白、585 条指令和两条路线，预计阅读 30–60 分钟。该 fixture 用于发现
+规模回归，不伪装成外部作者作品；真实创作、迁移和发行验收仍是独立门禁。
+
 ## 原生窗口验收
 
 ```sh
@@ -115,8 +126,9 @@ debug 与 release 播放器均完成截图和快速读档恢复，验证了基�
 - 本机 fmt、全目标 check、严格 Clippy、109 项自动测试通过，所有 `src/` 和 `tests/` Rust 文件不超过 500 行。
 - 测试覆盖旧快照/容器、稳定 ID alias、回滚、目录与归档一致性、损坏存档、迁移器、语言事务和路线断言。
 - VS Code 扩展通过 strict TypeScript 检查并重新生成 VSIX，包含编译后的 LSP bundle、语法定义与许可证。
-- CI 配置三桌面平台 Rust 检查、模板及路线测试、VSIX 打包、Linux Xvfb/Mesa 截图和发行启动。
+- Rust 检查、模板及路线测试、VSIX 打包、窗口截图和发行启动由本地分层门禁执行；GitHub Actions
+  只保留文档站发布。
 
-此历史阶段尚未实际运行远程三平台 CI、VS Code 扩展宿主验收或人工音频试听。窗口自动验收没有模拟
+此历史阶段尚未实际运行远程三平台验收或人工音频试听。窗口自动验收没有模拟
 完整的操作系统鼠标事件，也不能代替真实用户可用性测试。字体族/RTL、音频后台解码、存档截图、
 精确恢复对白页码、移动端、代码签名与公证仍未实现。

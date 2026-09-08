@@ -20,6 +20,7 @@ export function viewportParent(
     let saved = viewports.get(frame.id);
     if (!saved) {
       const node = app.element('div', null, { className: 'custom-viewport', tabIndex: 0 });
+      node.setAttribute('role', 'region');
       node.setAttribute('aria-label', frame.id);
       const content = app.element('div', null, { className: 'custom-viewport-content' });
       Object.assign(node.style, coordinates(frame.bounds, origin));

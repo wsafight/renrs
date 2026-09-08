@@ -18,7 +18,7 @@ import { setupAudio } from './audio';
 import { showVideo } from './media';
 import { panels } from './panels';
 import { setupPlatform } from './platform';
-import { audioVolume, setupPresentation } from './presentation';
+import { audioVolume, setupPresentation, storyAnnouncement } from './presentation';
 import { parseProfile, parseProjectData, parseRuntimeState, parseSettings } from './protocol';
 import { ReadStore } from './read-store';
 import { setupReading } from './reading';
@@ -333,6 +333,9 @@ async function render(elapsed = 0): Promise<void> {
   }
   app.updateDebug?.();
   await storyScreens(app);
+  const announcement = storyAnnouncement(stage.dialogue);
+  const status = $('story-status');
+  if (status.textContent !== announcement) status.textContent = announcement;
   app.speak(stage.dialogue?.text);
   if ($('modal').open) {
     for (const animation of $('stage').getAnimations({ subtree: true })) animation.pause();

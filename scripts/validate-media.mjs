@@ -1,7 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { mkdir, cp, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-const root = path.resolve(process.argv[2] || 'target/media-fixture');
+const [destination = 'target/media-fixture', ...options] = process.argv.slice(2);
+if (options.some((option) => option !== '--stream') || options.length > 1)
+  throw new Error('Usage: node scripts/validate-media.mjs [directory] [--stream]');
+const streaming = options.includes('--stream');
+const root = path.resolve(destination);
 const ffmpeg =
   process.env.RENRS_FFMPEG ||
   path.resolve('target/media-tools/node_modules/@ffmpeg-installer/darwin-arm64/ffmpeg');
@@ -29,10 +33,14 @@ run(ffmpeg, [
   '-n',
   path.join(root, 'input.mp4'),
 ]);
-run('./target/debug/renrs-video', [path.join(root, 'input.mp4'), root, 'clips/intro'], {
-  ...process.env,
-  RENRS_FFMPEG: ffmpeg,
-});
+run(
+  './target/debug/renrs-video',
+  [path.join(root, 'input.mp4'), root, 'clips/intro', ...(streaming ? ['--stream'] : [])],
+  {
+    ...process.env,
+    RENRS_FFMPEG: ffmpeg,
+  },
+);
 await writeFile(
   path.join(root, 'script.rns'),
   `config title "RenRS Media Test"

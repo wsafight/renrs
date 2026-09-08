@@ -8,6 +8,8 @@
 - [x] P1：镜头、运行时角色层和更丰富的呈现。
 - [x] P1：带持久化/回滚语义的确定性扩展 API。
 - [x] P1：复杂文本排版、回退字体和本地化规则。
+- [x] P0：拆分本地验收门禁，测试 Launcher/Web 协议边界，建立 30–60 分钟第一方参考 fixture。
+- [x] P1：shaped cluster 换行、Web 辅助语义、常用静态 ATL/master camera 迁移、媒体门禁、移动 wrapper 验证和 `0.1.0-rc.1` 契约。
 - [x] P2：项目 Launcher、SDK 流程、模板和作者文档；本地端到端验证通过。
 - [ ] P2：媒体配置、图形扩展和平台服务适配（命名立绘层和静态单音轨增益已交付；重型后端仍待处理）。
 
@@ -20,6 +22,9 @@ Launcher 把 check、run、graph、pack 和 build 交给现有 Rust 工具，日
 音效、语音音量默认值现在会与有界的 music/sound 单音轨增益组合；这仍不等同于任意 mixer、媒体同步、图形或
 平台服务扩展。Live2D、自定义 shader 和云/商店服务仍未实现。商业项目和跨平台
 验收不在本开发范围内。
+
+参考 fixture 由 `renrs-bench generate-reference` 生成，不是所有者提供的真实产品项目。
+兼容版本以及尚未完成的真机、签名和商店门禁见 [发布契约](RELEASE.md)。
 
 ## 存档证据
 

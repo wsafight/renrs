@@ -7,10 +7,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const full = process.argv.slice(2).includes('--full');
-if (process.argv.slice(2).some((argument) => argument !== '--full')) {
-  throw new Error('Usage: node scripts/verify-local.mjs [--full]');
+const arguments_ = new Set(process.argv.slice(2));
+const allowed = new Set(['--web', '--media', '--editor', '--release', '--full']);
+const unknown = [...arguments_].filter((argument) => !allowed.has(argument));
+if (unknown.length) {
+  throw new Error(
+    'Usage: node scripts/verify-local.mjs [--web] [--media] [--editor] [--release] [--full]',
+  );
 }
+const full = arguments_.has('--full');
+const web = full || arguments_.has('--web');
+const media = full || arguments_.has('--media');
+const editor = full || arguments_.has('--editor');
+const release = full || arguments_.has('--release');
 
 function run(label, command, args, cwd = root, env = {}) {
   console.log(`\n==> ${label}`);
@@ -37,7 +46,7 @@ function requireMediaFfmpeg() {
     !`${result.stdout}${result.stderr}`.includes('lavfi')
   ) {
     throw new Error(
-      'Full verification requires FFmpeg with the lavfi input. Set RENRS_FFMPEG to a full build.',
+      'Media verification requires FFmpeg with the lavfi input. Set RENRS_FFMPEG to a full build.',
     );
   }
   return ffmpeg;
@@ -76,6 +85,7 @@ try {
     'Run npm ci --prefix editors/vscode-renrs.',
   );
   run('Biome formatting and linting', 'npm', ['exec', 'biome', '--', 'check', '.']);
+  run('Release contract versions', process.execPath, ['scripts/check-release.mjs']);
   run('Web TypeScript, unit tests and build', 'npm', ['run', 'check', '--prefix', 'web']);
   run('Launcher TypeScript and build', 'npm', ['run', 'check', '--prefix', 'launcher']);
   run('VS Code extension TypeScript and build', 'npm', [
@@ -117,6 +127,7 @@ try {
   ]);
 
   const product = path.join(temporary, 'product');
+  const reference = path.join(temporary, 'reference');
   const story = path.join(temporary, 'story');
   run('Product fixture', 'cargo', [
     'run',
@@ -135,6 +146,25 @@ try {
     'renrs-accept',
     '--',
     product,
+  ]);
+  run('First-party reference fixture', 'cargo', [
+    'run',
+    '--offline',
+    '--quiet',
+    '--bin',
+    'renrs-bench',
+    '--',
+    'generate-reference',
+    reference,
+  ]);
+  run('First-party reference acceptance', 'cargo', [
+    'run',
+    '--offline',
+    '--quiet',
+    '--bin',
+    'renrs-accept',
+    '--',
+    reference,
   ]);
   run('Project scaffold', 'cargo', [
     'run',
@@ -169,16 +199,14 @@ try {
   run('Launcher syntax', process.execPath, ['--check', 'scripts/launcher.mjs']);
   run('Launcher jobs syntax', process.execPath, ['--check', 'scripts/launcher/jobs.mjs']);
   run('Launcher acceptance syntax', process.execPath, ['--check', 'scripts/test-launcher.mjs']);
+  run('Mobile acceptance syntax', process.execPath, ['--check', 'scripts/test-mobile.mjs']);
 
-  if (full) {
-    const ffmpeg = requireMediaFfmpeg();
-    run('Debug binaries', 'cargo', ['build', '--offline', '--bins']);
-    run('Release binaries', 'cargo', ['build', '--offline', '--release', '--bins']);
+  if (web || media || release) {
     run('Web shell', process.execPath, ['scripts/build-web.mjs']);
+  }
 
+  if (web || media) {
     const webRoot = path.join(temporary, 'web');
-    const reading = path.join(temporary, 'reading');
-    const media = path.join(temporary, 'media');
     run('Web demo', 'cargo', [
       'run',
       '--offline',
@@ -189,49 +217,82 @@ try {
       'demo',
       webRoot,
     ]);
-    run('Reading fixture', 'cargo', [
-      'run',
-      '--offline',
-      '--quiet',
-      '--example',
-      'generate_reading_fixture',
-      '--',
-      reading,
-    ]);
-    run('Video tool', 'cargo', ['build', '--offline', '--bin', 'renrs-video']);
-    run('Media fixture', process.execPath, ['scripts/validate-media.mjs', media], root, {
-      RENRS_FFMPEG: ffmpeg,
-    });
-    run('Web product fixture', 'cargo', [
-      'run',
-      '--offline',
-      '--quiet',
-      '--bin',
-      'renrs-web-build',
-      '--',
-      product,
-      path.join(webRoot, 'product'),
-    ]);
-    run('Web reading fixture', 'cargo', [
-      'run',
-      '--offline',
-      '--quiet',
-      '--bin',
-      'renrs-web-build',
-      '--',
-      reading,
-      path.join(webRoot, 'reading'),
-    ]);
-    run('Web media fixture', 'cargo', [
-      'run',
-      '--offline',
-      '--quiet',
-      '--bin',
-      'renrs-web-build',
-      '--',
-      media,
-      path.join(webRoot, 'media'),
-    ]);
+    if (web) {
+      const composition = path.join(temporary, 'composition');
+      run('Composition fixture', 'cargo', [
+        'run',
+        '--offline',
+        '--quiet',
+        '--example',
+        'generate_composition_fixture',
+        '--',
+        composition,
+      ]);
+      run('Web product fixture', 'cargo', [
+        'run',
+        '--offline',
+        '--quiet',
+        '--bin',
+        'renrs-web-build',
+        '--',
+        product,
+        path.join(webRoot, 'product'),
+      ]);
+      run('Web composition fixture', 'cargo', [
+        'run',
+        '--offline',
+        '--quiet',
+        '--bin',
+        'renrs-web-build',
+        '--',
+        composition,
+        path.join(webRoot, 'composition'),
+      ]);
+    }
+    if (media) {
+      const ffmpeg = requireMediaFfmpeg();
+      const reading = path.join(temporary, 'reading');
+      const frameMedia = path.join(temporary, 'media');
+      const streamMedia = path.join(temporary, 'stream');
+      run('Video tool', 'cargo', ['build', '--offline', '--bin', 'renrs-video']);
+      run(
+        'Reading fixture',
+        'cargo',
+        ['run', '--offline', '--quiet', '--example', 'generate_reading_fixture', '--', reading],
+        root,
+        { RENRS_FFMPEG: ffmpeg },
+      );
+      run(
+        'Frame video fixture',
+        process.execPath,
+        ['scripts/validate-media.mjs', frameMedia],
+        root,
+        { RENRS_FFMPEG: ffmpeg },
+      );
+      run(
+        'Streaming video fixture',
+        process.execPath,
+        ['scripts/validate-media.mjs', streamMedia, '--stream'],
+        root,
+        { RENRS_FFMPEG: ffmpeg },
+      );
+      for (const [label, source, destination] of [
+        ['reading', reading, 'reading'],
+        ['frame video', frameMedia, 'media'],
+        ['streaming video', streamMedia, 'stream'],
+      ]) {
+        run(`Web ${label} fixture`, 'cargo', [
+          'run',
+          '--offline',
+          '--quiet',
+          '--bin',
+          'renrs-web-build',
+          '--',
+          source,
+          path.join(webRoot, destination),
+        ]);
+      }
+    }
 
     const port = await availablePort();
     const baseUrl = `http://127.0.0.1:${port}`;
@@ -241,14 +302,39 @@ try {
     });
     try {
       await waitForServer(baseUrl, server);
-      run('Web browser tests', 'npx', ['playwright', 'test'], path.join(root, 'web'), {
-        RENRS_MEDIA_TEST: '1',
-        RENRS_WEB_URL: baseUrl,
-      });
+      if (web) {
+        run(
+          'Web browser tests',
+          'npx',
+          [
+            'playwright',
+            'test',
+            '--grep-invert',
+            'parallel animation|video advances|streaming video',
+          ],
+          path.join(root, 'web'),
+          { RENRS_WEB_URL: baseUrl },
+        );
+      }
+      if (media) {
+        run(
+          'Web media browser tests',
+          'npx',
+          ['playwright', 'test', '--grep', 'parallel animation|video advances|streaming video'],
+          path.join(root, 'web'),
+          {
+            RENRS_MEDIA_TEST: '1',
+            RENRS_STREAM_TEST: '1',
+            RENRS_WEB_URL: baseUrl,
+          },
+        );
+      }
     } finally {
       server.kill('SIGTERM');
     }
+  }
 
+  if (editor) {
     run(
       'VS Code extension host',
       'npm',
@@ -261,6 +347,10 @@ try {
       ['run', 'package'],
       path.join(root, 'editors/vscode-renrs'),
     );
+  }
+
+  if (release) {
+    run('Release binaries', 'cargo', ['build', '--offline', '--release', '--bins']);
     const visual = path.join(temporary, 'visual');
     const distribution = path.join(temporary, 'distribution');
     const captures = path.join(temporary, 'captures');
@@ -284,6 +374,23 @@ try {
       visual,
     ]);
     run('Native distribution', builder, [visual, distribution]);
+    const mobileWeb = path.join(temporary, 'mobile-web');
+    const mobileProject = path.join(temporary, 'mobile-project');
+    run('Mobile Web fixture', 'cargo', [
+      'run',
+      '--offline',
+      '--quiet',
+      '--bin',
+      'renrs-web-build',
+      '--',
+      product,
+      mobileWeb,
+    ]);
+    run('Capacitor project', process.execPath, ['scripts/mobile.mjs', mobileWeb, mobileProject]);
+    run('Capacitor project acceptance', process.execPath, [
+      'scripts/test-mobile.mjs',
+      mobileProject,
+    ]);
     run('Native demo smoke', executable, [
       'demo',
       '--smoke-test',
@@ -305,7 +412,10 @@ try {
     ]);
     run('Packaged Launcher and SDK', process.execPath, ['scripts/test-launcher.mjs', sdk]);
   }
-  console.log(`\nLocal ${full ? 'full' : 'core'} verification passed.`);
+  const profiles = [web && 'web', media && 'media', editor && 'editor', release && 'release']
+    .filter(Boolean)
+    .join(', ');
+  console.log(`\nLocal core${profiles ? ` + ${profiles}` : ''} verification passed.`);
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }

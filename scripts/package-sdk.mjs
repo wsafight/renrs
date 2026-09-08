@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+const release = JSON.parse(await readFile(path.join(root, 'release.json'), 'utf8'));
 const [output, binaries = path.join(root, 'target/release')] = process.argv.slice(2);
 if (!output || existsSync(output))
   throw new Error('Usage: node scripts/package-sdk.mjs <new-directory> [binary-directory]');
@@ -66,7 +67,7 @@ await writeFile(
   JSON.stringify(
     {
       version: 1,
-      engine_version: '0.1.0',
+      engine_version: release.engine_version,
       platform: process.platform,
       arch: process.arch,
       node: '>=22',

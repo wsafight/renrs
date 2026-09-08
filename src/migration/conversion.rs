@@ -196,6 +196,9 @@ fn convert_line(
     if let Some(rest) = content.strip_prefix("show ") {
         return convert_image_statement("show", rest, catalog, transforms);
     }
+    if let Some(rest) = content.strip_prefix("camera ") {
+        return convert_camera(rest, transforms);
+    }
     if let Some(rest) = content.strip_prefix("hide ") {
         return if valid_identifier(rest.trim()) {
             LineConversion::One(format!("hide {}", rest.trim()))
@@ -246,6 +249,46 @@ fn convert_line(
         "statement is outside the supported Ren'Py migration subset",
         content.ends_with(':'),
     )
+}
+
+fn convert_camera(source: &str, transforms: &TransformCatalog) -> LineConversion {
+    let tokens = source.split_whitespace().collect::<Vec<_>>();
+    let transform_name = match tokens.as_slice() {
+        ["at", name] | ["master", "at", name] => *name,
+        [layer, "at", _] => {
+            return unsupported(
+                &format!(
+                    "layer camera `{layer}` requires manual migration; only master is supported"
+                ),
+                false,
+            );
+        }
+        _ => return unsupported("camera requires a static `at <transform>` clause", false),
+    };
+    let Some(transform) = transforms.get(transform_name) else {
+        return unsupported(
+            "camera references an unsupported static ATL transform",
+            false,
+        );
+    };
+    let Some(statements) = transform.camera_statements() else {
+        return unsupported(
+            "camera transforms using xalign/yalign require manual migration",
+            false,
+        );
+    };
+    if statements.is_empty() {
+        return unsupported(
+            "camera transform does not contain supported properties",
+            false,
+        );
+    }
+    let value = statements.join("\n");
+    transform
+        .assumption()
+        .map_or(LineConversion::One(value.clone()), |message| {
+            LineConversion::Assumed { value, message }
+        })
 }
 
 fn convert_label(source: &str) -> LineConversion {

@@ -46,10 +46,15 @@ export function richText(
   const update = (count: number) => {
     node.dataset.visibleCharacters = String(Math.min(offset, count));
     node.dataset.revealing = String(count < offset);
+    node.setAttribute('aria-busy', String(count < offset));
     for (const change of updates) change(count);
   };
   update(visible);
   return update;
+}
+
+export function storyAnnouncement(dialogue?: Dialogue | null): string {
+  return [dialogue?.speaker_name, dialogue?.text].filter(Boolean).join(': ');
 }
 
 export function setupPresentation(app: PlayerApp): void {

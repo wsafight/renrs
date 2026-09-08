@@ -1,4 +1,4 @@
-import { richText } from './presentation';
+import { richText, storyAnnouncement } from './presentation';
 import { parseHistory, parseJson, parseRuntimeState } from './protocol';
 import { dataControl, viewportParent } from './screen-composition';
 import { listSaves, validateSave } from './storage';
@@ -187,12 +187,15 @@ export async function customScreen(
   if (!layout) return false;
   const root = app.element('div', null, { className: 'custom-screen' });
   root.dataset.screen = kind;
+  root.setAttribute('role', 'group');
+  root.setAttribute('aria-label', translated(app, kind.replaceAll('_', ' ')));
   const viewports = new Map<string, { node: HTMLDivElement; content: HTMLDivElement }>();
   if (layout.some((item) => item.viewports?.length)) root.classList.add('has-viewports');
   for (const item of layout) {
     const widget = item.widget,
       style = screens.styles[item.style ?? ''] || {};
     const node = app.element('div', null, { className: `custom-widget custom-${widget.type}` });
+    if (widget.label) node.setAttribute('aria-label', translated(app, widget.label));
     const { host: parent, position } = viewportParent(app, kind, root, item, viewports);
     Object.assign(node.style, {
       ...position,
@@ -205,7 +208,12 @@ export async function customScreen(
       await dataControl(app, kind, widget, node, text);
     else if (widget.type === 'text') node.textContent = text;
     else if (widget.type === 'image' && widget.path)
-      node.append(app.element('img', null, { src: app.asset(widget.path), alt: '' }));
+      node.append(
+        app.element('img', null, {
+          src: app.asset(widget.path),
+          alt: widget.label ? translated(app, widget.label) : '',
+        }),
+      );
     else if (widget.type === 'button') {
       const control = button(app, text, () => action(app, widget.action ?? ''));
       if (widget.action === 'rollback') control.disabled = !app.state.can_rollback;
@@ -234,6 +242,8 @@ export async function customScreen(
       node.append(control);
     } else if (widget.type === 'dialogue') {
       const dialogue = app.state.stage.dialogue;
+      node.setAttribute('role', 'group');
+      node.setAttribute('aria-label', storyAnnouncement(dialogue));
       const speaker = app.element('strong', dialogue?.speaker_name || '');
       speaker.style.color = dialogue?.speaker_color || '';
       const body = app.element('p');
@@ -244,6 +254,8 @@ export async function customScreen(
         button(app, app.tr('Continue'), () => app.act('next')),
       );
     } else if (widget.type === 'choices') {
+      node.setAttribute('role', 'group');
+      node.setAttribute('aria-label', app.tr('Choices'));
       for (const [index, option] of (
         waitingObject(app.state.waiting).Choice?.options || []
       ).entries())

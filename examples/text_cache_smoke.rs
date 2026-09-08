@@ -63,6 +63,9 @@ async fn main() {
         .unwrap();
     text::install_family(vec![face]);
     assert_eq!(text::stats()["cached_glyphs"], 0);
+    let clusters = text::cluster_boundaries("office e\u{301}");
+    assert_eq!(clusters.first(), Some(&0));
+    assert_eq!(clusters.last(), Some(&"office e\u{301}".len()));
     assert!(text::measure_width("AV To", 32) > 0.0);
     assert_eq!(text::stats()["atlas_bytes"], 0);
     let target = render_target(800, 600);

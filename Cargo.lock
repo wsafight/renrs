@@ -1371,7 +1371,7 @@ dependencies = [
 
 [[package]]
 name = "renrs"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "ab_glyph",
  "dispatch2",
@@ -1406,7 +1406,7 @@ dependencies = [
 
 [[package]]
 name = "renrs-compiler"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "indexmap",
  "renrs-syntax",
@@ -1418,7 +1418,7 @@ dependencies = [
 
 [[package]]
 name = "renrs-editor"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "renrs-compiler",
  "renrs-project",
@@ -1430,7 +1430,7 @@ dependencies = [
 
 [[package]]
 name = "renrs-extensions"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "renrs-syntax",
  "rhai",
@@ -1438,7 +1438,7 @@ dependencies = [
 
 [[package]]
 name = "renrs-project"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "indexmap",
  "renrs-compiler",
@@ -1452,7 +1452,7 @@ dependencies = [
 
 [[package]]
 name = "renrs-runtime"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "renrs-compiler",
  "renrs-extensions",
@@ -1464,7 +1464,7 @@ dependencies = [
 
 [[package]]
 name = "renrs-syntax"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "indexmap",
  "intl_pluralrules",
@@ -1476,7 +1476,7 @@ dependencies = [
 
 [[package]]
 name = "renrs-web"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "renrs-runtime",
  "serde_json",

@@ -4,7 +4,7 @@
 
 ## 预发布策略
 
-项目尚未发行。API、脚本和持久格式允许破坏性变更；旧格式迁移不是发行标准。读档只接受当前
+项目尚未发行。`0.1.0-rc.1` 起冻结文档中的 v1 机器、归档与界面契约；RC 前旧格式迁移不是发行标准。读档只接受当前
 容器和快照格式。内容变化后，活动位置必须通过显式 `@id`/`alias` 解析；自动或已删除位置会被
 拒绝。桌面/Web 存档交换、校验和、回滚和事务式编辑器热重载仍支持。
 
@@ -22,6 +22,8 @@
 - [x] 视频音轨播放和同步。
 - [x] NVL、注音、下划线、键盘控件和可选自助朗读。
 - [x] 集成的 VS Code 项目和发行工作流。
+- [x] 基于 shaped cluster 的原生换行和稳定 Web 辅助语义。
+- [x] 常用静态 ATL/master camera 迁移，以及动态语法的明确回退报告。
 
 ## P2
 
@@ -71,7 +73,7 @@ CLI 和 VS Code 不再暴露与旧版本的对比。
 - 九条 1280 和 390 像素的 Chromium 流程：自定义 UI、含超出 JS 精度整数的可移植存档、变量动作、动画运动、NVL，以及两种音轨格式的暂停/存档/恢复。
 - 原生自定义界面冒烟截图：`target/product-native-v2`。
 - 原生 NVL/注音冒烟和读档恢复：`target/reading-native-captures`。
-- VS Code 宿主回归和打包的 `editors/vscode-renrs/renrs-0.1.0.vsix`。
+- VS Code 宿主回归和打包的 `editors/vscode-renrs/renrs-0.1.0-rc.1.vsix`。
 - Android APK：`target/mobile-product-v1/android/app/build/outputs/apk/debug/app-debug.apk`。
 - iOS 模拟器应用：`target/mobile-ios-build/Build/Products/Debug-iphonesimulator/App.app`；
   安装/启动在 iPhone 17 模拟器，截图 `target/mobile-ios-screen.png`。
@@ -85,7 +87,8 @@ CLI 和 VS Code 不再暴露与旧版本的对比。
 
 ## 剩余边界
 
-尚未加入 Python/Ren'Py 插件兼容、完整 ATL、layer camera、任意 displayable、动态运行时 layeredimage、云服务
+尚未加入 Python/Ren'Py 插件兼容、完整 ATL、非 master layer camera、任意 displayable、动态运行时 layeredimage、云服务
 或商店集成。桌面分页和 Web 滚动区域不同；存档传递保留运行时
-进度，不是相同的文字折行。语音取决于已安装的 OS/浏览器语音，不能替代完整无障碍树。
+进度，不是相同的文字折行。语音取决于已安装的 OS/浏览器语音；Web 已提供对白、选项、场景和
+自定义控件语义，原生 Macroquad 播放器仍缺少 OS 无障碍树。
 移动构建在 WebView 中运行 Rust/WASM；真机和原生分享流程仍需验收。见 [Web 与移动端](MOBILE.md)。

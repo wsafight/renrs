@@ -230,10 +230,19 @@ cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
 cargo test --offline --workspace --all-targets
 ```
 
-This local gate also checks Biome, the demo, scaffold routes, product fixture, Web unit
-tests, and strict TypeScript plus production builds for Web, VS Code, and Launcher. Add
-`--full` for Web browser, VS Code host, release binary,
-and SDK packaging acceptance after installing the npm, WASM, `wasm-bindgen`, and browser tooling.
+The core gate also checks Biome, the demo, scaffold routes, product and first-party reference
+fixtures, Web/Launcher unit tests, and strict TypeScript plus production builds for Web, VS Code,
+and Launcher. Extended gates can be run separately or together:
+
+```sh
+node scripts/verify-local.mjs --web      # Non-media browser flows
+node scripts/verify-local.mjs --media    # Parallel animation, frame/stream video; full FFmpeg
+node scripts/verify-local.mjs --editor   # VS Code host and VSIX
+node scripts/verify-local.mjs --release  # Release/native/SDK/Capacitor wrapper
+node scripts/verify-local.mjs --full     # Every profile above
+```
+
+See the [release contract](RELEASE.md) for complete dependencies and the RC matrix.
 
 `tests/source_size.rs` recursively checks `src/`, `tests/`, and every workspace crate.
 Any Rust file over 500 lines fails the test. Modules that outgrow a responsibility

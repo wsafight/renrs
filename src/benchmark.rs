@@ -6,6 +6,9 @@ use std::fs;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
+pub const REFERENCE_CHAPTERS: usize = 10;
+pub const REFERENCE_LINES_PER_CHAPTER: usize = 50;
+
 #[derive(Debug, Serialize)]
 pub struct BenchmarkReport {
     pub profile: &'static str,
@@ -164,12 +167,60 @@ pub fn measure(path: &Path, iterations: usize) -> Result<BenchmarkReport, String
 /// # Errors
 /// Refuses existing destinations and sizes outside 1..200 chapters or 1..1000 lines per chapter.
 pub fn generate(destination: &Path, chapters: usize, lines: usize) -> Result<(), String> {
+    generate_profile(
+        destination,
+        chapters,
+        lines,
+        "Signal Study",
+        "org.renrs.benchmark",
+    )
+}
+
+/// Generates the fixed first-party 30-60 minute reference workload.
+///
+/// # Errors
+/// Refuses an existing destination or propagates project generation failures.
+pub fn generate_reference(destination: &Path) -> Result<(), String> {
+    generate_profile(
+        destination,
+        REFERENCE_CHAPTERS,
+        REFERENCE_LINES_PER_CHAPTER,
+        "First Light Reference",
+        "org.renrs.first-light-reference",
+    )?;
+    fs::write(
+        destination.join("reference.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "version": 1,
+            "kind": "first_party_reference_fixture",
+            "estimated_reading_minutes": { "minimum": 30, "maximum": 60 },
+            "chapters": REFERENCE_CHAPTERS,
+            "dialogue_lines": REFERENCE_CHAPTERS * REFERENCE_LINES_PER_CHAPTER,
+            "routes": ["full", "early"],
+            "external_author_validation": false
+        }))
+        .map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    compile(destination)?;
+    Ok(())
+}
+
+fn generate_profile(
+    destination: &Path,
+    chapters: usize,
+    lines: usize,
+    title: &str,
+    project_id: &str,
+) -> Result<(), String> {
     if !(1..=200).contains(&chapters) || !(1..=1000).contains(&lines) {
         return Err("chapters must be 1..200 and lines must be 1..1000".to_owned());
     }
-    crate::scaffold::create_project(destination, "Signal Study", "org.renrs.benchmark")?;
-    let mut script = String::from(
-        "config title \"Signal Study\"\nconfig id \"org.renrs.benchmark\"\ndefault trust = 0\nlabel start:\n    jump chapter_0\nlabel ending:\n    @id \"benchmark.end\" \"The last signal fades into the morning.\"\n    return\n",
+    crate::scaffold::create_project(destination, title, project_id)?;
+    let mut script = format!(
+        "config title {}\nconfig id {}\ndefault trust = 0\nlabel start:\n    jump chapter_0\nlabel ending:\n    @id \"benchmark.end\" \"The last signal fades into the morning.\"\n    return\n",
+        serde_json::json!(title),
+        serde_json::json!(project_id),
     );
     fs::create_dir(destination.join("chapters")).map_err(|error| error.to_string())?;
     let paragraph = "The receiver carried a distant voice across the city. We noted the time, checked the frequency, and waited for the next reply. ".repeat(10);

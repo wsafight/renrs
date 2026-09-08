@@ -5,8 +5,8 @@ reuse the completion status of the earlier engineering or performance iterations
 
 ## Pre-release Policy
 
-The project has not shipped. Breaking changes to APIs, scripts and persisted
-formats are allowed; old-format migration is not a release criterion. Save loading
+The project has not shipped. `0.1.0-rc.1` freezes the documented v1 machine,
+archive and screen contracts; pre-RC migration is not a release criterion. Save loading
 accepts only the current container and snapshot formats. When content changes,
 active positions must resolve through explicit `@id`/`alias` mappings; automatic
 or removed positions are rejected. Desktop/Web exchange, checksums, rollback and
@@ -26,6 +26,8 @@ transactional editor hot reload remain supported.
 - [x] Video soundtrack playback and synchronization.
 - [x] NVL, ruby, underline, keyboard controls and optional self voicing.
 - [x] Integrated VS Code project and release workflow.
+- [x] Shaped-cluster native wrapping and stable Web assistive semantics.
+- [x] Common static ATL/master-camera migration with explicit dynamic fallbacks.
 
 ## P2
 
@@ -85,7 +87,7 @@ The CLI and VS Code no longer expose previous-version comparison.
   soundtrack formats with pause/save/restore.
 - Native custom-screen smoke captures: `target/product-native-v2`.
 - Native NVL/ruby smoke and save restoration: `target/reading-native-captures`.
-- VS Code host regression and packaged `editors/vscode-renrs/renrs-0.1.0.vsix`.
+- VS Code host regression and packaged `editors/vscode-renrs/renrs-0.1.0-rc.1.vsix`.
 - Android APK: `target/mobile-product-v1/android/app/build/outputs/apk/debug/app-debug.apk`.
 - iOS simulator app: `target/mobile-ios-build/Build/Products/Debug-iphonesimulator/App.app`;
   installed/launched on iPhone 17 simulator, screenshot `target/mobile-ios-screen.png`.
@@ -103,10 +105,11 @@ verification and measured comparison with Ren'Py.
 
 ## Remaining Boundaries
 
-No Python/Ren'Py plugin compatibility, complete ATL, layer cameras, arbitrary displayables,
+No Python/Ren'Py plugin compatibility, complete ATL, non-master layer cameras, arbitrary displayables,
 dynamic runtime layeredimage, cloud service or store integration has been added.
 Desktop pages and Web scroll areas differ;
-save transfer preserves runtime progress, not identical text wrapping. Speech
-depends on installed OS/browser voices and does not replace a full accessibility tree.
+save transfer preserves runtime progress, not identical text wrapping. Speech depends on installed
+OS/browser voices. Web exposes structured dialogue, choice, scene and custom-control semantics;
+the native Macroquad player still lacks an OS accessibility tree.
 Mobile builds run Rust/WASM in WebView; physical devices and native share workflows
 still need acceptance. See [mobile distribution](MOBILE.md).

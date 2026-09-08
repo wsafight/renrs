@@ -9,6 +9,7 @@
     "includes": [
       "biome.json",
       "package.json",
+      "release.json",
       "web/src/**",
       "web/unit/**",
       "web/tests/**",
@@ -21,6 +22,7 @@
       "launcher/index.html",
       "launcher/style.css",
       "launcher/src/**",
+      "launcher/unit/**",
       "launcher/vite.config.ts",
       "launcher/package.json",
       "launcher/tsconfig.json",

@@ -5,7 +5,7 @@ use renrs::theme::Theme as ProjectTheme;
 use renrs::validator::parse_hex_color;
 
 use crate::frontend::{UiAction, UiActions};
-use crate::text_layout::wrap_plain;
+use crate::text_layout::layout_runs_with_clusters;
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct ButtonState {
@@ -319,7 +319,22 @@ pub(super) fn draw_focus_outline(rect: Rect, focused: bool, theme: &ProjectTheme
 }
 
 pub(super) fn wrap_lines(text: &str, maximum_width: f32, font_size: u16) -> Vec<String> {
-    wrap_plain(text, maximum_width, |value| measure_width(value, font_size))
+    layout_runs_with_clusters(
+        &[],
+        text,
+        usize::MAX,
+        maximum_width,
+        |value| measure_width(value, font_size),
+        super::text::cluster_boundaries,
+    )
+    .into_iter()
+    .map(|line| {
+        line.fragments
+            .into_iter()
+            .map(|fragment| fragment.text)
+            .collect()
+    })
+    .collect()
 }
 
 pub(super) fn draw_text_block(text: &str, rect: Rect, mut size: u16, tint: Color) {

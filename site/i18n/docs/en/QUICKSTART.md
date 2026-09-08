@@ -1,7 +1,7 @@
 # Quick start
 
 RenRS is a visual novel engine written in Rust. It uses its own `.rns` story format.
-Run the bundled project first, then create yours. The current version is `0.1.0`.
+Run the bundled project first, then create yours. The current version is `0.1.0-rc.1`.
 It is not a stable release; older scripts and saves are not guaranteed.
 
 ## Set up the environment
