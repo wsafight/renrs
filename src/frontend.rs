@@ -52,6 +52,7 @@ pub enum FocusScope {
     Choices,
     SaveTools,
     Confirmation,
+    StoryScreen,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

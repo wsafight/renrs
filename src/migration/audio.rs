@@ -11,7 +11,10 @@ pub(super) fn convert_audio(content: &str) -> Option<LineConversion> {
         return Some(convert_music("queue music", rest, true));
     }
     if let Some(rest) = content.strip_prefix("play sound ") {
-        return Some(convert_sound(rest));
+        return Some(convert_sound("play sound", rest));
+    }
+    if let Some(rest) = content.strip_prefix("queue sound ") {
+        return Some(convert_sound("queue sound", rest));
     }
     if let Some(rest) = content.strip_prefix("voice ") {
         let (path, options) = static_path(rest)?;
@@ -22,16 +25,26 @@ pub(super) fn convert_audio(content: &str) -> Option<LineConversion> {
         });
     }
     if let Some(rest) = content.strip_prefix("stop music") {
-        let rest = rest.trim();
-        return Some(if rest.is_empty() {
-            LineConversion::One("stop music".to_owned())
-        } else if let Some(duration) = option_number(rest, "fadeout") {
-            LineConversion::One(format!("stop music fadeout {duration}"))
-        } else {
-            unsupported("only static music fadeout is supported", false)
-        });
+        return Some(convert_stop("stop music", rest));
+    }
+    if let Some(rest) = content.strip_prefix("stop sound") {
+        return Some(convert_stop("stop sound", rest));
+    }
+    if let Some(rest) = content.strip_prefix("stop voice") {
+        return Some(convert_stop("stop voice", rest));
     }
     None
+}
+
+fn convert_stop(command: &str, rest: &str) -> LineConversion {
+    let rest = rest.trim();
+    if rest.is_empty() {
+        LineConversion::One(command.to_owned())
+    } else if let Some(duration) = option_number(rest, "fadeout") {
+        LineConversion::One(format!("{command} fadeout {duration}"))
+    } else {
+        unsupported("only static fadeout is supported", false)
+    }
 }
 
 fn convert_music(command: &str, source: &str, default_loop: bool) -> LineConversion {
@@ -39,6 +52,7 @@ fn convert_music(command: &str, source: &str, default_loop: bool) -> LineConvers
         return unsupported("music path must be a static string", false);
     };
     let mut repeat = default_loop;
+    let mut if_changed = false;
     let (mut fade_in, mut volume) = (None, None);
     let tokens = options.split_whitespace().collect::<Vec<_>>();
     let mut index = 0;
@@ -69,6 +83,10 @@ fn convert_music(command: &str, source: &str, default_loop: bool) -> LineConvers
                 volume = Some(value);
                 index += 2;
             }
+            "if_changed" => {
+                if_changed = true;
+                index += 1;
+            }
             "fadeout" => {
                 return unsupported(
                     "music replacement fadeout requires manual sequencing before playback",
@@ -88,26 +106,47 @@ fn convert_music(command: &str, source: &str, default_loop: bool) -> LineConvers
     if repeat {
         result.push_str(" loop");
     }
+    if if_changed {
+        result.push_str(" if_changed");
+    }
     LineConversion::One(result)
 }
 
-fn convert_sound(source: &str) -> LineConversion {
+fn convert_sound(command: &str, source: &str) -> LineConversion {
     let Some((path, options)) = static_path(source) else {
         return unsupported("sound path must be a static string", false);
     };
-    if options.is_empty() {
-        return LineConversion::One(format!("play sound \"{}\"", escape_string(&path)));
+    let mut repeat = false;
+    let mut volume = None;
+    let tokens = options.split_whitespace().collect::<Vec<_>>();
+    let mut index = 0;
+    while index < tokens.len() {
+        match tokens[index] {
+            "loop" => {
+                repeat = true;
+                index += 1;
+            }
+            "volume" => {
+                let Some(value) = number(tokens.get(index + 1).copied(), true) else {
+                    return unsupported(
+                        "sound volume must be a static number between 0 and 1",
+                        false,
+                    );
+                };
+                volume = Some(value);
+                index += 2;
+            }
+            _ => return unsupported("only static sound volume and loop are supported", false),
+        }
     }
-    let Some(volume) = option_number(options, "volume") else {
-        return unsupported("only static sound volume is supported", false);
-    };
-    if !(0.0..=1.0).contains(&volume) {
-        return unsupported("sound volume must be between 0 and 1", false);
+    let mut result = format!("{command} \"{}\"", escape_string(&path));
+    if let Some(volume) = volume {
+        write!(result, " volume {volume}").expect("writing to a String cannot fail");
     }
-    LineConversion::One(format!(
-        "play sound \"{}\" volume {volume}",
-        escape_string(&path)
-    ))
+    if repeat {
+        result.push_str(" loop");
+    }
+    LineConversion::One(result)
 }
 
 fn static_path(source: &str) -> Option<(String, &str)> {

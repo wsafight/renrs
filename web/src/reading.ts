@@ -1,12 +1,32 @@
 import { richText } from './presentation';
 import { RevealClock } from './reveal';
-import type { Dialogue, PlayerApp } from './types';
+import type { RevealCue } from './reveal';
+import type { Dialogue, PlayerApp, TextRun } from './types';
+
+function revealCues(runs: TextRun[] | undefined) {
+  let position = 0;
+  const cues: RevealCue[] = [];
+  for (const run of runs || []) {
+    const cue = run.cue;
+    if (cue === 'Fast') cues.push({ position, delayMs: null, fast: true });
+    else if (cue && cue !== 'NoWait') {
+      const value = 'Wait' in cue ? cue.Wait : cue.Page;
+      cues.push({
+        position,
+        delayMs: value.hundredths == null ? null : value.hundredths * 10,
+        fast: false,
+      });
+    }
+    position += Array.from(run.text).length;
+  }
+  return cues;
+}
 
 export function setupReading(app: PlayerApp): void {
   const clock = new RevealClock();
   let frame: number | null = null;
   let bindings: Array<(visible: number) => void> = [];
-  let text = '';
+  let dialogueKey = '';
   let pendingPosition: number | null = 0;
   const paused = () =>
     document.hidden || app.$('modal').open || app.inTitle || app.state?.debug.paused;
@@ -28,14 +48,17 @@ export function setupReading(app: PlayerApp): void {
     clock.tick(now, app.settings.text_speed);
     if (previous !== clock.visible) paint();
     if (clock.complete) app.reschedule();
-    else frame = requestAnimationFrame(animate);
+    else if (clock.needsTick) frame = requestAnimationFrame(animate);
   };
   const resume = () => {
-    if (frame == null && !paused() && !clock.complete) frame = requestAnimationFrame(animate);
+    if (frame == null && !paused() && clock.needsTick) frame = requestAnimationFrame(animate);
   };
   app.reading = {
     clock,
     prefix: 0,
+    get blocked() {
+      return clock.blocked;
+    },
     pause: stop,
     resume,
     reset(position = 0) {
@@ -45,11 +68,17 @@ export function setupReading(app: PlayerApp): void {
     prepare(dialogue: Dialogue) {
       stop();
       bindings = [];
-      const current = app.state.stage.dialogue?.text || '';
-      if (pendingPosition != null || text !== current) {
-        clock.reset(Array.from(current).length, pendingPosition ?? clock.visible);
+      const currentDialogue = app.state.stage.dialogue,
+        current = currentDialogue?.text || '',
+        currentKey = `${currentDialogue?.statement_id || ''}\u0000${current}\u0000${JSON.stringify(currentDialogue?.runs?.map((run) => run.cue))}`;
+      if (pendingPosition != null || dialogueKey !== currentKey) {
+        clock.reset(
+          Array.from(current).length,
+          pendingPosition ?? clock.visible,
+          revealCues(currentDialogue?.runs),
+        );
         pendingPosition = null;
-        text = current;
+        dialogueKey = currentKey;
       }
       if (app.state.waiting !== 'Dialogue' || (app.settings.skip && app.wasRead)) clock.finish();
       this.prefix = Math.max(0, Array.from(dialogue.text || '').length - clock.total);
@@ -59,11 +88,11 @@ export function setupReading(app: PlayerApp): void {
       bindings.push((visible: number) => update(visible + prefix));
     },
     finish() {
-      if (clock.complete) return false;
       stop();
-      clock.finish();
+      if (!clock.skip()) return false;
       paint();
-      app.reschedule();
+      if (clock.complete) app.reschedule();
+      else resume();
       return true;
     },
   };

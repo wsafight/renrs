@@ -219,7 +219,7 @@ impl Workspace {
     }
 }
 
-const KEYWORDS: [&str; 29] = [
+const KEYWORDS: [&str; 33] = [
     "fadein",
     "fadeout",
     "nvl",
@@ -248,6 +248,10 @@ const KEYWORDS: [&str; 29] = [
     "video",
     "voice",
     "volume",
+    "window",
+    "repeat",
+    "screen",
+    "if_changed",
     "zorder",
 ];
 

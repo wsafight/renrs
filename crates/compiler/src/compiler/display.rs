@@ -17,14 +17,53 @@ impl Compiler<'_> {
                 position,
                 layer,
                 display_layer,
-            } => InstructionKind::Show {
-                path: path.clone(),
-                alias: alias.clone(),
-                position: *position,
-                layer: *layer,
-                display_layer: display_layer.clone(),
-                display_order: 0,
-            },
+                at_transform,
+            } => {
+                if let Some(name) = at_transform {
+                    let Some(definition) = self.transforms.get(name) else {
+                        self.error = Some(super::CompileError::UnknownTransform {
+                            name: name.clone(),
+                            file: span.source.clone(),
+                            line: span.line,
+                        });
+                        return;
+                    };
+                    let properties = definition.properties;
+                    self.emit(
+                        span.clone(),
+                        statement_id.clone(),
+                        "main",
+                        InstructionKind::Show {
+                            path: path.clone(),
+                            alias: alias.clone(),
+                            position: *position,
+                            layer: *layer,
+                            display_layer: display_layer.clone(),
+                            display_order: 0,
+                        },
+                    );
+                    self.emit(
+                        span.clone(),
+                        statement_id.clone(),
+                        "at-transform",
+                        InstructionKind::Transform {
+                            alias: alias.clone(),
+                            properties,
+                            seconds: 0.0,
+                            easing: crate::syntax::Easing::Linear,
+                        },
+                    );
+                    return;
+                }
+                InstructionKind::Show {
+                    path: path.clone(),
+                    alias: alias.clone(),
+                    position: *position,
+                    layer: *layer,
+                    display_layer: display_layer.clone(),
+                    display_order: 0,
+                }
+            }
             StatementKind::Hide { alias } => InstructionKind::Hide {
                 alias: alias.clone(),
             },

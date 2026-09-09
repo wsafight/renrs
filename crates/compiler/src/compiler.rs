@@ -2,12 +2,16 @@
 mod calls;
 #[path = "compiler/display.rs"]
 mod display;
+#[path = "compiler/emit.rs"]
+mod emit;
 #[path = "compiler/error.rs"]
 mod error;
 #[path = "compiler/ids.rs"]
 mod ids;
 #[path = "compiler/lower.rs"]
 mod lower;
+#[path = "compiler/story.rs"]
+mod story;
 
 use std::collections::{HashMap, HashSet};
 
@@ -47,9 +51,11 @@ pub fn compile(script: &Script) -> Result<Program, CompileError> {
         unresolved: Vec::new(),
         current_label: String::new(),
         label_parameters: &script.label_parameters,
+        transforms: &script.transforms,
         instruction_aliases: HashMap::new(),
         alias_collision: None,
         explicit_instruction_ids: HashSet::new(),
+        error: None,
     };
     for (name, block) in &script.labels {
         compiler.current_label.clone_from(name);
@@ -70,6 +76,9 @@ pub fn compile(script: &Script) -> Result<Program, CompileError> {
         );
     }
     compiler.resolve()?;
+    if let Some(error) = compiler.error.take() {
+        return Err(error);
+    }
     resolve_images(&mut compiler.instructions, script)?;
     let display_layers = resolve_display_layers(&mut compiler.instructions, script)?;
     if let Some(alias) = compiler.alias_collision.clone() {
@@ -101,26 +110,48 @@ pub fn compile(script: &Script) -> Result<Program, CompileError> {
         characters: script.characters.clone(),
         defaults: script.defaults.clone(),
         display_layers,
+        images: image_paths(script),
+        transforms: named_transforms(script),
         instructions: compiler.instructions,
         labels: compiler.labels,
-        label_parameters: script
-            .label_parameters
-            .iter()
-            .map(|(label, parameters)| {
-                (
-                    label.clone(),
-                    parameters
-                        .iter()
-                        .map(|parameter| parameter.name.clone())
-                        .collect(),
-                )
-            })
-            .collect(),
+        label_parameters: label_parameter_names(script),
         instruction_by_id,
         instruction_aliases: compiler.instruction_aliases,
         explicit_instruction_ids: compiler.explicit_instruction_ids,
     }
     .into())
+}
+
+fn image_paths(script: &Script) -> IndexMap<String, String> {
+    script
+        .images
+        .iter()
+        .map(|(name, definition)| (name.clone(), definition.path.clone()))
+        .collect()
+}
+
+fn named_transforms(script: &Script) -> IndexMap<String, crate::syntax::TransformProperties> {
+    script
+        .transforms
+        .iter()
+        .map(|(name, definition)| (name.clone(), definition.properties))
+        .collect()
+}
+
+fn label_parameter_names(script: &Script) -> IndexMap<String, Vec<String>> {
+    script
+        .label_parameters
+        .iter()
+        .map(|(label, parameters)| {
+            (
+                label.clone(),
+                parameters
+                    .iter()
+                    .map(|parameter| parameter.name.clone())
+                    .collect(),
+            )
+        })
+        .collect()
 }
 
 fn resolve_display_layers(

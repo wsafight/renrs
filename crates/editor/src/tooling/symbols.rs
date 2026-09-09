@@ -457,6 +457,13 @@ fn language_keyword(value: &str) -> bool {
             | "video"
             | "voice"
             | "volume"
+            | "window"
+            | "repeat"
+            | "screen"
+            | "if_changed"
+            | "punch"
+            | "push"
+            | "wipe"
             | "zorder"
     )
 }

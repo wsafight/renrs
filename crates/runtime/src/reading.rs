@@ -20,6 +20,7 @@ impl Runtime {
                 dialogue.runs.push(TextRun {
                     text: "\n\n".to_owned(),
                     style: TextStyle::default(),
+                    cue: None,
                 });
             }
             if let Some(name) = &entry.speaker_name {
@@ -30,12 +31,14 @@ impl Runtime {
                         color: Some(entry.speaker_color.clone()),
                         ..TextStyle::default()
                     },
+                    cue: None,
                 });
             }
             if entry.runs.is_empty() {
                 dialogue.runs.push(TextRun {
                     text: entry.text.clone(),
                     style: TextStyle::default(),
+                    cue: None,
                 });
             } else {
                 dialogue.runs.extend(entry.runs.clone());

@@ -101,6 +101,10 @@ main {
   height: 100%;
   object-fit: cover;
 }
+#stage-current {
+  position: absolute;
+  inset: 0;
+}
 #sprites {
   position: absolute;
   inset: 0;
@@ -465,7 +469,8 @@ dialog {
   object-fit: cover;
 }
 #sprites,
-.old-stage {
+.old-stage,
+.old-stage-content {
   position: absolute;
   inset: 0;
 }
@@ -513,6 +518,13 @@ dialog {
   color: inherit;
   font: inherit;
   overflow-wrap: anywhere;
+}
+.custom-screen.noninteractive .custom-widget {
+  pointer-events: none;
+}
+.custom-hotspot button {
+  border: 0;
+  background: transparent;
 }
 .custom-widget:not(.custom-list) > button {
   min-height: 0;

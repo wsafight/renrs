@@ -163,9 +163,10 @@ pub(super) fn walk(program: &Program, route: &Route, max_steps: usize) -> Result
                 next_choice += 1;
                 runtime.choose(choice)
             }
-            WaitState::Dialogue | WaitState::Pause { .. } | WaitState::Effect { .. } => {
-                runtime.continue_story()
-            }
+            WaitState::Dialogue
+            | WaitState::Pause { .. }
+            | WaitState::Effect { .. }
+            | WaitState::Screen { .. } => runtime.continue_story(),
         }
         .map_err(|error| format!("{}: {error}", route.name))?;
         runtime.drain_audio_events().for_each(drop);

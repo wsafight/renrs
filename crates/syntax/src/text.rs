@@ -10,10 +10,20 @@ pub struct TextStyle {
     pub ruby: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TextCue {
+    Wait { hundredths: Option<u16> },
+    Page { hundredths: Option<u16> },
+    Fast,
+    NoWait,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TextRun {
     pub text: String,
     pub style: TextStyle,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cue: Option<TextCue>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,9 +34,13 @@ pub struct StyledText {
 
 #[must_use]
 pub fn is_text_tag(tag: &str) -> bool {
-    matches!(tag, "b" | "/b" | "u" | "/u" | "/ruby" | "br" | "/color")
-        || tag.starts_with("color=")
+    matches!(
+        tag,
+        "b" | "/b" | "u" | "/u" | "/ruby" | "br" | "/color" | "w" | "nw" | "fast" | "p"
+    ) || tag.starts_with("color=")
         || tag.starts_with("ruby=")
+        || tag.starts_with("w=")
+        || tag.starts_with("p=")
 }
 
 /// Validates markup while treating non-tag braces as interpolation fields.
@@ -157,6 +171,31 @@ pub fn parse_text_markup(input: &str) -> Result<StyledText, String> {
                     ruby: ruby.clone(),
                 },
             ),
+            "w" => append_cue(&mut runs, TextCue::Wait { hundredths: None }),
+            "nw" => append_cue(&mut runs, TextCue::NoWait),
+            "fast" => append_cue(&mut runs, TextCue::Fast),
+            "p" => append_cue(&mut runs, TextCue::Page { hundredths: None }),
+            value if value.starts_with("w=") || value.starts_with("p=") => {
+                let page = value.starts_with("p=");
+                let Some(hundredths) = parse_wait_hundredths(&value[2..]) else {
+                    return Err(
+                        "wait tags `{w=}`/`{p=}` need a duration between 0 and 60 seconds"
+                            .to_owned(),
+                    );
+                };
+                append_cue(
+                    &mut runs,
+                    if page {
+                        TextCue::Page {
+                            hundredths: Some(hundredths),
+                        }
+                    } else {
+                        TextCue::Wait {
+                            hundredths: Some(hundredths),
+                        }
+                    },
+                );
+            }
             "/color" if !colors.is_empty() => {
                 colors.pop();
             }
@@ -209,11 +248,33 @@ fn append_run(text: String, plain: &mut String, runs: &mut Vec<TextRun>, style: 
     plain.push_str(&text);
     if let Some(previous) = runs.last_mut()
         && previous.style == style
+        && previous.cue.is_none()
     {
         previous.text.push_str(&text);
     } else {
-        runs.push(TextRun { text, style });
+        runs.push(TextRun {
+            text,
+            style,
+            cue: None,
+        });
     }
+}
+
+fn append_cue(runs: &mut Vec<TextRun>, cue: TextCue) {
+    runs.push(TextRun {
+        text: String::new(),
+        style: TextStyle::default(),
+        cue: Some(cue),
+    });
+}
+
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn parse_wait_hundredths(source: &str) -> Option<u16> {
+    let seconds = source.parse::<f32>().ok()?;
+    if !seconds.is_finite() || !(0.0..=60.0).contains(&seconds) {
+        return None;
+    }
+    Some((seconds * 100.0).round() as u16)
 }
 
 fn valid_color(color: &str) -> bool {
@@ -255,5 +316,42 @@ mod tests {
         assert!(parse_text_markup("{/color}").is_err());
         assert!(validate_text_source("Hello {name}, {b}open").is_err());
         assert!(validate_text_source("Literal {{brace}}").is_ok());
+    }
+
+    #[test]
+    fn parses_wait_fast_and_nowait_cues() {
+        let styled = parse_text_markup("Hello{w} there.{nw}").unwrap();
+        assert_eq!(styled.plain, "Hello there.");
+        assert!(
+            styled
+                .runs
+                .iter()
+                .any(|run| matches!(run.cue, Some(TextCue::Wait { hundredths: None })))
+        );
+        assert!(
+            styled
+                .runs
+                .iter()
+                .any(|run| matches!(run.cue, Some(TextCue::NoWait)))
+        );
+        let timed = parse_text_markup("Wait{w=0.5}").unwrap();
+        assert!(timed.runs.iter().any(|run| matches!(
+            run.cue,
+            Some(TextCue::Wait {
+                hundredths: Some(50)
+            })
+        )));
+    }
+
+    #[test]
+    fn page_cues_do_not_insert_visible_text() {
+        let styled = parse_text_markup("First{p=0.25}Second").unwrap();
+        assert_eq!(styled.plain, "FirstSecond");
+        assert!(styled.runs.iter().any(|run| matches!(
+            run.cue,
+            Some(TextCue::Page {
+                hundredths: Some(25)
+            })
+        )));
     }
 }

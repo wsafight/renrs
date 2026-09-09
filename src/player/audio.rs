@@ -11,6 +11,7 @@ use renrs::{
 pub(super) struct AudioManager {
     worker: Option<AudioWorker>,
     music: Option<MusicState>,
+    sound: Option<MusicState>,
     voice: Option<String>,
     replay: Option<String>,
     volumes: Option<[f32; 3]>,
@@ -93,45 +94,78 @@ impl AudioManager {
         }
     }
 
+    pub(super) fn sync_sound(&mut self, state: Option<&MusicState>, settings: &Settings) {
+        self.apply_volume(settings);
+        if self.sound.as_ref() != state && self.send(Command::Sound(state.cloned())) {
+            self.sound = state.cloned();
+        }
+    }
+
     pub(super) fn handle(
         &mut self,
         events: Vec<AudioEvent>,
         _source: &ProjectSource,
         settings: &Settings,
-    ) -> bool {
+    ) -> AudioCompletions {
         for event in events {
             match event {
-                AudioEvent::PlaySound { path, volume }
-                    if settings.sound_volume > 0.0 && volume > 0.0 =>
-                {
-                    self.send(Command::Sound(path, volume));
+                AudioEvent::PlaySound {
+                    path,
+                    volume,
+                    repeat,
+                } if settings.sound_volume > 0.0 && volume > 0.0 => {
+                    let sound = MusicState {
+                        path,
+                        repeat,
+                        fade_in: 0.0,
+                        volume,
+                    };
+                    if self.send(Command::Sound(Some(sound.clone()))) {
+                        self.sound = Some(sound);
+                    }
+                }
+                AudioEvent::StopSound { fade_out } => {
+                    self.send(Command::StopSound(fade_out));
+                    self.sound = None;
                 }
                 AudioEvent::StopMusic { fade_out } => {
                     self.send(Command::StopMusic(fade_out));
                     self.music = None;
                 }
-                AudioEvent::PlayVoice { .. } | AudioEvent::StopVoice if self.replay.is_none() => {
-                    self.stop_voice();
+                AudioEvent::PlayVoice { path } if self.replay.is_none() => {
+                    if self.send(Command::Voice(Some(path.clone()))) {
+                        self.voice = Some(path);
+                    }
+                }
+                AudioEvent::StopVoice { fade_out } if self.replay.is_none() => {
+                    self.send(Command::StopVoice(fade_out));
+                    self.voice = None;
                 }
                 _ => {}
             }
         }
         self.apply_volume(settings);
-        let mut finished = false;
+        let mut completed = AudioCompletions::default();
         if let Some(worker) = &self.worker {
             while let Some(response) = worker.poll() {
                 match response {
                     Response::MusicEnded(path) => {
                         if self.music.as_ref().is_some_and(|music| music.path == path) {
-                            finished = true;
+                            completed.music = true;
                             self.music = None;
+                        }
+                    }
+                    Response::SoundEnded(path) => {
+                        if self.sound.as_ref().is_some_and(|sound| sound.path == path) {
+                            completed.sound = true;
+                            self.sound = None;
                         }
                     }
                     Response::Error(error) => self.notices.push(error),
                 }
             }
         }
-        finished
+        completed
     }
 
     pub(super) fn voice_busy(&self) -> bool {
@@ -169,6 +203,11 @@ impl AudioManager {
             self.voice = None;
         }
     }
+    pub(super) fn stop_sound(&mut self) {
+        if self.send(Command::StopSound(0.0)) {
+            self.sound = None;
+        }
+    }
     pub(super) fn invalidate(&mut self, paths: &[String]) {
         if self
             .music
@@ -184,5 +223,18 @@ impl AudioManager {
         {
             self.stop_voice();
         }
+        if self
+            .sound
+            .as_ref()
+            .is_some_and(|sound| paths.contains(&sound.path))
+        {
+            self.stop_sound();
+        }
     }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub(super) struct AudioCompletions {
+    pub(super) music: bool,
+    pub(super) sound: bool,
 }

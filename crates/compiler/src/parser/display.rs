@@ -26,6 +26,7 @@ impl Parser {
         let mut position = Position::Center;
         let mut layer = 0;
         let mut display_layer = "master".to_owned();
+        let mut at_transform = None;
         let (mut has_alias, mut has_position, mut has_zorder, mut has_display_layer) =
             (false, false, false, false);
         loop {
@@ -38,7 +39,15 @@ impl Parser {
                 })?;
                 has_alias = true;
             } else if cursor.keyword("at") && !has_position {
-                position = self.parse_position(line, cursor)?;
+                let name = cursor.identifier().ok_or_else(|| {
+                    self.error(line, cursor.column(), "expected position or transform name")
+                })?;
+                match name.as_str() {
+                    "left" => position = Position::Left,
+                    "center" => position = Position::Center,
+                    "right" => position = Position::Right,
+                    _ => at_transform = Some(name),
+                }
                 has_position = true;
             } else if (cursor.keyword("zorder") || cursor.keyword("layer")) && !has_zorder {
                 layer = cursor
@@ -65,6 +74,7 @@ impl Parser {
             position,
             layer,
             display_layer,
+            at_transform,
         })
     }
 

@@ -7,21 +7,45 @@ use crate::syntax::{Block, Expr, Script, StatementKind};
 
 #[must_use]
 pub fn validate(script: &Script, game_root: &Path) -> Vec<Diagnostic> {
-    validate_with_resources(script, &|resource| game_root.join(resource).is_file())
+    let story_screens = std::fs::read(game_root.join(crate::screens::SCREENS_FILE))
+        .ok()
+        .and_then(|bytes| crate::screens::Screens::from_slice(&bytes).ok())
+        .map(|screens| screens.story.into_keys().collect::<HashSet<_>>())
+        .or_else(|| (!game_root.join(crate::screens::SCREENS_FILE).exists()).then(HashSet::new));
+    validate_with_resources(
+        script,
+        &|resource| game_root.join(resource).is_file(),
+        story_screens.as_ref(),
+    )
 }
 
 #[must_use]
 pub fn validate_archive(script: &Script, archive: &ResourceArchive) -> Vec<Diagnostic> {
-    validate_with_resources(script, &|resource| archive.contains(resource))
+    let story_screens = if archive.contains(crate::screens::SCREENS_FILE) {
+        archive
+            .read(crate::screens::SCREENS_FILE)
+            .ok()
+            .and_then(|bytes| crate::screens::Screens::from_slice(&bytes).ok())
+            .map(|screens| screens.story.into_keys().collect::<HashSet<_>>())
+    } else {
+        Some(HashSet::new())
+    };
+    validate_with_resources(
+        script,
+        &|resource| archive.contains(resource),
+        story_screens.as_ref(),
+    )
 }
 
 fn validate_with_resources(
     script: &Script,
     resource_exists: &dyn Fn(&str) -> bool,
+    story_screens: Option<&HashSet<String>>,
 ) -> Vec<Diagnostic> {
     let mut validator = Validator {
         script,
         resource_exists,
+        story_screens,
         diagnostics: Vec::new(),
         assigned_variables: HashSet::new(),
     };
@@ -36,6 +60,16 @@ fn validate_with_resources(
                     "character color `{}` must use #RRGGBB or #RRGGBBAA",
                     character.color
                 ),
+            ));
+        }
+        if let Some(image) = &character.image
+            && !script.images.contains_key(image)
+        {
+            validator.diagnostics.push(Diagnostic::new(
+                &character.span.source,
+                character.span.line,
+                character.span.column,
+                format!("unknown image `{image}`"),
             ));
         }
     }
@@ -83,11 +117,13 @@ fn validate_with_resources(
 struct Validator<'a> {
     script: &'a Script,
     resource_exists: &'a dyn Fn(&str) -> bool,
+    story_screens: Option<&'a HashSet<String>>,
     diagnostics: Vec<Diagnostic>,
     assigned_variables: HashSet<String>,
 }
 
 impl Validator<'_> {
+    #[allow(clippy::too_many_lines)]
     fn block(&mut self, block: &Block) {
         for statement in block {
             match &statement.kind {
@@ -98,13 +134,11 @@ impl Validator<'_> {
                     }
                 }
                 StatementKind::Video { path, .. } => self.resource(path, &statement.span),
-                StatementKind::Dialogue { speaker, .. } => {
-                    if let Some(speaker) = speaker
-                        && !self.script.characters.contains_key(speaker)
-                    {
-                        self.push(&statement.span, format!("unknown character `{speaker}`"));
-                    }
-                }
+                StatementKind::Dialogue {
+                    speaker,
+                    attributes,
+                    ..
+                } => self.dialogue(speaker.as_deref(), attributes, &statement.span),
                 StatementKind::Scene { path } | StatementKind::Show { path, .. } => {
                     if let Some(name) = path.strip_prefix("@image:") {
                         if !self.script.images.contains_key(name) {
@@ -113,13 +147,24 @@ impl Validator<'_> {
                     } else {
                         self.resource(path, &statement.span);
                     }
-                    if let StatementKind::Show { display_layer, .. } = &statement.kind {
+                    if let StatementKind::Show {
+                        display_layer,
+                        at_transform,
+                        ..
+                    } = &statement.kind
+                    {
                         self.display_layer(display_layer, &statement.span);
+                        if let Some(name) = at_transform
+                            && !self.script.transforms.contains_key(name)
+                        {
+                            self.push(&statement.span, format!("unknown transform `{name}`"));
+                        }
                     }
                 }
                 StatementKind::PlayMusic { path, .. }
                 | StatementKind::QueueMusic { path, .. }
                 | StatementKind::PlaySound { path, .. }
+                | StatementKind::QueueSound { path, .. }
                 | StatementKind::PlayVoice { path } => {
                     self.resource(path, &statement.span);
                 }
@@ -172,9 +217,23 @@ impl Validator<'_> {
                 StatementKind::ClearLayer { display_layer } => {
                     self.display_layer(display_layer, &statement.span);
                 }
+                StatementKind::ShowScreen { name }
+                | StatementKind::HideScreen { name }
+                | StatementKind::CallScreen { name } => {
+                    if self
+                        .story_screens
+                        .is_some_and(|screens| !screens.contains(name))
+                    {
+                        self.push(&statement.span, format!("unknown story screen `{name}`"));
+                    }
+                }
                 StatementKind::Hide { .. }
                 | StatementKind::Nvl { .. }
+                | StatementKind::Window { .. }
+                | StatementKind::Repeat { .. }
                 | StatementKind::StopMusic { .. }
+                | StatementKind::StopSound { .. }
+                | StatementKind::StopVoice { .. }
                 | StatementKind::Pause { .. }
                 | StatementKind::Move { .. }
                 | StatementKind::Transform { .. }
@@ -218,6 +277,38 @@ impl Validator<'_> {
         }
         if !(self.resource_exists)(resource) {
             self.push(span, format!("resource `{resource}` does not exist"));
+        }
+    }
+
+    fn dialogue(
+        &mut self,
+        speaker: Option<&str>,
+        attributes: &[String],
+        span: &crate::syntax::Span,
+    ) {
+        let Some(speaker) = speaker else {
+            if !attributes.is_empty() {
+                self.push(span, "narration cannot take say attributes");
+            }
+            return;
+        };
+        let Some(character) = self.script.characters.get(speaker) else {
+            self.push(span, format!("unknown character `{speaker}`"));
+            return;
+        };
+        if attributes.is_empty() {
+            return;
+        }
+        let Some(image) = &character.image else {
+            self.push(
+                span,
+                format!("character `{speaker}` needs `image` to use say attributes"),
+            );
+            return;
+        };
+        let variant = format!("{image}_{}", attributes.join("_"));
+        if !self.script.images.contains_key(&variant) && !self.script.images.contains_key(image) {
+            self.push(span, format!("unknown image `{variant}`"));
         }
     }
 
@@ -367,6 +458,24 @@ mod tests {
                 .filter(|item| item.message.contains("variable `value` is never assigned"))
                 .count(),
             1
+        );
+    }
+
+    #[test]
+    fn reports_unknown_story_screen_references() {
+        let root = tempfile::tempdir().unwrap();
+        let script = parse_script(
+            "label start:\n    show screen missing\n    call screen missing",
+            "script.rns",
+        )
+        .unwrap();
+        let diagnostics = validate(&script, root.path());
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|item| item.message.contains("unknown story screen `missing`"))
+                .count(),
+            2
         );
     }
 }

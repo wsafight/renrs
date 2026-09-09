@@ -1,6 +1,7 @@
 use super::text::draw_text;
 use macroquad::prelude::*;
 use renrs::runtime::{StageState, VisualEffect};
+use renrs::syntax::{Easing, Position, TransformState};
 use renrs::{Runtime, WaitState};
 
 use crate::frontend::{FocusAxis, FocusScope, UiAction, UiActions};
@@ -18,6 +19,7 @@ impl App {
             .unwrap_or_default();
         self.draw_stage(&stage);
         self.draw_media();
+        self.draw_shown_screens(mouse, actions);
         self.draw_custom_screen(renrs::screens::ScreenKind::Hud, mouse, actions);
         if self.overlay.is_some() {
             return;
@@ -38,7 +40,9 @@ impl App {
         }
         let waiting = self.runtime.as_ref().and_then(Runtime::waiting).cloned();
         let custom = match &waiting {
-            Some(WaitState::Dialogue) if !stage.nvl => Some(renrs::screens::ScreenKind::Dialogue),
+            Some(WaitState::Dialogue) if !stage.nvl && stage.window => {
+                Some(renrs::screens::ScreenKind::Dialogue)
+            }
             Some(WaitState::Choice { .. }) => Some(renrs::screens::ScreenKind::Choices),
             _ => None,
         };
@@ -59,13 +63,17 @@ impl App {
                 let previous = self.theme.clone();
                 self.theme = self.dialogue_theme();
                 let nvl = self.dialogue_view.nvl.clone();
-                if let Some(dialogue) = nvl.as_deref().or(stage.dialogue.as_ref()) {
+                if stage.window
+                    && let Some(dialogue) = nvl.as_deref().or(stage.dialogue.as_ref())
+                {
                     self.draw_dialogue(dialogue, mouse, actions, true);
                 }
                 self.theme = previous;
             }
             Some(WaitState::Choice { options }) => {
-                if let Some(dialogue) = &stage.dialogue {
+                if stage.window
+                    && let Some(dialogue) = &stage.dialogue
+                {
                     let previous = self.theme.clone();
                     self.theme = self.dialogue_theme();
                     self.draw_dialogue(dialogue, mouse, actions, false);
@@ -76,20 +84,8 @@ impl App {
             Some(WaitState::Finished) => self.draw_finished(mouse, actions),
             Some(WaitState::Effect {
                 effect: VisualEffect::Fade { seconds },
-            }) => {
-                let alpha = if self.theme.reduced_motion || seconds <= f32::EPSILON {
-                    0.0
-                } else {
-                    (self.effect_remaining / seconds).clamp(0.0, 1.0)
-                };
-                draw_rectangle(
-                    self.theme.layout.toolbar.x,
-                    self.theme.layout.toolbar.y + self.theme.layout.toolbar.height,
-                    self.theme.layout.toolbar.width,
-                    CANVAS_HEIGHT - self.theme.layout.toolbar.y - self.theme.layout.toolbar.height,
-                    Color::new(0.0, 0.0, 0.0, alpha),
-                );
-            }
+            }) => self.draw_fade_overlay(seconds),
+            Some(WaitState::Screen { .. }) => self.draw_story_wait(mouse, actions),
             Some(
                 WaitState::Effect {
                     effect:
@@ -97,7 +93,10 @@ impl App {
                         | VisualEffect::Parallel { .. }
                         | VisualEffect::Transform { .. }
                         | VisualEffect::Dissolve { .. }
-                        | VisualEffect::Video { .. },
+                        | VisualEffect::Video { .. }
+                        | VisualEffect::Push { .. }
+                        | VisualEffect::Wipe { .. }
+                        | VisualEffect::Punch { .. },
                 }
                 | WaitState::Pause { .. },
             )
@@ -126,11 +125,18 @@ impl App {
             );
             return;
         }
+        if self.draw_composite_stage(stage) {
+            return;
+        }
         self.draw_stage_tinted(stage, 1.0);
     }
 
     pub(super) fn draw_stage_tinted(&self, stage: &StageState, opacity: f32) {
-        self.draw_stage_on(stage, opacity, self.canvas_target.as_ref());
+        self.draw_stage_shifted(stage, opacity, Vec2::ZERO);
+    }
+
+    pub(super) fn draw_stage_shifted(&self, stage: &StageState, opacity: f32, offset: Vec2) {
+        self.draw_stage_on_shifted(stage, opacity, self.canvas_target.as_ref(), offset);
     }
 
     #[allow(clippy::too_many_lines)]
@@ -140,12 +146,11 @@ impl App {
         opacity: f32,
         target: Option<&RenderTarget>,
     ) {
-        let camera = self.camera_transform(stage);
-        let opacity = opacity * camera.alpha;
-        let _camera = super::stage_camera::StageCamera::new(camera, target);
-        self.draw_background_tinted(stage.background.as_deref(), opacity);
-        let tween = self
-            .runtime
+        self.draw_stage_on_shifted(stage, opacity, target, Vec2::ZERO);
+    }
+
+    fn active_tween(&self) -> Option<(&str, Position, Position, f32)> {
+        self.runtime
             .as_ref()
             .and_then(Runtime::waiting)
             .and_then(|waiting| match waiting {
@@ -159,24 +164,43 @@ impl App {
                         },
                 } => Some((alias.as_str(), *from, *to, *seconds)),
                 _ => None,
-            });
-        let animated_transform =
-            self.runtime
-                .as_ref()
-                .and_then(Runtime::waiting)
-                .and_then(|waiting| match waiting {
-                    WaitState::Effect {
-                        effect:
-                            VisualEffect::Transform {
-                                alias,
-                                from,
-                                to,
-                                seconds,
-                                easing,
-                            },
-                    } => Some((alias.as_str(), *from, *to, *seconds, *easing)),
-                    _ => None,
-                });
+            })
+    }
+
+    fn active_transform(&self) -> Option<(&str, TransformState, TransformState, f32, Easing)> {
+        self.runtime
+            .as_ref()
+            .and_then(Runtime::waiting)
+            .and_then(|waiting| match waiting {
+                WaitState::Effect {
+                    effect:
+                        VisualEffect::Transform {
+                            alias,
+                            from,
+                            to,
+                            seconds,
+                            easing,
+                        },
+                } => Some((alias.as_str(), *from, *to, *seconds, *easing)),
+                _ => None,
+            })
+    }
+
+    fn draw_stage_on_shifted(
+        &self,
+        stage: &StageState,
+        opacity: f32,
+        target: Option<&RenderTarget>,
+        offset: Vec2,
+    ) {
+        let mut camera = self.camera_transform(stage);
+        camera.x += offset.x;
+        camera.y += offset.y;
+        let opacity = opacity * camera.alpha;
+        let _camera = super::stage_camera::StageCamera::new(camera, target);
+        self.draw_background_tinted(stage.background.as_deref(), opacity);
+        let tween = self.active_tween();
+        let animated_transform = self.active_transform();
         let mut sprites = stage.sprites.iter().enumerate().collect::<Vec<_>>();
         sprites.sort_by_key(|(index, sprite)| {
             (
@@ -224,14 +248,20 @@ impl App {
                 let end = sprite_x(to, target_width);
                 start + (end - start) * progress
             } else {
-                sprite_x(sprite.position, target_width)
+                transform.xalign.map_or_else(
+                    || sprite_x(sprite.position, target_width),
+                    |align| align * (CANVAS_WIDTH - target_width),
+                )
             } + transform.x
                 - transform.anchor_x * target_width;
+            let y = transform.yalign.map_or(CANVAS_HEIGHT, |align| {
+                align * (CANVAS_HEIGHT - target_height)
+            }) + transform.y
+                - transform.anchor_y * target_height;
             let anchor = vec2(
                 x + transform.anchor_x * target_width,
-                CANVAS_HEIGHT + transform.y,
+                y + transform.anchor_y * target_height,
             );
-            let y = anchor.y - transform.anchor_y * target_height;
             if let Some(composition) = &sprite.composition {
                 self.draw_image_layers(
                     composition,
@@ -334,11 +364,7 @@ impl App {
         let advance = panel.contains(mouse) && is_mouse_button_pressed(MouseButton::Left)
             || (self.focus.selected().is_none() && actions.pressed(UiAction::Activate));
         if interactive && advance {
-            if visible < count {
-                self.visible_characters = count as f32;
-            } else {
-                self.continue_story();
-            }
+            self.continue_story();
         }
     }
 

@@ -16,6 +16,7 @@ impl Runtime {
                     speaker,
                     text,
                     translation_id,
+                    ..
                 } = &instruction.kind
             {
                 dialogue = Some(resolve_dialogue(

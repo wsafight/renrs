@@ -36,7 +36,7 @@ impl Runtime {
     ) -> Result<(), RuntimeError> {
         if !matches!(
             self.waiting(),
-            Some(WaitState::Dialogue | WaitState::Choice { .. })
+            Some(WaitState::Dialogue | WaitState::Choice { .. } | WaitState::Screen { .. })
         ) {
             return Err(super::execution(
                 0,
@@ -152,6 +152,13 @@ impl Runtime {
     #[must_use]
     pub const fn debug_paused(&self) -> bool {
         self.debug.paused
+    }
+
+    /// Evaluates a deterministic expression against the current story variables.
+    /// # Errors
+    /// Returns execution errors for invalid types or missing names.
+    pub fn evaluate_condition(&self, expression: &Expr) -> Result<Value, RuntimeError> {
+        super::value::evaluate(expression, &self.variables, 0)
     }
 
     #[must_use]

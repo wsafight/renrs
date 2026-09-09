@@ -1,6 +1,6 @@
 use super::{
     CropRect, Cursor, Diagnostic, Easing, MenuPrompt, Parser, Statement, StatementKind,
-    TransformProperties, TransitionKind, TranslationId, parse_expression,
+    TransformProperties, TranslationId, parse_expression,
 };
 
 impl Parser {
@@ -95,16 +95,21 @@ impl Parser {
                         StatementKind::Transform { .. }
                             | StatementKind::Move { .. }
                             | StatementKind::Pause { .. }
+                            | StatementKind::Repeat { .. }
                     )
                 })
             {
                 return Err(self.error(
                     &line,
                     1,
-                    "timeline requires transform, move or pause keyframes",
+                    "timeline requires transform, move, pause or repeat keyframes",
                 ));
             }
             StatementKind::Timeline { block }
+        } else if cursor.keyword("window") {
+            self.parse_window(&line, &mut cursor)?
+        } else if cursor.keyword("repeat") {
+            self.parse_repeat(&line, &mut cursor)?
         } else if cursor.keyword("video") {
             let path = cursor
                 .string()
@@ -122,9 +127,31 @@ impl Parser {
         } else if cursor.keyword("scene") {
             self.parse_scene(&line, &mut cursor)?
         } else if cursor.keyword("show") {
-            self.parse_show(&line, &mut cursor)?
+            if cursor.keyword("screen") {
+                let name = cursor
+                    .identifier()
+                    .ok_or_else(|| self.error(&line, cursor.column(), "expected screen name"))?;
+                cursor
+                    .end()
+                    .map_err(|message| self.error(&line, cursor.column(), message))?;
+                self.current += 1;
+                StatementKind::ShowScreen { name }
+            } else {
+                self.parse_show(&line, &mut cursor)?
+            }
         } else if cursor.keyword("hide") {
-            self.parse_hide(&line, &mut cursor)?
+            if cursor.keyword("screen") {
+                let name = cursor
+                    .identifier()
+                    .ok_or_else(|| self.error(&line, cursor.column(), "expected screen name"))?;
+                cursor
+                    .end()
+                    .map_err(|message| self.error(&line, cursor.column(), message))?;
+                self.current += 1;
+                StatementKind::HideScreen { name }
+            } else {
+                self.parse_hide(&line, &mut cursor)?
+            }
         } else if cursor.keyword("clear") {
             self.parse_clear_layer(&line, &mut cursor)?
         } else if cursor.keyword("menu") {
@@ -168,19 +195,30 @@ impl Parser {
             self.current += 1;
             StatementKind::Jump { label }
         } else if cursor.keyword("call") {
-            let label = cursor
-                .identifier()
-                .ok_or_else(|| self.error(&line, cursor.column(), "expected label name"))?;
-            let arguments = if cursor.consume_symbol('(') {
-                self.parse_argument_list(&line, indent, &mut cursor)?
+            if cursor.keyword("screen") {
+                let name = cursor
+                    .identifier()
+                    .ok_or_else(|| self.error(&line, cursor.column(), "expected screen name"))?;
+                cursor
+                    .end()
+                    .map_err(|message| self.error(&line, cursor.column(), message))?;
+                self.current += 1;
+                StatementKind::CallScreen { name }
             } else {
-                Vec::new()
-            };
-            cursor
-                .end()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            self.current += 1;
-            StatementKind::Call { label, arguments }
+                let label = cursor
+                    .identifier()
+                    .ok_or_else(|| self.error(&line, cursor.column(), "expected label name"))?;
+                let arguments = if cursor.consume_symbol('(') {
+                    self.parse_argument_list(&line, indent, &mut cursor)?
+                } else {
+                    Vec::new()
+                };
+                cursor
+                    .end()
+                    .map_err(|message| self.error(&line, cursor.column(), message))?;
+                self.current += 1;
+                StatementKind::Call { label, arguments }
+            }
         } else if cursor.keyword("return") {
             let column = cursor.column();
             let source = cursor.rest();
@@ -219,78 +257,13 @@ impl Parser {
         } else if cursor.keyword("if") {
             return self.parse_if(indent, &line, span, id, aliases, cursor);
         } else if cursor.keyword("play") {
-            let target = cursor
-                .identifier()
-                .ok_or_else(|| self.error(&line, cursor.column(), "expected `music` or `sound`"))?;
-            let path = cursor
-                .string()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            let kind = match target.as_str() {
-                "music" => {
-                    let (repeat, fade_in, volume) = self.parse_music_options(&line, &mut cursor)?;
-                    StatementKind::PlayMusic {
-                        path,
-                        repeat,
-                        fade_in,
-                        volume,
-                    }
-                }
-                "sound" => {
-                    let volume = if cursor.keyword("volume") {
-                        self.parse_audio_volume(&line, &mut cursor)?
-                    } else {
-                        1.0
-                    };
-                    StatementKind::PlaySound { path, volume }
-                }
-                _ => return Err(self.error(&line, cursor.column(), "expected `music` or `sound`")),
-            };
-            cursor
-                .end()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            self.current += 1;
-            kind
+            self.parse_play(&line, &mut cursor)?
         } else if cursor.keyword("queue") {
-            if !cursor.keyword("music") {
-                return Err(self.error(&line, cursor.column(), "only `queue music` is supported"));
-            }
-            let path = cursor
-                .string()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            let (repeat, fade_in, volume) = self.parse_music_options(&line, &mut cursor)?;
-            cursor
-                .end()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            self.current += 1;
-            StatementKind::QueueMusic {
-                path,
-                repeat,
-                fade_in,
-                volume,
-            }
+            self.parse_queue(&line, &mut cursor)?
         } else if cursor.keyword("voice") {
-            let path = cursor
-                .string()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            cursor
-                .end()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            self.current += 1;
-            StatementKind::PlayVoice { path }
+            self.parse_voice(&line, &mut cursor)?
         } else if cursor.keyword("stop") {
-            if !cursor.keyword("music") {
-                return Err(self.error(&line, cursor.column(), "only `stop music` is supported"));
-            }
-            let fade_out = if cursor.keyword("fadeout") {
-                self.parse_audio_duration(&line, &mut cursor, "fadeout")?
-            } else {
-                0.0
-            };
-            cursor
-                .end()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            self.current += 1;
-            StatementKind::StopMusic { fade_out }
+            self.parse_stop(&line, &mut cursor)?
         } else if cursor.keyword("pause") {
             let seconds = cursor.rest().parse::<f32>().map_err(|_| {
                 self.error(&line, cursor.column(), "pause duration must be a number")
@@ -336,6 +309,34 @@ impl Parser {
                     property_count += 1;
                 } else if cursor.keyword("y") && properties.y.is_none() {
                     properties.y = Some(self.parse_transform_number(&line, &mut cursor, "y")?);
+                    property_count += 1;
+                } else if cursor.keyword("xpos") && properties.x.is_none() {
+                    properties.x = Some(self.parse_transform_number(&line, &mut cursor, "xpos")?);
+                    property_count += 1;
+                } else if cursor.keyword("ypos") && properties.y.is_none() {
+                    properties.y = Some(self.parse_transform_number(&line, &mut cursor, "ypos")?);
+                    property_count += 1;
+                } else if cursor.keyword("xalign") && properties.xalign.is_none() {
+                    let value = self.parse_transform_number(&line, &mut cursor, "xalign")?;
+                    if !(0.0..=1.0).contains(&value) {
+                        return Err(self.error(
+                            &line,
+                            cursor.column(),
+                            "transform xalign must be between 0 and 1",
+                        ));
+                    }
+                    properties.xalign = Some(value);
+                    property_count += 1;
+                } else if cursor.keyword("yalign") && properties.yalign.is_none() {
+                    let value = self.parse_transform_number(&line, &mut cursor, "yalign")?;
+                    if !(0.0..=1.0).contains(&value) {
+                        return Err(self.error(
+                            &line,
+                            cursor.column(),
+                            "transform yalign must be between 0 and 1",
+                        ));
+                    }
+                    properties.yalign = Some(value);
                     property_count += 1;
                 } else if cursor.keyword("scale") && properties.scale.is_none() {
                     let value = self.parse_transform_number(&line, &mut cursor, "scale")?;
@@ -432,7 +433,12 @@ impl Parser {
                     "transform requires at least one property",
                 ));
             }
-            if alias == "camera" && (properties.anchor.is_some() || properties.crop.is_some()) {
+            if alias == "camera"
+                && (properties.anchor.is_some()
+                    || properties.crop.is_some()
+                    || properties.xalign.is_some()
+                    || properties.yalign.is_some())
+            {
                 return Err(self.error(&line, 1, "camera supports x, y, scale, rotate and alpha"));
             }
             self.current += 1;
@@ -443,30 +449,13 @@ impl Parser {
                 easing,
             }
         } else if cursor.keyword("transition") {
-            let kind = match cursor.identifier().as_deref() {
-                Some("fade") => TransitionKind::Fade,
-                Some("dissolve") => TransitionKind::Dissolve,
-                _ => {
-                    return Err(self.error(
-                        &line,
-                        cursor.column(),
-                        "expected `fade` or `dissolve`",
-                    ));
-                }
-            };
+            let kind = self.parse_transition_kind(&line, &mut cursor)?;
             let seconds = self.parse_duration(&line, cursor.rest())?;
             self.current += 1;
             StatementKind::Transition { kind, seconds }
         } else {
             let speaker = cursor.identifier();
-            let text = cursor
-                .string()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            cursor
-                .end()
-                .map_err(|message| self.error(&line, cursor.column(), message))?;
-            self.current += 1;
-            StatementKind::Dialogue { speaker, text }
+            self.parse_dialogue(&line, &mut cursor, speaker)?
         };
 
         Ok(Statement {

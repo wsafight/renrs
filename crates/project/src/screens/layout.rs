@@ -16,6 +16,8 @@ pub struct PlacedElement {
     pub style: Option<String>,
     pub widget: Widget,
     pub viewports: Vec<ViewportFrame>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible: Option<String>,
 }
 
 #[derive(Default)]
@@ -163,6 +165,7 @@ impl Layout {
                     style: style.map(str::to_owned),
                     widget: widget.clone(),
                     viewports: viewports.to_vec(),
+                    visible: element.visible.clone(),
                 });
             }
         }

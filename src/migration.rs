@@ -20,6 +20,7 @@ mod expressions;
 mod menus;
 mod parameters;
 mod static_values;
+mod story;
 mod support;
 
 use assets::AssetCatalog;

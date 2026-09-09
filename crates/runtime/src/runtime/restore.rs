@@ -169,7 +169,12 @@ impl Runtime {
         if !latest_matches_current
             && matches!(
                 runtime.waiting,
-                Some(WaitState::Dialogue | WaitState::Choice { .. } | WaitState::Finished)
+                Some(
+                    WaitState::Dialogue
+                        | WaitState::Choice { .. }
+                        | WaitState::Screen { .. }
+                        | WaitState::Finished,
+                )
             )
         {
             runtime.record_checkpoint();

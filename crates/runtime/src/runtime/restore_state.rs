@@ -4,12 +4,19 @@ pub(super) fn prepare_saved_stage(
     program: &Program,
     stage: &mut StageState,
 ) -> Result<(), RuntimeError> {
-    if stage.music.iter().chain(&stage.music_queue).any(|track| {
-        !track.fade_in.is_finite()
-            || track.fade_in < 0.0
-            || !track.volume.is_finite()
-            || !(0.0..=1.0).contains(&track.volume)
-    }) {
+    if stage
+        .music
+        .iter()
+        .chain(&stage.music_queue)
+        .chain(&stage.sound)
+        .chain(&stage.sound_queue)
+        .any(|track| {
+            !track.fade_in.is_finite()
+                || track.fade_in < 0.0
+                || !track.volume.is_finite()
+                || !(0.0..=1.0).contains(&track.volume)
+        })
+    {
         return Err(RuntimeError::InvalidWaitState);
     }
     for sprite in &mut stage.sprites {
@@ -28,7 +35,11 @@ pub(super) fn prepare_saved_wait(
     waiting: &mut WaitState,
 ) -> Result<(), RuntimeError> {
     if let WaitState::Effect {
-        effect: VisualEffect::Parallel { from, .. } | VisualEffect::Dissolve { from, .. },
+        effect:
+            VisualEffect::Parallel { from, .. }
+            | VisualEffect::Dissolve { from, .. }
+            | VisualEffect::Push { from, .. }
+            | VisualEffect::Wipe { from, .. },
     } = waiting
     {
         prepare_saved_stage(program, from)?;

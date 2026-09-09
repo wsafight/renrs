@@ -8,11 +8,16 @@ pub struct TextFragment {
     pub style: TextStyle,
     pub width: f32,
     boundaries: Vec<usize>,
+    source_indices: Vec<usize>,
 }
 
 impl TextFragment {
     pub fn character_count(&self) -> usize {
         self.boundaries.len().saturating_sub(1)
+    }
+
+    pub(crate) fn source_indices(&self) -> &[usize] {
+        &self.source_indices
     }
 
     #[cfg(test)]
@@ -31,6 +36,7 @@ pub struct TextLine {
 struct StyledChar {
     character: char,
     style: TextStyle,
+    source_index: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -71,21 +77,27 @@ pub fn layout_runs_with_clusters(
         owned_fallback = [TextRun {
             text: fallback.to_owned(),
             style: TextStyle::default(),
+            cue: None,
         }];
         &owned_fallback[..]
     } else {
         runs
     };
-    let characters = runs
-        .iter()
-        .flat_map(|run| {
-            run.text.chars().map(|character| StyledChar {
+    let mut characters = Vec::new();
+    let mut source_index = 0;
+    'runs: for run in runs {
+        for character in run.text.chars() {
+            if characters.len() >= visible_characters {
+                break 'runs;
+            }
+            characters.push(StyledChar {
                 character,
                 style: run.style.clone(),
-            })
-        })
-        .take(visible_characters)
-        .collect::<Vec<_>>();
+                source_index,
+            });
+            source_index += 1;
+        }
+    }
     let tokens = tokenize(characters);
     let mut lines = Vec::new();
     let mut current = TextLine::default();
@@ -285,6 +297,7 @@ fn finish_line(lines: &mut Vec<TextLine>, current: &mut TextLine, keep_empty: bo
         {
             previous.text.push_str(&fragment.text);
             previous.width += fragment.width;
+            previous.source_indices.extend(fragment.source_indices);
         } else {
             merged.push(fragment);
         }
@@ -310,6 +323,7 @@ fn push_styled_chars(
     merge_first: bool,
 ) {
     let mut text = String::new();
+    let mut source_indices = Vec::new();
     let mut style = None::<TextStyle>;
     let mut first_fragment = true;
     for character in characters {
@@ -321,6 +335,7 @@ fn push_styled_chars(
             push_fragment(
                 line,
                 std::mem::take(&mut text),
+                std::mem::take(&mut source_indices),
                 style.take().unwrap(),
                 width,
                 merge_first || !first_fragment,
@@ -329,14 +344,29 @@ fn push_styled_chars(
         }
         style = Some(character.style);
         text.push(character.character);
+        source_indices.push(character.source_index);
     }
     if let Some(style) = style {
         let width = measure(&text);
-        push_fragment(line, text, style, width, merge_first || !first_fragment);
+        push_fragment(
+            line,
+            text,
+            source_indices,
+            style,
+            width,
+            merge_first || !first_fragment,
+        );
     }
 }
 
-fn push_fragment(line: &mut TextLine, text: String, style: TextStyle, width: f32, merge: bool) {
+fn push_fragment(
+    line: &mut TextLine,
+    text: String,
+    source_indices: Vec<usize>,
+    style: TextStyle,
+    width: f32,
+    merge: bool,
+) {
     if text.is_empty() {
         return;
     }
@@ -346,12 +376,14 @@ fn push_fragment(line: &mut TextLine, text: String, style: TextStyle, width: f32
     {
         previous.text.push_str(&text);
         previous.width += width;
+        previous.source_indices.extend(source_indices);
     } else {
         line.fragments.push(TextFragment {
             text,
             style,
             width,
             boundaries: Vec::new(),
+            source_indices,
         });
     }
     line.width += width;
@@ -400,91 +432,5 @@ fn closing_punctuation(character: char) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn character_width(text: &str) -> f32 {
-        text.chars().count() as f32
-    }
-
-    #[test]
-    fn wraps_english_at_word_boundaries() {
-        assert_eq!(
-            wrap_plain("hello world", 6.0, character_width),
-            ["hello", "world"]
-        );
-    }
-
-    #[test]
-    fn keeps_cjk_closing_punctuation_off_a_new_line() {
-        assert_eq!(
-            wrap_plain("你好，世界。", 3.0, character_width),
-            ["你好，", "世界。"]
-        );
-    }
-
-    #[test]
-    fn keeps_cjk_opening_punctuation_with_the_next_character() {
-        assert_eq!(
-            wrap_plain("甲乙（丙丁）", 3.0, character_width),
-            ["甲乙", "（丙", "丁）"]
-        );
-    }
-
-    #[test]
-    fn keeps_style_runs_after_layout() {
-        let runs = [
-            TextRun {
-                text: "plain ".to_owned(),
-                style: TextStyle::default(),
-            },
-            TextRun {
-                text: "bold".to_owned(),
-                style: TextStyle {
-                    bold: true,
-                    color: None,
-                    ..TextStyle::default()
-                },
-            },
-        ];
-        let lines = layout_runs(&runs, "", usize::MAX, 20.0, character_width);
-        assert_eq!(lines.len(), 1);
-        assert_eq!(lines[0].fragments.len(), 2);
-        assert!(lines[0].fragments[1].style.bold);
-    }
-
-    #[test]
-    fn reveal_limit_is_applied_before_wrapping() {
-        assert_eq!(wrap_plain("unused", 20.0, character_width), ["unused"]);
-        let lines = layout_runs(&[], "abcdef", 3, 20.0, character_width);
-        assert_eq!(lines[0].fragments[0].text, "abc");
-    }
-
-    #[test]
-    fn cached_reveal_boundaries_match_unicode_characters() {
-        let text = "A你好\u{1f600}e\u{301}";
-        let lines = layout_runs(&[], text, usize::MAX, 100.0, character_width);
-        let fragment = &lines[0].fragments[0];
-        for count in 0..=text.chars().count() + 1 {
-            assert_eq!(
-                fragment.prefix(count),
-                text.chars().take(count).collect::<String>()
-            );
-        }
-    }
-
-    #[test]
-    fn custom_shaping_clusters_are_never_split_across_lines() {
-        let lines =
-            layout_runs_with_clusters(&[], "office", usize::MAX, 2.0, character_width, |_| {
-                vec![0, 1, 4, 6]
-            });
-        assert_eq!(
-            lines
-                .into_iter()
-                .map(|line| line.fragments[0].text.clone())
-                .collect::<Vec<_>>(),
-            ["o", "ffi", "ce"]
-        );
-    }
-}
+#[path = "text_layout/tests.rs"]
+mod tests;

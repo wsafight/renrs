@@ -1,7 +1,7 @@
 use super::{
     AudioEvent, CallFrame, InstructionKind, MAX_IMMEDIATE_STEPS, MusicState, Runtime, RuntimeError,
-    SpriteState, TransformState, TransitionKind, Value, VisualEffect, WaitState, evaluate,
-    execution, visible_choice_labels, visible_choices,
+    SpriteState, TransformState, Value, VisualEffect, WaitState, evaluate, execution,
+    visible_choice_labels, visible_choices,
 };
 use std::sync::Arc;
 
@@ -63,9 +63,13 @@ impl Runtime {
                 }
                 InstructionKind::Dialogue {
                     speaker,
+                    attributes,
                     text,
                     translation_id,
                 } => {
+                    if let Some(speaker) = speaker.as_deref() {
+                        self.apply_say_attributes(speaker, &attributes, line)?;
+                    }
                     self.present_dialogue(
                         &instruction.statement_id,
                         speaker.as_deref(),
@@ -100,6 +104,7 @@ impl Runtime {
                         display_layer,
                         display_order,
                         transform: TransformState::identity(),
+                        attributes: Vec::new(),
                     };
                     if let Some(existing) = Arc::make_mut(&mut self.stage)
                         .sprites
@@ -232,21 +237,9 @@ impl Runtime {
                     repeat,
                     fade_in,
                     volume,
+                    if_changed,
                 } => {
-                    Arc::make_mut(&mut self.stage).music = Some(MusicState {
-                        path: path.clone(),
-                        repeat,
-                        fade_in,
-                        volume,
-                    });
-                    Arc::make_mut(&mut self.stage).music_queue.clear();
-                    self.audio_events.push(AudioEvent::PlayMusic {
-                        path,
-                        repeat,
-                        fade_in,
-                        volume,
-                    });
-                    self.instruction += 1;
+                    self.play_music_if_changed(path, repeat, fade_in, volume, if_changed);
                 }
                 InstructionKind::QueueMusic {
                     path,
@@ -279,10 +272,27 @@ impl Runtime {
                     }
                     self.instruction += 1;
                 }
-                InstructionKind::PlaySound { path, volume } => {
-                    self.audio_events
-                        .push(AudioEvent::PlaySound { path, volume });
-                    self.instruction += 1;
+                InstructionKind::PlaySound {
+                    path,
+                    volume,
+                    repeat,
+                } => {
+                    self.play_sound(path, volume, repeat, false);
+                }
+                InstructionKind::QueueSound {
+                    path,
+                    volume,
+                    repeat,
+                } => {
+                    self.play_sound(path, volume, repeat, true);
+                }
+                InstructionKind::StopSound { fade_out } => self.stop_sound(fade_out),
+                InstructionKind::StopVoice { fade_out } => self.stop_voice(fade_out),
+                InstructionKind::Window { visible } => self.apply_window(visible),
+                InstructionKind::ShowScreen { name } => self.show_screen(name),
+                InstructionKind::HideScreen { name } => self.hide_screen(&name),
+                InstructionKind::CallScreen { name } => {
+                    return Ok(self.call_screen(name));
                 }
                 InstructionKind::PlayVoice { path } => {
                     Arc::make_mut(&mut self.stage).voice = Some(path.clone());
@@ -364,14 +374,8 @@ impl Runtime {
                     }));
                 }
                 InstructionKind::Transition { kind, seconds } => {
+                    let effect = self.transition_effect(kind, seconds);
                     self.instruction += 1;
-                    let effect = match kind {
-                        TransitionKind::Fade => VisualEffect::Fade { seconds },
-                        TransitionKind::Dissolve => VisualEffect::Dissolve {
-                            from: Box::new(self.previous_stage.take().unwrap_or_default()),
-                            seconds,
-                        },
-                    };
                     return Ok(self.set_waiting(WaitState::Effect { effect }));
                 }
             }
@@ -395,10 +399,21 @@ impl Runtime {
     pub fn continue_story(&mut self) -> Result<WaitState, RuntimeError> {
         let was_dialogue = matches!(self.waiting, Some(WaitState::Dialogue));
         match self.waiting {
-            Some(WaitState::Dialogue | WaitState::Pause { .. } | WaitState::Effect { .. }) => {
+            Some(
+                WaitState::Dialogue
+                | WaitState::Pause { .. }
+                | WaitState::Effect { .. }
+                | WaitState::Screen { .. },
+            ) => {
                 if was_dialogue && self.stage.voice.is_some() {
                     Arc::make_mut(&mut self.stage).voice = None;
-                    self.audio_events.push(AudioEvent::StopVoice);
+                    self.audio_events
+                        .push(AudioEvent::StopVoice { fade_out: 0.0 });
+                }
+                if let Some(WaitState::Screen { name }) = &self.waiting {
+                    let name = name.clone();
+                    self.remove_screen(&name);
+                    self.instruction += 1;
                 }
                 self.waiting = None;
                 self.advance()
@@ -438,7 +453,8 @@ impl Runtime {
         };
         if has_prompt && self.stage.voice.is_some() {
             Arc::make_mut(&mut self.stage).voice = None;
-            self.audio_events.push(AudioEvent::StopVoice);
+            self.audio_events
+                .push(AudioEvent::StopVoice { fade_out: 0.0 });
         }
         self.instruction = target;
         self.waiting = None;

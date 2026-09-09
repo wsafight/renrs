@@ -10,6 +10,7 @@ pub fn extract_catalog(program: &Program) -> Vec<TranslationSource> {
                 speaker,
                 text,
                 translation_id,
+                ..
             } => entries.push(TranslationSource {
                 id: translation_id.clone(),
                 text: text.clone(),

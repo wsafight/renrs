@@ -236,12 +236,15 @@ async fn run_player(
         .source
         .watch_root()
         .map(|_| super::reload_worker::ReloadWorker::new(app.source.clone()));
-    let render_target = render_target(CANVAS_WIDTH as u32, CANVAS_HEIGHT as u32);
-    render_target.texture.set_filter(FilterMode::Linear);
+    let canvas_target = render_target(CANVAS_WIDTH as u32, CANVAS_HEIGHT as u32);
+    canvas_target.texture.set_filter(FilterMode::Linear);
     let mut canvas_camera =
         Camera2D::from_display_rect(Rect::new(0.0, 0.0, CANVAS_WIDTH, CANVAS_HEIGHT));
-    canvas_camera.render_target = Some(render_target.clone());
-    app.canvas_target = Some(render_target.clone());
+    canvas_camera.render_target = Some(canvas_target.clone());
+    app.canvas_target = Some(canvas_target.clone());
+    let transition_target = render_target(CANVAS_WIDTH as u32, CANVAS_HEIGHT as u32);
+    transition_target.texture.set_filter(FilterMode::Linear);
+    app.transition_target = Some(transition_target);
 
     prevent_quit();
     let mut wake = super::wake::WakeTimer::new();
@@ -334,7 +337,7 @@ async fn run_player(
         set_default_camera();
         clear_background(BLACK);
         draw_texture_ex(
-            &render_target.texture,
+            &canvas_target.texture,
             offset.x,
             offset.y,
             WHITE,
@@ -349,9 +352,14 @@ async fn run_player(
             .runtime
             .as_mut()
             .map_or_else(Vec::new, |runtime| runtime.drain_audio_events().collect());
-        let music_finished = app.audio.handle(events, &app.source, &app.settings);
-        if music_finished && let Some(runtime) = &mut app.runtime {
-            runtime.complete_music_track();
+        let completed = app.audio.handle(events, &app.source, &app.settings);
+        if let Some(runtime) = &mut app.runtime {
+            if completed.music {
+                runtime.complete_music_track();
+            }
+            if completed.sound {
+                runtime.complete_sound_track();
+            }
         }
         if let Some(test) = &mut smoke {
             app.quit = test.after_draw(&app).unwrap_or_else(fail);

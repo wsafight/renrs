@@ -50,7 +50,14 @@ export interface TextStyle {
 export interface TextRun {
   text: string;
   style: TextStyle;
+  cue?: TextCue | null;
 }
+
+export type TextCue =
+  | 'Fast'
+  | 'NoWait'
+  | { Wait: { hundredths?: number | null } }
+  | { Page: { hundredths?: number | null } };
 
 export interface Dialogue {
   statement_id?: string | null;
@@ -61,6 +68,7 @@ export interface Dialogue {
   text: string;
   voice_path?: string | null;
   runs?: TextRun[];
+  no_wait?: boolean;
 }
 
 export interface Rect {
@@ -79,6 +87,8 @@ export interface TransformState {
   anchor_x: number;
   anchor_y: number;
   crop: Rect | null;
+  xalign?: number | null;
+  yalign?: number | null;
 }
 
 export interface ImageFrame {
@@ -128,6 +138,10 @@ export interface StageState {
   music_queue?: MusicState[];
   voice?: string | null;
   dialogue?: Dialogue | null;
+  window?: boolean;
+  shown_screens?: string[];
+  sound?: MusicState | null;
+  sound_queue?: MusicState[];
 }
 
 export interface VideoEffect {
@@ -160,6 +174,15 @@ export interface ParallelEffect extends TimedEffect {
   from: StageState;
 }
 
+export interface DirectionalStageEffect extends TimedEffect {
+  from: StageState;
+  left: boolean;
+}
+
+export interface PunchEffect extends TimedEffect {
+  vertical: boolean;
+}
+
 export interface EffectMap {
   Dissolve?: DissolveEffect;
   Fade?: TimedEffect;
@@ -167,12 +190,16 @@ export interface EffectMap {
   Transform?: TransformEffect;
   Tween?: TweenEffect;
   Video?: VideoEffect;
+  Push?: DirectionalStageEffect;
+  Wipe?: DirectionalStageEffect;
+  Punch?: PunchEffect;
 }
 
 export interface WaitingObject {
   Choice?: { options: string[] };
   Effect?: { effect: EffectMap };
   Pause?: { seconds: number };
+  Screen?: { name: string };
 }
 
 export type WaitingState = 'Dialogue' | 'Finished' | WaitingObject | null;
@@ -255,6 +282,7 @@ export type ScreenWidgetType =
   | 'drop'
   | 'extension'
   | 'image'
+  | 'hotspot'
   | 'input'
   | 'list'
   | 'set'
@@ -292,6 +320,7 @@ export interface ScreenItem {
   style?: string | null;
   widget: ScreenWidget;
   viewports?: ViewportFrame[];
+  visible?: string | null;
 }
 
 export interface ScreensData {
@@ -341,6 +370,7 @@ export interface SaveRecord extends SaveSummary {
 export interface ReadingController {
   clock: RevealClock;
   prefix: number;
+  readonly blocked: boolean;
   pause(): void;
   resume(): void;
   reset(position?: number): void;

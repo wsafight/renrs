@@ -310,6 +310,7 @@ impl App {
         });
         self.history_view.invalidate();
         self.dialogue_view.invalidate();
+        self.dialogue_cue_remaining = None;
         self.dialogue_view.prepare_reading(&runtime);
         if let Some(dialogue) = &runtime.stage().dialogue {
             let nvl = runtime.nvl_dialogue();

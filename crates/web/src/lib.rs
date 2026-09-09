@@ -127,6 +127,21 @@ impl Engine {
         serde_json::to_string(&self.runtime.variables().get(name)).map_err(js_error)
     }
 
+    pub fn screen_visible(&self, source: &str) -> Result<bool, JsValue> {
+        let expression = renrs_compiler::expression::parse_expression(source, "screens.json", 1, 1)
+            .map_err(js_error)?;
+        match self
+            .runtime
+            .evaluate_condition(&expression)
+            .map_err(js_error)?
+        {
+            renrs_syntax::syntax::Value::Boolean(value) => Ok(value),
+            _ => Err(JsValue::from_str(
+                "screen visibility expression must return a boolean",
+            )),
+        }
+    }
+
     pub fn set_variable(&mut self, name: &str, value: &str) -> Result<String, JsValue> {
         self.runtime
             .set_screen_variable(name, serde_json::from_str(value).map_err(js_error)?)
@@ -229,5 +244,9 @@ impl Engine {
 
     pub fn music_ended(&mut self) {
         self.runtime.complete_music_track();
+    }
+
+    pub fn sound_ended(&mut self) {
+        self.runtime.complete_sound_track();
     }
 }

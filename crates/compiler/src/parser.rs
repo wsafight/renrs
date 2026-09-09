@@ -7,8 +7,8 @@ use crate::expression::parse_expression;
 use crate::localization::TranslationId;
 use crate::syntax::{
     Block, CallArgument, CharacterDef, CropRect, DefaultDef, DisplayLayerDef, Easing, ImageDef,
-    LabelParameter, MenuOption, MenuPrompt, Position, Script, Span, Statement, StatementKind,
-    TransformProperties, TransitionKind,
+    LabelParameter, MenuOption, MenuPrompt, NamedTransform, Position, Script, Span, Statement,
+    StatementKind, TransformProperties, TransitionKind,
 };
 
 /// Parses a complete `RenRS` script into a source-located syntax tree.
@@ -52,6 +52,7 @@ pub struct ScriptFragment {
     pub defaults: IndexMap<String, DefaultDef>,
     pub images: IndexMap<String, ImageDef>,
     pub display_layers: IndexMap<String, DisplayLayerDef>,
+    pub transforms: IndexMap<String, NamedTransform>,
     pub label_parameters: IndexMap<String, Vec<LabelParameter>>,
     pub labels: IndexMap<String, Block>,
 }
@@ -72,6 +73,7 @@ impl ScriptFragment {
             defaults: self.defaults,
             images: self.images,
             display_layers: self.display_layers,
+            transforms: self.transforms,
             label_parameters: self.label_parameters,
             labels: self.labels,
         }
@@ -181,6 +183,8 @@ enum ConfigDeclaration {
     Id(String),
 }
 
+#[path = "parser/audio.rs"]
+mod audio;
 mod block;
 #[path = "parser/blocks.rs"]
 mod blocks;
@@ -188,9 +192,13 @@ mod blocks;
 mod cursor;
 #[path = "parser/display.rs"]
 mod display;
+#[path = "parser/named.rs"]
+mod named;
 mod parallel;
 #[path = "parser/statement.rs"]
 mod statement;
+#[path = "parser/story.rs"]
+mod story;
 #[path = "parser/top_level.rs"]
 mod top_level;
 

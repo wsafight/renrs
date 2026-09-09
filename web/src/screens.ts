@@ -181,6 +181,7 @@ export async function customScreen(
   app: PlayerApp,
   kind: string,
   host: HTMLElement,
+  interactive = true,
 ): Promise<boolean> {
   const screens = app.data.screens;
   const layout = screens?.layouts?.[kind];
@@ -189,9 +190,14 @@ export async function customScreen(
   root.dataset.screen = kind;
   root.setAttribute('role', 'group');
   root.setAttribute('aria-label', translated(app, kind.replaceAll('_', ' ')));
+  if (!interactive) {
+    root.classList.add('noninteractive');
+    root.setAttribute('inert', '');
+  }
   const viewports = new Map<string, { node: HTMLDivElement; content: HTMLDivElement }>();
   if (layout.some((item) => item.viewports?.length)) root.classList.add('has-viewports');
   for (const item of layout) {
+    if (item.visible && !app.engine.screen_visible(item.visible)) continue;
     const widget = item.widget,
       style = screens.styles[item.style ?? ''] || {};
     const node = app.element('div', null, { className: `custom-widget custom-${widget.type}` });
@@ -215,15 +221,38 @@ export async function customScreen(
         }),
       );
     else if (widget.type === 'button') {
-      const control = button(app, text, () => action(app, widget.action ?? ''));
-      if (widget.action === 'rollback') control.disabled = !app.state.can_rollback;
+      const control = button(app, text, () =>
+        kind.startsWith('story:') && widget.action === 'close'
+          ? app.act('next')
+          : action(app, widget.action ?? ''),
+      );
+      control.disabled = !interactive;
+      if (widget.action === 'rollback') control.disabled ||= !app.state.can_rollback;
       if (widget.action === 'continue' || widget.action === 'quick_load') {
         const saves = await listSaves(app.data.program.project_id);
-        control.disabled =
+        control.disabled ||=
           widget.action === 'quick_load'
             ? !saves.some((save) => save.slot === 'quick-1')
             : !saves.length;
       }
+      node.append(control);
+    } else if (widget.type === 'hotspot') {
+      const control = app.element('button', null, {
+        ariaLabel: widget.label ? translated(app, widget.label) : app.tr('Continue'),
+      });
+      control.disabled = !interactive;
+      control.onclick = app.guard(async () => {
+        if (widget.variable && widget.expression) {
+          app.state = parseRuntimeState(
+            app.engine.apply_expression(widget.variable, widget.expression),
+          );
+          app.syncProfile();
+          await app.render();
+        } else if (widget.action) {
+          if (widget.action === 'close') await app.act('next');
+          else await action(app, widget.action);
+        } else await app.act('next');
+      });
       node.append(control);
     } else if (widget.type === 'set') {
       const control = button(app, text, async () => {
@@ -313,17 +342,23 @@ export async function storyScreens(app: PlayerApp): Promise<void> {
     .forEach((node) => {
       node.remove();
     });
-  app.$('dialogue').hidden = app.$('choices').hidden = !!app.inTitle;
+  app.$('dialogue').hidden = !!app.inTitle || app.state.stage.window === false;
+  app.$('choices').hidden = !!app.inTitle;
   if (app.inTitle) {
     if (!(await customScreen(app, 'main_menu', app.$('game')))) {
       app.inTitle = false;
-      app.$('dialogue').hidden = false;
+      app.$('dialogue').hidden = app.state.stage.window === false;
     }
     return;
   }
+  const called = waitingObject(app.state.waiting).Screen?.name;
+  for (const name of app.state.stage.shown_screens || []) {
+    if (name !== called) await customScreen(app, `story:${name}`, app.$('game'), false);
+  }
   await customScreen(app, 'hud', app.$('game'));
+  if (called) await customScreen(app, `story:${called}`, app.$('game'));
   const kind =
-    app.state.waiting === 'Dialogue' && !app.state.stage.nvl
+    app.state.waiting === 'Dialogue' && !app.state.stage.nvl && app.state.stage.window !== false
       ? 'dialogue'
       : waitingObject(app.state.waiting).Choice
         ? 'choices'

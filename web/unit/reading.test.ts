@@ -53,3 +53,27 @@ test('reveal clock pauses without catching up and restores partial progress at a
   clock.tick(50000, 100);
   assert.equal(clock.visible, 30);
 });
+
+test('reveal clock stops once per cue and fast-forwards to the next blocking cue', () => {
+  const clock = new RevealClock();
+  clock.reset(20, 0, [
+    { position: 4, delayMs: null, fast: false },
+    { position: 8, delayMs: null, fast: true },
+    { position: 12, delayMs: 100, fast: false },
+  ]);
+  clock.tick(0, 10);
+  clock.tick(500, 10);
+  assert.equal(clock.visible, 4);
+  assert.equal(clock.blocked, true);
+  assert.equal(clock.skip(), true);
+  clock.tick(500, 10);
+  clock.tick(1000, 10);
+  assert.equal(clock.visible, 12);
+  assert.equal(clock.blocked, true);
+  clock.tick(1050, 10);
+  assert.equal(clock.blocked, true);
+  clock.tick(1100, 10);
+  assert.equal(clock.blocked, false);
+  assert.equal(clock.skip(), true);
+  assert.equal(clock.visible, 20);
+});

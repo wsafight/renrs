@@ -26,6 +26,18 @@ pub enum CompileError {
         file: String,
         line: usize,
     },
+    #[error("unknown transform `{name}` referenced at {file}:{line}")]
+    UnknownTransform {
+        name: String,
+        file: String,
+        line: usize,
+    },
+    #[error("{message} at {file}:{line}")]
+    InvalidTimeline {
+        message: String,
+        file: String,
+        line: usize,
+    },
     #[error(
         "label `{label}` accepts at most {maximum} positional arguments but received {found} at {file}:{line}"
     )]

@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use indexmap::IndexMap;
 
 use crate::localization::TranslationId;
-use crate::syntax::{Block, CallArgument, LabelParameter, Span, StatementKind};
+use crate::syntax::{Block, CallArgument, LabelParameter, NamedTransform, Span, StatementKind};
 
 use super::calls::bind_call_arguments;
 use super::ids::{
@@ -20,9 +20,11 @@ pub(super) struct Compiler<'a> {
     pub(super) unresolved: Vec<(usize, String, Option<Vec<CallArgument>>, Span)>,
     pub(super) current_label: String,
     pub(super) label_parameters: &'a IndexMap<String, Vec<LabelParameter>>,
+    pub(super) transforms: &'a IndexMap<String, NamedTransform>,
     pub(super) instruction_aliases: HashMap<InstructionId, InstructionId>,
     pub(super) alias_collision: Option<InstructionId>,
     pub(super) explicit_instruction_ids: HashSet<InstructionId>,
+    pub(super) error: Option<CompileError>,
 }
 
 impl Compiler<'_> {
@@ -36,326 +38,233 @@ impl Compiler<'_> {
                 stable_anchored_statement_id,
             );
             let emitted_before = self.instructions.len();
-            match &statement.kind {
-                StatementKind::Extension {
-                    name,
-                    variable,
-                    input,
-                } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Extension {
-                            name: name.clone(),
-                            variable: variable.clone(),
-                            input: input.clone(),
-                        },
-                    );
-                }
-                StatementKind::Nvl { mode } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Nvl { mode: mode.clone() },
-                    );
-                }
-                StatementKind::Parallel { tracks } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Parallel {
-                            tracks: tracks.clone(),
-                        },
-                    );
-                }
-                StatementKind::Timeline { block } => {
-                    self.block(block, &child_path(&path, "timeline"));
-                }
-                StatementKind::Video { path, seconds } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Video {
-                            path: path.clone(),
-                            seconds: *seconds,
-                        },
-                    );
-                }
-                StatementKind::Dialogue { speaker, text } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Dialogue {
-                            speaker: speaker.clone(),
-                            text: text.clone(),
-                            translation_id: translation_id(
-                                statement.id.as_ref(),
-                                &statement_id,
-                                "dialogue",
-                            ),
-                        },
-                    );
-                }
-                StatementKind::Scene { .. }
-                | StatementKind::Show { .. }
-                | StatementKind::Hide { .. }
-                | StatementKind::ClearLayer { .. } => {
-                    self.lower_display(&statement.kind, span, &statement_id);
-                }
-                StatementKind::Menu { prompt, options } => {
-                    let choice_index = self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Choice {
-                            prompt: prompt.as_ref().map(|prompt| ChoicePrompt {
-                                speaker: prompt.speaker.clone(),
-                                text: prompt.text.clone(),
-                                translation_id: translation_id(
-                                    statement.id.as_ref(),
-                                    &statement_id,
-                                    "menu-prompt",
-                                ),
-                            }),
-                            options: Vec::new(),
-                        },
-                    );
-                    let mut compiled_options = Vec::with_capacity(options.len());
-                    let mut exits = Vec::with_capacity(options.len());
-                    for (option_index, option) in options.iter().enumerate() {
-                        compiled_options.push(ChoiceTarget {
-                            text: option.text.clone(),
-                            target: self.instructions.len(),
-                            translation_id: translation_id(
-                                option.id.as_ref(),
-                                &statement_id,
-                                &format!("menu-option:{option_index}"),
-                            ),
-                            condition: option.condition.clone(),
+            if let Some(kind) = super::emit::simple_instruction(&statement.kind) {
+                self.emit(span.clone(), statement_id.clone(), "main", kind);
+            } else {
+                match &statement.kind {
+                    StatementKind::Timeline { block } => {
+                        match super::story::unroll_timeline(block) {
+                            Ok(block) => self.block(&block, &child_path(&path, "timeline")),
+                            Err(message) => {
+                                self.error = Some(CompileError::InvalidTimeline {
+                                    message,
+                                    file: span.source.clone(),
+                                    line: span.line,
+                                });
+                            }
+                        }
+                    }
+                    StatementKind::Repeat { .. } => {
+                        self.error = Some(CompileError::InvalidTimeline {
+                            message: "repeat is only valid inside a timeline".to_owned(),
+                            file: span.source.clone(),
+                            line: span.line,
                         });
-                        let option_path = child_path(&path, &format!("menu-option:{option_index}"));
-                        self.block(&option.block, &option_path);
-                        exits.push(self.emit(
-                            option.span.clone(),
-                            statement_id.clone(),
-                            &format!("option-exit:{option_index}"),
-                            InstructionKind::Jump { target: 0 },
-                        ));
                     }
-                    let end = self.instructions.len();
-                    if let InstructionKind::Choice { options, .. } =
-                        &mut self.instructions[choice_index].kind
-                    {
-                        *options = compiled_options;
-                    }
-                    for exit in exits {
-                        self.patch_target(exit, end);
-                    }
-                }
-                StatementKind::Jump { label } => {
-                    let index = self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Jump { target: 0 },
-                    );
-                    self.unresolved
-                        .push((index, label.clone(), None, span.clone()));
-                }
-                StatementKind::Call { label, arguments } => {
-                    let index = self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Call {
-                            target: 0,
-                            arguments: Vec::new(),
-                            parameters: Vec::new(),
-                        },
-                    );
-                    self.unresolved.push((
-                        index,
-                        label.clone(),
-                        Some(arguments.clone()),
-                        span.clone(),
-                    ));
-                }
-                StatementKind::Return { value } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Return {
-                            value: value.clone(),
-                        },
-                    );
-                }
-                StatementKind::Set { variable, value } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Set {
-                            variable: variable.clone(),
-                            value: value.clone(),
-                        },
-                    );
-                }
-                StatementKind::If {
-                    branches,
-                    else_block,
-                } => {
-                    let mut exits = Vec::new();
-                    for (branch_index, (condition, body)) in branches.iter().enumerate() {
-                        let condition_index = self.emit(
+                    StatementKind::Dialogue {
+                        speaker,
+                        attributes,
+                        text,
+                    } => {
+                        self.emit(
                             span.clone(),
                             statement_id.clone(),
-                            &format!("guard:{branch_index}"),
-                            InstructionKind::JumpIfFalse {
-                                condition: condition.clone(),
-                                target: 0,
+                            "main",
+                            super::story::dialogue_kind(
+                                statement,
+                                &statement_id,
+                                speaker.clone(),
+                                attributes.clone(),
+                                text.clone(),
+                            ),
+                        );
+                    }
+                    StatementKind::Scene { .. }
+                    | StatementKind::Show { .. }
+                    | StatementKind::Hide { .. }
+                    | StatementKind::ClearLayer { .. } => {
+                        self.lower_display(&statement.kind, span, &statement_id);
+                    }
+                    StatementKind::Menu { prompt, options } => {
+                        let choice_index = self.emit(
+                            span.clone(),
+                            statement_id.clone(),
+                            "main",
+                            InstructionKind::Choice {
+                                prompt: prompt.as_ref().map(|prompt| ChoicePrompt {
+                                    speaker: prompt.speaker.clone(),
+                                    text: prompt.text.clone(),
+                                    translation_id: translation_id(
+                                        statement.id.as_ref(),
+                                        &statement_id,
+                                        "menu-prompt",
+                                    ),
+                                }),
+                                options: Vec::new(),
                             },
                         );
-                        let branch_path = child_path(&path, &format!("if-branch:{branch_index}"));
-                        self.block(body, &branch_path);
-                        exits.push(self.emit(
+                        let mut compiled_options = Vec::with_capacity(options.len());
+                        let mut exits = Vec::with_capacity(options.len());
+                        for (option_index, option) in options.iter().enumerate() {
+                            compiled_options.push(ChoiceTarget {
+                                text: option.text.clone(),
+                                target: self.instructions.len(),
+                                translation_id: translation_id(
+                                    option.id.as_ref(),
+                                    &statement_id,
+                                    &format!("menu-option:{option_index}"),
+                                ),
+                                condition: option.condition.clone(),
+                            });
+                            let option_path =
+                                child_path(&path, &format!("menu-option:{option_index}"));
+                            self.block(&option.block, &option_path);
+                            exits.push(self.emit(
+                                option.span.clone(),
+                                statement_id.clone(),
+                                &format!("option-exit:{option_index}"),
+                                InstructionKind::Jump { target: 0 },
+                            ));
+                        }
+                        let end = self.instructions.len();
+                        if let InstructionKind::Choice { options, .. } =
+                            &mut self.instructions[choice_index].kind
+                        {
+                            *options = compiled_options;
+                        }
+                        for exit in exits {
+                            self.patch_target(exit, end);
+                        }
+                    }
+                    StatementKind::Jump { label } => {
+                        let index = self.emit(
                             span.clone(),
                             statement_id.clone(),
-                            &format!("branch-exit:{branch_index}"),
+                            "main",
                             InstructionKind::Jump { target: 0 },
+                        );
+                        self.unresolved
+                            .push((index, label.clone(), None, span.clone()));
+                    }
+                    StatementKind::Call { label, arguments } => {
+                        let index = self.emit(
+                            span.clone(),
+                            statement_id.clone(),
+                            "main",
+                            InstructionKind::Call {
+                                target: 0,
+                                arguments: Vec::new(),
+                                parameters: Vec::new(),
+                            },
+                        );
+                        self.unresolved.push((
+                            index,
+                            label.clone(),
+                            Some(arguments.clone()),
+                            span.clone(),
                         ));
-                        let next_branch = self.instructions.len();
-                        self.patch_target(condition_index, next_branch);
                     }
-                    let else_path = child_path(&path, "else");
-                    self.block(else_block, &else_path);
-                    let end = self.instructions.len();
-                    for exit in exits {
-                        self.patch_target(exit, end);
+                    StatementKind::Return { value } => {
+                        self.emit(
+                            span.clone(),
+                            statement_id.clone(),
+                            "main",
+                            InstructionKind::Return {
+                                value: value.clone(),
+                            },
+                        );
                     }
-                }
-                StatementKind::PlayMusic {
-                    path,
-                    repeat,
-                    fade_in,
-                    volume,
-                } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::PlayMusic {
-                            path: path.clone(),
-                            repeat: *repeat,
-                            fade_in: *fade_in,
-                            volume: *volume,
-                        },
-                    );
-                }
-                StatementKind::QueueMusic {
-                    path,
-                    repeat,
-                    fade_in,
-                    volume,
-                } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::QueueMusic {
-                            path: path.clone(),
-                            repeat: *repeat,
-                            fade_in: *fade_in,
-                            volume: *volume,
-                        },
-                    );
-                }
-                StatementKind::PlaySound { path, volume } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::PlaySound {
-                            path: path.clone(),
-                            volume: *volume,
-                        },
-                    );
-                }
-                StatementKind::PlayVoice { path } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::PlayVoice { path: path.clone() },
-                    );
-                }
-                StatementKind::StopMusic { fade_out } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::StopMusic {
-                            fade_out: *fade_out,
-                        },
-                    );
-                }
-                StatementKind::Pause { seconds } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Pause { seconds: *seconds },
-                    );
-                }
-                StatementKind::Move {
-                    alias,
-                    position,
-                    seconds,
-                } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Move {
-                            alias: alias.clone(),
-                            position: *position,
-                            seconds: *seconds,
-                        },
-                    );
-                }
-                StatementKind::Transform {
-                    alias,
-                    properties,
-                    seconds,
-                    easing,
-                } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Transform {
-                            alias: alias.clone(),
-                            properties: *properties,
-                            seconds: *seconds,
-                            easing: *easing,
-                        },
-                    );
-                }
-                StatementKind::Transition { kind, seconds } => {
-                    self.emit(
-                        span.clone(),
-                        statement_id.clone(),
-                        "main",
-                        InstructionKind::Transition {
-                            kind: *kind,
-                            seconds: *seconds,
-                        },
-                    );
+                    StatementKind::Set { variable, value } => {
+                        self.emit(
+                            span.clone(),
+                            statement_id.clone(),
+                            "main",
+                            InstructionKind::Set {
+                                variable: variable.clone(),
+                                value: value.clone(),
+                            },
+                        );
+                    }
+                    StatementKind::If {
+                        branches,
+                        else_block,
+                    } => {
+                        let mut exits = Vec::new();
+                        for (branch_index, (condition, body)) in branches.iter().enumerate() {
+                            let condition_index = self.emit(
+                                span.clone(),
+                                statement_id.clone(),
+                                &format!("guard:{branch_index}"),
+                                InstructionKind::JumpIfFalse {
+                                    condition: condition.clone(),
+                                    target: 0,
+                                },
+                            );
+                            let branch_path =
+                                child_path(&path, &format!("if-branch:{branch_index}"));
+                            self.block(body, &branch_path);
+                            exits.push(self.emit(
+                                span.clone(),
+                                statement_id.clone(),
+                                &format!("branch-exit:{branch_index}"),
+                                InstructionKind::Jump { target: 0 },
+                            ));
+                            let next_branch = self.instructions.len();
+                            self.patch_target(condition_index, next_branch);
+                        }
+                        let else_path = child_path(&path, "else");
+                        self.block(else_block, &else_path);
+                        let end = self.instructions.len();
+                        for exit in exits {
+                            self.patch_target(exit, end);
+                        }
+                    }
+                    StatementKind::Move {
+                        alias,
+                        position,
+                        seconds,
+                    } => {
+                        self.emit(
+                            span.clone(),
+                            statement_id.clone(),
+                            "main",
+                            InstructionKind::Move {
+                                alias: alias.clone(),
+                                position: *position,
+                                seconds: *seconds,
+                            },
+                        );
+                    }
+                    StatementKind::Transform {
+                        alias,
+                        properties,
+                        seconds,
+                        easing,
+                    } => {
+                        self.emit(
+                            span.clone(),
+                            statement_id.clone(),
+                            "main",
+                            InstructionKind::Transform {
+                                alias: alias.clone(),
+                                properties: *properties,
+                                seconds: *seconds,
+                                easing: *easing,
+                            },
+                        );
+                    }
+                    StatementKind::Transition { kind, seconds } => {
+                        self.emit(
+                            span.clone(),
+                            statement_id.clone(),
+                            "main",
+                            InstructionKind::Transition {
+                                kind: *kind,
+                                seconds: *seconds,
+                            },
+                        );
+                    }
+                    _ => {}
                 }
             }
             self.record_aliases(emitted_before, &statement_id, &statement.aliases);

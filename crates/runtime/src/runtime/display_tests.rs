@@ -28,30 +28,80 @@ fn named_display_layers_order_clear_and_roundtrip() {
 }
 
 #[test]
-fn compatible_restore_checks_layers_held_by_dissolve_effects() {
-    let original = compile(
+fn compatible_restore_checks_layers_held_by_composite_effects() {
+    for transition in ["dissolve", "push left", "wipe right"] {
+        let original = compile(
+            &parse_script(
+                &format!(
+                    "layer effects order 50\nlabel start:\n    show \"front.png\" onlayer effects\n    scene \"room.png\"\n    @id \"blend\" transition {transition} 1"
+                ),
+                "layers.rns",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let edited = compile(
+            &parse_script(
+                &format!(
+                    "label start:\n    scene \"room.png\"\n    @id \"blend\" transition {transition} 1"
+                ),
+                "layers.rns",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let mut runtime = Runtime::new(original).unwrap();
+        assert!(matches!(
+            runtime.advance().unwrap(),
+            WaitState::Effect { .. }
+        ));
+        assert!(matches!(
+            Runtime::restore_compatible(edited, runtime.snapshot()),
+            Err(RuntimeError::SavedDisplayLayerMissing(ref name)) if name == "effects"
+        ));
+    }
+}
+
+#[test]
+fn window_screens_and_if_changed_music_are_serializable() {
+    let program = compile(
         &parse_script(
-            "layer effects order 50\nlabel start:\n    show \"front.png\" onlayer effects\n    scene \"room.png\"\n    @id \"blend\" transition dissolve 1",
-            "layers.rns",
+            "label start:\n    window hide\n    play music \"a.ogg\" loop if_changed\n    play music \"a.ogg\" loop if_changed\n    show screen bag\n    call screen examine\n    \"Done\"",
+            "story.rns",
         )
         .unwrap(),
     )
     .unwrap();
-    let edited = compile(
-        &parse_script(
-            "label start:\n    scene \"room.png\"\n    @id \"blend\" transition dissolve 1",
-            "layers.rns",
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    let mut runtime = Runtime::new(original).unwrap();
-    assert!(matches!(
+    let mut runtime = Runtime::new(program.clone()).unwrap();
+    assert_eq!(
         runtime.advance().unwrap(),
-        WaitState::Effect { .. }
-    ));
-    assert!(matches!(
-        Runtime::restore_compatible(edited, runtime.snapshot()),
-        Err(RuntimeError::SavedDisplayLayerMissing(ref name)) if name == "effects"
-    ));
+        WaitState::Screen {
+            name: "examine".into()
+        }
+    );
+    assert!(!runtime.stage().window);
+    assert!(runtime.stage().shown_screens.contains(&"bag".to_owned()));
+    assert!(
+        runtime
+            .stage()
+            .shown_screens
+            .contains(&"examine".to_owned())
+    );
+    assert_eq!(runtime.stage().music.as_ref().unwrap().path, "a.ogg");
+    assert_eq!(
+        runtime
+            .drain_audio_events()
+            .filter(|event| matches!(event, super::AudioEvent::PlayMusic { .. }))
+            .count(),
+        1
+    );
+    assert_eq!(runtime.continue_story().unwrap(), WaitState::Dialogue);
+    assert!(
+        !runtime
+            .stage()
+            .shown_screens
+            .contains(&"examine".to_owned())
+    );
+    let restored = Runtime::restore(program, runtime.snapshot()).unwrap();
+    assert!(!restored.stage().window);
 }

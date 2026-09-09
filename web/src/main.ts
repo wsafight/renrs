@@ -363,7 +363,11 @@ function schedule(remaining?: number): void {
     if (app.settings.skip && app.wasRead) {
       if (app.reading.finish()) return;
       delay = 40;
-    } else if (app.settings.auto && app.reading.clock.complete) {
+    } else if (
+      (app.settings.auto || app.state.stage.dialogue?.no_wait) &&
+      app.reading.clock.complete &&
+      !app.reading.blocked
+    ) {
       delay = (remaining ?? 0) > 0 ? (remaining ?? 0) : app.settings.auto_delay * 1000;
     }
   }

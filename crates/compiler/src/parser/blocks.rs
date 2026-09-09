@@ -27,10 +27,11 @@ impl Parser {
         &self,
         line: &Line,
         cursor: &mut Cursor<'_>,
-    ) -> Result<(bool, f32, f32), Diagnostic> {
+    ) -> Result<(bool, f32, f32, bool), Diagnostic> {
         let mut repeat = false;
         let mut fade_in = 0.0;
         let mut volume = 1.0;
+        let mut if_changed = false;
         let mut has_fade = false;
         let mut has_volume = false;
         loop {
@@ -42,11 +43,13 @@ impl Parser {
             } else if cursor.keyword("volume") && !has_volume {
                 volume = self.parse_audio_volume(line, cursor)?;
                 has_volume = true;
+            } else if cursor.keyword("if_changed") && !if_changed {
+                if_changed = true;
             } else {
                 break;
             }
         }
-        Ok((repeat, fade_in, volume))
+        Ok((repeat, fade_in, volume, if_changed))
     }
 
     pub(super) fn parse_audio_volume(

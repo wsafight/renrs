@@ -58,6 +58,9 @@
 | `drag` / `drop` | `expression` / `variable` | 受限表达式拖放，触摸、鼠标和键盘走同一确定性赋值 |
 | `extension` | `name`, `input`, `variable` | 调用纯 Rhai 模块并事务性写回结果 |
 | `row` / `column` | `children`, `gap`, `padding` | 行列布局 |
+| `hotspot` | `action`, `variable`, `expression` | 不可见点击区；可关界面、写变量或继续剧情 |
+
+元素可加 `visible` 表达式，结果为假时不绘制。`screens.json` 的 `story` 表定义剧中界面，用 `show screen` / `hide screen` / `call screen` 调用；剧中界面只接受 `hotspot`、`button`、`text` 和 `image` 控件。
 
 `setting` 支持 `text_speed`、`auto_delay`、`music_volume`、`sound_volume`、`voice_volume`。
 三个音量的初始值分别为 0.6、0.8、1.0。设置保存到玩家数据目录。

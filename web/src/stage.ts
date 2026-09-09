@@ -55,7 +55,7 @@ const ease = (name: TransformEffect['easing'], x: number): number =>
         : x;
 function interpolate(from: TransformState, to: TransformState, progress: number): TransformState {
   const value = { ...to };
-  const keys: Array<keyof Omit<TransformState, 'crop'>> = [
+  const keys = [
     'x',
     'y',
     'scale',
@@ -63,14 +63,24 @@ function interpolate(from: TransformState, to: TransformState, progress: number)
     'alpha',
     'anchor_x',
     'anchor_y',
-  ];
+  ] as const;
   for (const key of keys) value[key] = from[key] + (to[key] - from[key]) * progress;
   if (from.crop && to.crop) {
     value.crop = { x: 0, y: 0, width: 0, height: 0 };
     for (const key of Object.keys(from.crop) as Array<keyof Rect>)
       value.crop[key] = from.crop[key] + (to.crop[key] - from.crop[key]) * progress;
   } else value.crop = progress < 1 ? from.crop : to.crop;
+  value.xalign = interpolateAlign(from.xalign, to.xalign, progress);
+  value.yalign = interpolateAlign(from.yalign, to.yalign, progress);
   return value;
+}
+function interpolateAlign(
+  from: number | null | undefined,
+  to: number | null | undefined,
+  progress: number,
+): number | null | undefined {
+  if (from != null && to != null) return from + (to - from) * progress;
+  return progress < 1 ? from : to;
 }
 const cameraStyle = (camera?: TransformState | null): Keyframe => ({
   transform: `translate(${camera?.x || 0}px, ${camera?.y || 0}px) rotate(${-(camera?.rotation ?? 0)}deg) scale(${camera?.scale || 1})`,
@@ -108,11 +118,20 @@ function geometry(sprite: SpriteState, transform: TransformState, source: Size, 
   const height = 650 * transform.scale,
     width = (crop.width / crop.height) * height;
   const x =
-    (position ?? xPosition(sprite.position, width)) + transform.x - transform.anchor_x * width;
+      (position ??
+        (transform.xalign == null
+          ? xPosition(sprite.position, width)
+          : transform.xalign * (1280 - width))) +
+      transform.x -
+      transform.anchor_x * width,
+    y =
+      (transform.yalign == null ? 720 : transform.yalign * (720 - height)) +
+      transform.y -
+      transform.anchor_y * height;
   return {
     outer: {
       left: `${x}px`,
-      top: `${720 + transform.y - transform.anchor_y * height}px`,
+      top: `${y}px`,
       width: `${width}px`,
       height: `${height}px`,
       opacity: transform.alpha,
@@ -201,6 +220,7 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
   app.layerNodes = [];
   const effect = waitingObject(app.state.waiting).Effect?.effect;
   const root = app.$('stage');
+  const current = app.$('stage-current');
   for (const animation of root.getAnimations({ subtree: true })) animation.cancel();
   root.querySelectorAll('.old-stage').forEach((node) => {
     node.remove();
@@ -245,23 +265,7 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
       duration: effect.Fade.seconds * 1000,
     }).currentTime = elapsed;
   if (effect?.Dissolve) {
-    const old = app.element('div', null, { className: 'old-stage' });
-    Object.assign(old.style, cameraStyle(effect.Dissolve.from.camera));
-    if (effect.Dissolve.from.background)
-      old.append(
-        app.element('img', null, {
-          className: 'stage-background',
-          src: app.asset(effect.Dissolve.from.background),
-          alt: '',
-        }),
-      );
-    old.append(
-      ...(await Promise.all(
-        [...effect.Dissolve.from.sprites]
-          .sort(spriteOrder)
-          .map((sprite) => spriteNode(app, sprite, null, 0)),
-      )),
-    );
+    const old = await oldStageNode(app, effect.Dissolve.from);
     root.append(old);
     const animation = old.animate([{ opacity: 1 }, { opacity: 0 }], {
       duration: effect.Dissolve.seconds * 1000,
@@ -270,6 +274,62 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
     animation.currentTime = elapsed;
     animation.onfinish = () => old.remove();
   }
+  if (effect?.Push) {
+    const old = await oldStageNode(app, effect.Push.from),
+      direction = effect.Push.left ? -1 : 1,
+      options = { duration: effect.Push.seconds * 1000, fill: 'forwards' as const };
+    root.append(old);
+    old.animate(
+      [{ transform: 'translateX(0)' }, { transform: `translateX(${direction * 1280}px)` }],
+      options,
+    ).currentTime = elapsed;
+    current.animate(
+      [{ transform: `translateX(${-direction * 1280}px)` }, { transform: 'translateX(0)' }],
+      options,
+    ).currentTime = elapsed;
+  }
+  if (effect?.Wipe) {
+    const old = await oldStageNode(app, effect.Wipe.from),
+      hidden = effect.Wipe.left ? 'inset(0 0 0 100%)' : 'inset(0 100% 0 0)';
+    root.insertBefore(old, current);
+    current.animate([{ clipPath: hidden }, { clipPath: 'inset(0 0 0 0)' }], {
+      duration: effect.Wipe.seconds * 1000,
+      fill: 'forwards',
+    }).currentTime = elapsed;
+  }
+  if (effect?.Punch) {
+    const axis = effect.Punch.vertical ? 'Y' : 'X';
+    current.animate(
+      [0, 1, -0.7, 0.45, -0.2, 0].map((amount, index, values) => ({
+        transform: `translate${axis}(${amount * 18}px)`,
+        offset: index / (values.length - 1),
+      })),
+      { duration: effect.Punch.seconds * 1000, fill: 'forwards' },
+    ).currentTime = elapsed;
+  }
+}
+
+async function oldStageNode(app: PlayerApp, stage: StageState): Promise<HTMLElement> {
+  const old = app.element('div', null, { className: 'old-stage' }),
+    content = app.element('div', null, { className: 'old-stage-content' });
+  Object.assign(content.style, cameraStyle(stage.camera));
+  if (stage.background)
+    content.append(
+      app.element('img', null, {
+        className: 'stage-background',
+        src: app.asset(stage.background),
+        alt: '',
+      }),
+    );
+  content.append(
+    ...(await Promise.all(
+      [...stage.sprites]
+        .sort(spriteOrder)
+        .map((sprite) => spriteNode(app, sprite, null, 0)),
+    )),
+  );
+  old.append(content);
+  return old;
 }
 
 async function layerNode(app: PlayerApp, sprite: SpriteState): Promise<HTMLElement> {

@@ -119,6 +119,13 @@ impl App {
                     Action::Auto => self.playback.auto = !self.playback.auto,
                     Action::Skip => self.playback.skip_read = !self.playback.skip_read,
                     Action::Close => {
+                        if matches!(
+                            self.runtime.as_ref().and_then(renrs::Runtime::waiting),
+                            Some(renrs::WaitState::Screen { .. })
+                        ) {
+                            self.continue_story();
+                            return;
+                        }
                         self.persist_settings();
                         self.overlay = None;
                         if self.runtime.is_none() {

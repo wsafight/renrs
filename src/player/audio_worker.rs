@@ -17,12 +17,15 @@ pub(super) enum Command {
     },
     Music(Option<MusicState>),
     Voice(Option<String>),
-    Sound(String, f32),
+    Sound(Option<MusicState>),
     StopMusic(f32),
+    StopSound(f32),
+    StopVoice(f32),
     Volume([f32; 3]),
 }
 pub(super) enum Response {
     MusicEnded(String),
+    SoundEnded(String),
     Error(String),
 }
 
@@ -197,7 +200,7 @@ fn run(
     let mixer = device.mixer();
     let mut music: Option<Track> = None;
     let mut voice: Option<Track> = None;
-    let mut sounds = std::collections::VecDeque::<Track>::new();
+    let mut sound: Option<Track> = None;
     let mut volumes = [0.0; 3];
     let mut video = super::video_audio::VideoAudio::default();
     loop {
@@ -208,6 +211,14 @@ fn run(
         };
         let requested_voice = matches!(command, Some(Command::Voice(Some(_))));
         let requested_video = matches!(command, Some(Command::Video { .. }));
+        let requested_music = match &command {
+            Some(Command::Music(Some(state))) => Some(state.path.clone()),
+            _ => None,
+        };
+        let requested_sound = match &command {
+            Some(Command::Sound(Some(state))) => Some(state.path.clone()),
+            _ => None,
+        };
         let result = match command {
             Some(Command::Video {
                 path,
@@ -261,12 +272,40 @@ fn run(
                         .map(|track| voice = Some(track))
                 })
             }
-            Some(Command::Sound(path, relative_volume)) => {
-                if sounds.len() >= 16 {
-                    sounds.pop_front();
+            Some(Command::Sound(state)) => {
+                sound = None;
+                state.map_or(Ok(()), |state| {
+                    track(
+                        source,
+                        mixer,
+                        state.path,
+                        state.repeat,
+                        0.0,
+                        volumes[1],
+                        state.volume,
+                    )
+                    .map(|track| sound = Some(track))
+                })
+            }
+            Some(Command::StopSound(seconds)) => {
+                if seconds > 0.0 {
+                    if let Some(sound) = &mut sound {
+                        sound.fade_out = Some((Instant::now(), seconds));
+                    }
+                } else {
+                    sound = None;
                 }
-                track(source, mixer, path, false, 0.0, volumes[1], relative_volume)
-                    .map(|track| sounds.push_back(track))
+                Ok(())
+            }
+            Some(Command::StopVoice(seconds)) => {
+                if seconds > 0.0 {
+                    if let Some(voice) = &mut voice {
+                        voice.fade_out = Some((Instant::now(), seconds));
+                    }
+                } else {
+                    voice = None;
+                }
+                Ok(())
             }
             Some(Command::Volume(next)) => {
                 volumes = next;
@@ -276,16 +315,25 @@ fn run(
         };
         if let Err(error) = result {
             let _ = outgoing.send(Response::Error(error));
+            if let Some(path) = requested_music {
+                let _ = outgoing.send(Response::MusicEnded(path));
+            }
+            if let Some(path) = requested_sound {
+                let _ = outgoing.send(Response::SoundEnded(path));
+            }
         }
-        sounds.retain(|track| !track.player.empty());
         video.update(volumes[1], video_position);
         if requested_video {
             pending_video.fetch_sub(1, Ordering::AcqRel);
         }
-        for sound in &sounds {
-            sound
-                .player
-                .set_volume(mixed_volume(volumes[1], sound.volume));
+        if let Some(track) = &sound {
+            let fade_out = track.apply_volume(volumes[1]);
+            if !track.repeat && track.player.empty() && track.fade_out.is_none() {
+                let _ = outgoing.send(Response::SoundEnded(track.path.clone()));
+                sound = None;
+            } else if fade_out <= 0.0 {
+                sound = None;
+            }
         }
         if let Some(track) = &music {
             let fade_out = track.apply_volume(volumes[0]);
@@ -296,8 +344,10 @@ fn run(
                 music = None;
             }
         }
-        if let Some(track) = &voice {
-            track.player.set_volume(volumes[2]);
+        if let Some(track) = &voice
+            && track.apply_volume(volumes[2]) <= 0.0
+        {
+            voice = None;
         }
         busy.store(
             voice.as_ref().is_some_and(|track| !track.player.empty()),

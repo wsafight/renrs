@@ -39,7 +39,7 @@ RenRS 递归读取非隐藏目录中的 `.rns` 文件，按相对路径排序并
 config title "My Story"
 config id "org.example.my-story"
 
-define e = character "Eileen" color "#ef6a6a"
+define e = character "Eileen" color "#ef6a6a" image eileen
 default score = 0
 default player_name = "Reader"
 image room = "images/room.png"
@@ -60,12 +60,17 @@ layer effects order 50
 label start:
     e "Hello, {player_name}. Score: {score}."
     "Narration has no speaker."
-    e "A {b}bright{/b} {color=#ef8b72}signal{/color}.{br}It is moving."
+    e happy "A {b}bright{/b} {color=#ef8b72}signal{/color}.{w} It is moving.{nw}"
+    window hide
+    pause 0.4
+    window show
 ```
+
+角色可声明 `image` 名。对白里写在角色和文本之间的标识符是说话属性：运行时会显示 `image_attr` 变体（如 `eileen_happy`），没有变体时回退到基础图。`window hide` / `window show` 控制过场时是否画出对话框。
 
 值类型包括整数、布尔值、字符串、列表和记录。对白中的 `{name}` 插入变量；集合显示为 JSON；`{{` 和 `}}` 输出字面花括号。
 支持 `{b}...{/b}`、`{color=#RRGGBB}...{/color}`、`{color=#RRGGBBAA}...{/color}` 和
-`{br}`，以及 `{u}...{/u}`、`{ruby=annotation}...{/ruby}`。注音限 1 到 64 个字符，不允许嵌套。
+`{br}`，以及 `{u}...{/u}`、`{ruby=annotation}...{/ruby}`。`{w}` / `{w=seconds}` 在句中等待点击或超时，`{p}` 分段等待，`{fast}` 立刻显示后续文字，`{nw}` 在行末自动继续。注音限 1 到 64 个字符，不允许嵌套。
 标签不计入打字机字符数。原生注音按正文片段宽度缩小；较长注音建议拆成短词。
 
 `nvl on` 启用整页多段叙事，`nvl clear` 清页，`nvl off` 返回普通对白。页面边界随存档和回退恢复。
@@ -86,15 +91,28 @@ label start:
     clear effects
 ```
 
+顶层可声明命名 transform，供 `show ... at name` 使用；`left` / `center` / `right` 仍是位置：
+
+```text
+transform shy:
+    xalign 0.2
+    yalign 1.0
+```
+
+`xalign` / `yalign` 是 0..1 的画布对齐；`xpos` / `ypos` 等同 `x` / `y`。`timeline` 末尾可用 `repeat 1..16` 重复前面的关键帧。
+
+`transition` 除 `fade` / `dissolve` 外支持 `push left|right`、`wipe left|right`、`punch h|v`。
+
 `scene` 替换背景并清空立绘。`show` 接受静态图片名或引号路径；位置为 `left`、`center`、
-`right`。`onlayer` 选择命名立绘层，`zorder` 是层内 32 位整数，数值小的先绘制；旧写法
+`right`，或一个命名 transform。`onlayer` 选择命名立绘层，`zorder` 是层内 32 位整数，数值小的先绘制；旧写法
 `layer 10` 仍等同于 `zorder 10`。同 alias 的立绘在全舞台唯一并会被替换，`clear name`
 只清空指定立绘层。层名、顺序、立绘和清层结果都会进入存档与回滚；内容热重载会刷新层顺序，
 若删除仍有立绘的自定义层则事务式拒绝重载。
 
 `transform` 可组合以下属性：
 
-- `x` / `y`：相对基础位置的像素偏移。
+- `x` / `y` / `xpos` / `ypos`：相对基础位置的像素偏移。
+- `xalign` / `yalign`：0..1 画布对齐，覆盖 left/center/right。
 - `scale`：`0.01..=20` 的统一缩放。
 - `rotate`：角度。
 - `alpha`：`0..=1`。
@@ -125,6 +143,8 @@ parallel:
 ```
 
 轨道只接受 `transform` 和 `pause`，总时长为最长轨道。保存中途状态后，桌面/Web 均从保存进度恢复。
+
+剧中界面用 `show screen name`、`hide screen name`、`call screen name`。界面定义在 `screens.json` 的 `story` 表中，可用 `hotspot` 和元素 `visible` 表达式。`call screen` 会等到该界面关闭。播放中按 F3 打开只读检查器。
 角色图片预合成见 [产品优化记录](PRODUCT_UPGRADES.md#character-composition)。
 
 ## 变量与表达式
@@ -214,12 +234,15 @@ label add_score(current, amount=1):
 ## 音频与暂停
 
 ```text
-play music "audio/theme.ogg" loop fadein 0.5 volume 0.7
+play music "audio/theme.ogg" loop fadein 0.5 volume 0.7 if_changed
 queue music "audio/next.ogg" volume 0.6 fadein 0.25
-play sound "audio/click.wav" volume 0.5
+play sound "audio/click.wav" volume 0.5 loop
+queue sound "audio/next.wav" volume 0.4
 voice "audio/line-001.wav"
 pause 0.5
 stop music fadeout 0.8
+stop sound
+stop voice
 ```
 
 音乐、音效和语音是独立通道，首次运行默认音量分别为 `0.6`、`0.8`、`1.0`。`play music`、

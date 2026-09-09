@@ -5,7 +5,7 @@ use super::atl::TransformCatalog;
 use super::audio::convert_audio;
 use super::expressions::{
     closing_quote, convert_assignment, convert_condition, convert_default, convert_dialogue,
-    convert_expression, escape_string, named_quoted_argument, quoted_argument, valid_identifier,
+    convert_expression, valid_identifier,
 };
 use super::menus::{menu_has_explicit_exit, menu_prompt, statement_has_explicit_exit};
 use super::parameters::{split_top_level, static_invocation, top_level_assignment};
@@ -166,7 +166,7 @@ fn convert_line(
             content.ends_with(':'),
         );
     }
-    if let Some(converted) = convert_definition(content) {
+    if let Some(converted) = super::story::convert_definition(content) {
         return converted;
     }
     if content.starts_with("image ") {
@@ -175,7 +175,17 @@ fn convert_line(
     if let Some(rest) = content.strip_prefix("label ") {
         return convert_label(rest);
     }
-    if matches!(content, "menu:" | "else:" | "return" | "stop music") {
+    if matches!(
+        content,
+        "menu:"
+            | "else:"
+            | "return"
+            | "stop music"
+            | "stop sound"
+            | "stop voice"
+            | "window show"
+            | "window hide"
+    ) {
         return LineConversion::One(content.to_owned());
     }
     if let Some(expression) = content.strip_prefix("return ") {
@@ -189,6 +199,9 @@ fn convert_line(
     }
     if let Some(dialogue) = convert_dialogue(content) {
         return dialogue;
+    }
+    if let Some(converted) = super::story::convert_story(content) {
+        return converted;
     }
     if let Some(rest) = content.strip_prefix("scene ") {
         return convert_image_statement("scene", rest, catalog, transforms);
@@ -212,6 +225,12 @@ fn convert_line(
                 value: "transition fade 0.5".to_owned(),
                 message: format!("mapped Ren'Py `{}` to a 0.5 second fade", rest.trim()),
             },
+            "pushleft" => LineConversion::One("transition push left 0.5".to_owned()),
+            "pushright" => LineConversion::One("transition push right 0.5".to_owned()),
+            "wipeleft" => LineConversion::One("transition wipe left 0.5".to_owned()),
+            "wiperight" => LineConversion::One("transition wipe right 0.5".to_owned()),
+            "hpunch" => LineConversion::One("transition punch h 0.25".to_owned()),
+            "vpunch" => LineConversion::One("transition punch v 0.25".to_owned()),
             _ => unsupported("custom transitions require manual migration", false),
         };
     }
@@ -411,44 +430,10 @@ fn convert_menu_option(content: &str) -> LineConversion {
     LineConversion::One(content.to_owned())
 }
 
-fn convert_definition(content: &str) -> Option<LineConversion> {
-    let rest = content.strip_prefix("define ")?;
-    let (name, value) = rest.split_once('=')?;
-    let name = name.trim();
-    let value = value.trim();
-    if name == "config.name" {
-        let title = quoted_argument(value)?;
-        return Some(LineConversion::One(format!(
-            "config title \"{}\"",
-            escape_string(&title)
-        )));
-    }
-    if !valid_identifier(name) || !value.starts_with("Character(") || !value.ends_with(')') {
-        return Some(unsupported(
-            "only static Character declarations can be converted",
-            false,
-        ));
-    }
-    let arguments = &value["Character(".len()..value.len() - 1];
-    let Some(display_name) = quoted_argument(arguments) else {
-        return Some(unsupported(
-            "translated or computed character names require manual migration",
-            false,
-        ));
-    };
-    let color = named_quoted_argument(arguments, "color").unwrap_or_else(|| "#f4f4f5".to_owned());
-    Some(LineConversion::One(format!(
-        "define {name} = character \"{}\" color \"{}\"",
-        escape_string(&display_name),
-        escape_string(&color)
-    )))
-}
-
 fn is_unsupported_block(content: &str) -> bool {
     content == "python:"
         || content.starts_with("init python")
         || content.starts_with("screen ")
-        || content.starts_with("transform ")
         || content.starts_with("init ")
 }
 

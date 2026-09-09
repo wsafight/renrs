@@ -157,6 +157,20 @@ impl Runtime {
         };
     }
 
+    /// Advances the serializable sound queue after the frontend reports that
+    /// a non-looping sound reached its decoded end.
+    pub fn complete_sound_track(&mut self) {
+        if self.stage.sound.as_ref().is_some_and(|sound| sound.repeat) {
+            return;
+        }
+        let stage = std::sync::Arc::make_mut(&mut self.stage);
+        stage.sound = if stage.sound_queue.is_empty() {
+            None
+        } else {
+            Some(stage.sound_queue.remove(0))
+        };
+    }
+
     #[must_use]
     pub fn program(&self) -> &Program {
         &self.program
@@ -270,7 +284,10 @@ impl Runtime {
         self.waiting = Some(waiting.clone());
         if matches!(
             waiting,
-            WaitState::Dialogue | WaitState::Choice { .. } | WaitState::Finished
+            WaitState::Dialogue
+                | WaitState::Choice { .. }
+                | WaitState::Screen { .. }
+                | WaitState::Finished
         ) {
             self.record_checkpoint();
         }

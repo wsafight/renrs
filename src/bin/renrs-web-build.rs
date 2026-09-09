@@ -69,7 +69,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         renrs::screens::Screens::default()
     };
-    let mut layouts = std::collections::BTreeMap::new();
+    let mut layouts =
+        std::collections::BTreeMap::<String, Vec<renrs::screens::PlacedElement>>::new();
     for (name, kind) in [
         ("main_menu", ScreenKind::MainMenu),
         ("hud", ScreenKind::Hud),
@@ -81,8 +82,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         ("choices", ScreenKind::Choices),
     ] {
         if let Some(screen) = screens.get(kind) {
-            layouts.insert(name, renrs::screens::layout(screen)?);
+            layouts.insert(name.to_owned(), renrs::screens::layout(screen)?);
         }
+    }
+    for (name, screen) in &screens.story {
+        layouts.insert(format!("story:{name}"), renrs::screens::layout(screen)?);
     }
     std::fs::write(
         staging.path().join("project.json"),

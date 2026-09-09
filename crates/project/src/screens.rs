@@ -4,6 +4,8 @@ use std::collections::BTreeMap;
 
 mod layout;
 pub use layout::{PlacedElement, ViewportFrame, layout};
+mod validation;
+use validation::{validate_story_map, validate_visible};
 
 pub const SCREENS_FILE: &str = "screens.json";
 
@@ -32,6 +34,8 @@ pub struct Screens {
     pub history: Option<Screen>,
     pub dialogue: Option<Screen>,
     pub choices: Option<Screen>,
+    #[serde(default)]
+    pub story: BTreeMap<String, Screen>,
 }
 
 impl Default for Screens {
@@ -47,6 +51,7 @@ impl Default for Screens {
             history: None,
             dialogue: None,
             choices: None,
+            story: BTreeMap::new(),
         }
     }
 }
@@ -74,6 +79,8 @@ pub struct Element {
     pub size: Option<f32>,
     #[serde(default)]
     pub style: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible: Option<String>,
     #[serde(flatten)]
     pub widget: Widget,
 }
@@ -137,6 +144,14 @@ pub enum Widget {
     Button {
         text: String,
         action: Action,
+    },
+    Hotspot {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        action: Option<Action>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        variable: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        expression: Option<String>,
     },
     Slider {
         text: String,
@@ -266,6 +281,7 @@ impl Screens {
             if let Some(screen) = screens.get(kind) {
                 let elements = layout(screen)?;
                 for element in &elements {
+                    validate_visible(element.visible.as_deref())?;
                     validate_data_widget(kind, &element.widget)?;
                     validate_set_widget(kind, &element.widget)?;
                     if matches!(element.widget, Widget::Dialogue) && kind != ScreenKind::Dialogue
@@ -319,6 +335,7 @@ impl Screens {
                 }
             }
         }
+        validate_story_map(&screens)?;
         Ok(screens)
     }
 
@@ -351,6 +368,7 @@ impl Screens {
         ]
         .into_iter()
         .filter_map(|kind| self.get(kind))
+        .chain(self.story.values())
         .flat_map(|screen| layout(screen).unwrap_or_default())
         .filter_map(|element| {
             if let Widget::Image { path } = element.widget {

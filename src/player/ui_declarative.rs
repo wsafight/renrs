@@ -422,7 +422,8 @@ impl App {
                 Widget::Row { .. }
                 | Widget::Column { .. }
                 | Widget::Stack { .. }
-                | Widget::Viewport { .. } => {}
+                | Widget::Viewport { .. }
+                | Widget::Hotspot { .. } => {}
             }
         }
         if let Some(command) = command {

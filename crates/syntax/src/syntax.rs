@@ -5,6 +5,9 @@ pub use crate::animation::{AnimationStep, validate_tracks};
 pub use crate::data::Builtin;
 use crate::localization::TranslationId;
 pub use crate::presentation::{ImageFrame, ImageLayer, LayeredImage};
+pub use crate::transform::{
+    CropRect, Easing, Position, TransformProperties, TransformState, TransitionKind,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Span {
@@ -33,6 +36,8 @@ impl Span {
 pub struct CharacterDef {
     pub name: String,
     pub color: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
     pub span: Span,
 }
 
@@ -50,8 +55,16 @@ pub struct Script {
     #[serde(default)]
     pub display_layers: IndexMap<String, DisplayLayerDef>,
     #[serde(default)]
+    pub transforms: IndexMap<String, NamedTransform>,
+    #[serde(default)]
     pub label_parameters: IndexMap<String, Vec<LabelParameter>>,
     pub labels: IndexMap<String, Block>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NamedTransform {
+    pub properties: TransformProperties,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -130,8 +143,25 @@ pub enum StatementKind {
         path: String,
         seconds: f32,
     },
+    Window {
+        visible: bool,
+    },
+    ShowScreen {
+        name: String,
+    },
+    HideScreen {
+        name: String,
+    },
+    CallScreen {
+        name: String,
+    },
+    Repeat {
+        count: u32,
+    },
     Dialogue {
         speaker: Option<String>,
+        #[serde(default)]
+        attributes: Vec<String>,
         text: String,
     },
     Scene {
@@ -143,6 +173,8 @@ pub enum StatementKind {
         position: Position,
         layer: i32,
         display_layer: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        at_transform: Option<String>,
     },
     Hide {
         alias: String,
@@ -178,6 +210,8 @@ pub enum StatementKind {
         repeat: bool,
         fade_in: f32,
         volume: f32,
+        #[serde(default)]
+        if_changed: bool,
     },
     QueueMusic {
         path: String,
@@ -188,11 +222,25 @@ pub enum StatementKind {
     PlaySound {
         path: String,
         volume: f32,
+        #[serde(default)]
+        repeat: bool,
+    },
+    QueueSound {
+        path: String,
+        volume: f32,
+        #[serde(default)]
+        repeat: bool,
     },
     PlayVoice {
         path: String,
     },
     StopMusic {
+        fade_out: f32,
+    },
+    StopSound {
+        fade_out: f32,
+    },
+    StopVoice {
         fade_out: f32,
     },
     Pause {
@@ -230,164 +278,6 @@ pub struct MenuOption {
 pub struct MenuPrompt {
     pub speaker: Option<String>,
     pub text: String,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Position {
-    Left,
-    #[default]
-    Center,
-    Right,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TransitionKind {
-    Fade,
-    Dissolve,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct TransformState {
-    pub x: f32,
-    pub y: f32,
-    pub scale: f32,
-    pub rotation: f32,
-    pub alpha: f32,
-    pub anchor_x: f32,
-    pub anchor_y: f32,
-    pub crop: Option<CropRect>,
-}
-
-impl Default for TransformState {
-    fn default() -> Self {
-        Self::identity()
-    }
-}
-
-impl TransformState {
-    #[must_use]
-    pub const fn identity() -> Self {
-        Self {
-            x: 0.0,
-            y: 0.0,
-            scale: 1.0,
-            rotation: 0.0,
-            alpha: 1.0,
-            anchor_x: 0.0,
-            anchor_y: 1.0,
-            crop: None,
-        }
-    }
-
-    #[must_use]
-    pub fn interpolate(self, target: Self, progress: f32) -> Self {
-        let progress = progress.clamp(0.0, 1.0);
-        Self {
-            x: lerp(self.x, target.x, progress),
-            y: lerp(self.y, target.y, progress),
-            scale: lerp(self.scale, target.scale, progress),
-            rotation: lerp(self.rotation, target.rotation, progress),
-            alpha: lerp(self.alpha, target.alpha, progress),
-            anchor_x: lerp(self.anchor_x, target.anchor_x, progress),
-            anchor_y: lerp(self.anchor_y, target.anchor_y, progress),
-            crop: match (self.crop, target.crop) {
-                (Some(from), Some(to)) => Some(from.interpolate(to, progress)),
-                (from, to) => {
-                    if progress < 1.0 {
-                        from
-                    } else {
-                        to
-                    }
-                }
-            },
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
-pub struct TransformProperties {
-    pub x: Option<f32>,
-    pub y: Option<f32>,
-    pub scale: Option<f32>,
-    pub rotation: Option<f32>,
-    pub alpha: Option<f32>,
-    pub anchor: Option<(f32, f32)>,
-    pub crop: Option<Option<CropRect>>,
-}
-
-impl TransformProperties {
-    #[must_use]
-    pub fn apply(self, mut state: TransformState) -> TransformState {
-        if let Some(value) = self.x {
-            state.x = value;
-        }
-        if let Some(value) = self.y {
-            state.y = value;
-        }
-        if let Some(value) = self.scale {
-            state.scale = value;
-        }
-        if let Some(value) = self.rotation {
-            state.rotation = value;
-        }
-        if let Some(value) = self.alpha {
-            state.alpha = value;
-        }
-        if let Some((x, y)) = self.anchor {
-            state.anchor_x = x;
-            state.anchor_y = y;
-        }
-        if let Some(value) = self.crop {
-            state.crop = value;
-        }
-        state
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct CropRect {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-}
-
-impl CropRect {
-    fn interpolate(self, target: Self, progress: f32) -> Self {
-        Self {
-            x: lerp(self.x, target.x, progress),
-            y: lerp(self.y, target.y, progress),
-            width: lerp(self.width, target.width, progress),
-            height: lerp(self.height, target.height, progress),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Easing {
-    #[default]
-    Linear,
-    EaseIn,
-    EaseOut,
-    EaseInOut,
-}
-
-impl Easing {
-    #[must_use]
-    pub fn sample(self, progress: f32) -> f32 {
-        let progress = progress.clamp(0.0, 1.0);
-        match self {
-            Self::Linear => progress,
-            Self::EaseIn => progress * progress,
-            Self::EaseOut => 1.0 - (1.0 - progress) * (1.0 - progress),
-            Self::EaseInOut if progress < 0.5 => 2.0 * progress * progress,
-            Self::EaseInOut => 1.0 - (-2.0 * progress + 2.0).powi(2) / 2.0,
-        }
-    }
-}
-
-fn lerp(from: f32, to: f32, progress: f32) -> f32 {
-    from + (to - from) * progress
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

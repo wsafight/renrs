@@ -10,10 +10,14 @@ import type {
 } from './types';
 
 export type AudioEvent =
-  | 'StopVoice'
-  | { PlaySound: { path: string; volume?: number } }
+  | { PlayMusic: { path: string; repeat: boolean; fade_in: number; volume: number } }
+  | { QueueMusic: { path: string; repeat: boolean; fade_in: number; volume: number } }
+  | { PlaySound: { path: string; volume: number; repeat: boolean } }
+  | { QueueSound: { path: string; volume: number; repeat: boolean } }
   | { PlayVoice: { path: string } }
-  | { StopMusic: { fade_out: number } };
+  | { StopMusic: { fade_out: number } }
+  | { StopSound: { fade_out: number } }
+  | { StopVoice: { fade_out: number } };
 
 export interface VideoManifest {
   version: 1 | 2;
@@ -258,7 +262,6 @@ export function parseImportedSave(text: string): ImportedSave {
 export function parseAudioEvents(text: string): AudioEvent[] {
   const values = array(parseJson(text, 'audio events'), 'audio events');
   for (const value of values) {
-    if (value === 'StopVoice') continue;
     record(value, 'audio event');
   }
   return values as AudioEvent[];

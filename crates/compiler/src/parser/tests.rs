@@ -285,3 +285,54 @@ fn rejects_invalid_parameter_and_argument_ordering() {
             .contains("duplicate named argument")
     );
 }
+
+#[test]
+fn parses_say_attributes_window_screens_and_named_transforms() {
+    let script = parse_script(
+        r##"define m = character "Mira" color "#ef8b72" image mira
+image mira = "images/mira.png"
+image mira_happy = "images/mira_happy.png"
+transform shy:
+    xalign 0.2
+    yalign 1.0
+label start:
+    window hide
+    show mira at shy
+    window show
+    m happy "Hello.{w} There.{nw}"
+    show screen bag
+    call screen examine
+    hide screen bag
+    play music "a.ogg" loop if_changed
+    play sound "b.wav" loop volume 0.4
+    stop sound
+    stop voice
+    transition push left 0.4
+    timeline:
+        transform mira x 8 over 0.05
+        transform mira x -8 over 0.05
+        repeat 2
+    return
+"##,
+        "story.rns",
+    )
+    .unwrap();
+    assert_eq!(script.characters["m"].image.as_deref(), Some("mira"));
+    assert!(script.transforms.contains_key("shy"));
+    assert!(matches!(
+        script.labels["start"][0].kind,
+        StatementKind::Window { visible: false }
+    ));
+    assert!(matches!(
+        &script.labels["start"][3].kind,
+        StatementKind::Dialogue { attributes, .. } if attributes == &["happy".to_owned()]
+    ));
+    assert!(matches!(
+        script.labels["start"][4].kind,
+        StatementKind::ShowScreen { .. }
+    ));
+    assert!(matches!(
+        script.labels["start"][5].kind,
+        StatementKind::CallScreen { .. }
+    ));
+}

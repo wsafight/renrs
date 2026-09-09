@@ -41,6 +41,7 @@ fn collect_edges<'a>(
         match &statement.kind {
             StatementKind::Jump { label } => edges.push((from, label, "jump")),
             StatementKind::Call { label, .. } => edges.push((from, label, "call")),
+            StatementKind::CallScreen { name } => edges.push((from, name, "screen")),
             StatementKind::If {
                 branches,
                 else_block,

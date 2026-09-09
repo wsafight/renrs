@@ -11,10 +11,11 @@ import type {
 export interface AudioApp {
   voices: Map<string, AudioHandle>;
   settings: PlayerSettings;
-  state: { stage: Pick<StageState, 'music' | 'voice'> };
+    state: { stage: Pick<StageState, 'music' | 'sound' | 'voice'> };
   engine: {
     audio_events(): string;
     music_ended(): void;
+    sound_ended(): void;
     state(): string;
   };
   asset(path: string): string;
@@ -24,16 +25,28 @@ export interface AudioApp {
 
 export function setupAudio(app: AudioApp, AudioClass: AudioConstructor = Audio) {
   const channels = app.voices;
-  let sequence = 0,
-    voicePath: string | null = null;
-  function stop(channel: string): void {
+  let voicePath: string | null = null;
+  function release(audio: AudioHandle): void {
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+  }
+  function stop(channel: string, fadeOut = 0): void {
     const audio = channels.get(channel);
     if (!audio) return;
     channels.delete(channel);
     audio.onended = audio.onerror = null;
-    audio.pause();
-    audio.removeAttribute('src');
-    audio.load();
+    if (fadeOut > 0 && !audio.paused) {
+      const initial = audio.volume,
+        started = performance.now();
+      const fade = () => {
+        const progress = Math.min(1, (performance.now() - started) / (fadeOut * 1000));
+        audio.volume = initial * (1 - progress);
+        if (progress < 1) setTimeout(fade, 25);
+        else release(audio);
+      };
+      fade();
+    } else release(audio);
     app.refreshLayerClock?.();
   }
   function reset(): void {
@@ -42,10 +55,6 @@ export function setupAudio(app: AudioApp, AudioClass: AudioConstructor = Audio) 
   }
   async function play(path: string, channel: string, repeat = false, volume = 1): Promise<void> {
     stop(channel);
-    if (channel.startsWith('sound-')) {
-      const sounds = [...channels.keys()].filter((key) => key.startsWith('sound-'));
-      if (sounds.length >= 8) stop(sounds[0]);
-    }
     if (channel === 'voice') voicePath = path;
     const audio = new AudioClass(app.asset(path));
     audio.loop = repeat;
@@ -59,10 +68,21 @@ export function setupAudio(app: AudioApp, AudioClass: AudioConstructor = Audio) 
         app.engine.music_ended();
         app.state = parseRuntimeState(app.engine.state()) as RuntimeState;
         events().catch(app.notify);
+      } else if (channel === 'sound') {
+        app.engine.sound_ended();
+        app.state = parseRuntimeState(app.engine.state()) as RuntimeState;
+        events().catch(app.notify);
       }
     };
     audio.onerror = () => {
-      if (channels.get(channel) === audio) stop(channel);
+      if (channels.get(channel) === audio) {
+        stop(channel);
+        if (channel === 'sound') {
+          app.engine.sound_ended();
+          app.state = parseRuntimeState(app.engine.state()) as RuntimeState;
+          events().catch(app.notify);
+        }
+      }
       app.notify(`Could not play ${path}`);
     };
     try {
@@ -80,15 +100,21 @@ export function setupAudio(app: AudioApp, AudioClass: AudioConstructor = Audio) 
   }
   async function events(): Promise<void> {
     for (const event of parseAudioEvents(app.engine.audio_events())) {
-      if (typeof event === 'object' && 'PlaySound' in event)
-        await play(event.PlaySound.path, `sound-${++sequence}`, false, event.PlaySound.volume ?? 1);
+      if ('PlaySound' in event)
+        await play(
+          event.PlaySound.path,
+          'sound',
+          event.PlaySound.repeat,
+          event.PlaySound.volume,
+        );
       if (typeof event === 'object' && 'PlayVoice' in event)
         await play(event.PlayVoice.path, 'voice');
-      if (event === 'StopVoice') {
-        stop('voice');
+      if ('StopVoice' in event) {
+        stop('voice', event.StopVoice.fade_out);
         voicePath = null;
       }
-      if (typeof event === 'object' && 'StopMusic' in event) stop('music');
+      if ('StopMusic' in event) stop('music', event.StopMusic.fade_out);
+      if ('StopSound' in event) stop('sound', event.StopSound.fade_out);
     }
     const music = app.state.stage.music;
     const currentMusic = channels.get('music'),
@@ -102,6 +128,18 @@ export function setupAudio(app: AudioApp, AudioClass: AudioConstructor = Audio) 
       await play(music.path, 'music', music.repeat, musicVolume);
     }
     if (!music) stop('music');
+    const sound = app.state.stage.sound;
+    const currentSound = channels.get('sound'),
+      soundVolume = sound?.volume ?? 1;
+    if (
+      sound &&
+      (currentSound?.src !== app.asset(sound.path) ||
+        currentSound.loop !== sound.repeat ||
+        Number(currentSound.dataset.relativeVolume) !== soundVolume)
+    ) {
+      await play(sound.path, 'sound', sound.repeat, soundVolume);
+    }
+    if (!sound) stop('sound');
     const voice = app.state.stage.voice;
     if (voice && voice !== voicePath) await play(voice, 'voice');
     if (!voice) {

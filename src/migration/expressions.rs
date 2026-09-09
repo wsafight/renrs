@@ -106,8 +106,25 @@ pub(super) fn convert_expression(source: &str) -> Result<String, String> {
 pub(super) fn convert_dialogue(content: &str) -> Option<LineConversion> {
     let quote = content.find('"')?;
     let prefix = content[..quote].trim();
-    if !prefix.is_empty() && !valid_identifier(prefix) {
-        return None;
+    if !prefix.is_empty() {
+        let tokens = prefix.split_whitespace().collect::<Vec<_>>();
+        if tokens.iter().any(|token| !valid_identifier(token))
+            || matches!(
+                tokens[0],
+                "play"
+                    | "queue"
+                    | "stop"
+                    | "show"
+                    | "hide"
+                    | "scene"
+                    | "voice"
+                    | "call"
+                    | "jump"
+                    | "image"
+            )
+        {
+            return None;
+        }
     }
     let Some(end) = closing_quote(content, quote) else {
         return Some(unsupported("dialogue has an unterminated string", false));

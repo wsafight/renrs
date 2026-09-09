@@ -150,6 +150,7 @@ pub(crate) fn merge_fragments(fragments: Vec<ScriptFragment>) -> Result<Script, 
     let mut defaults: IndexMap<String, DefaultDef> = IndexMap::new();
     let mut images: IndexMap<String, ImageDef> = IndexMap::new();
     let mut display_layers: IndexMap<String, DisplayLayerDef> = IndexMap::new();
+    let mut transforms: IndexMap<String, crate::syntax::NamedTransform> = IndexMap::new();
     let mut label_parameters: IndexMap<String, Vec<crate::syntax::LabelParameter>> =
         IndexMap::new();
     let mut labels: IndexMap<String, Block> = IndexMap::new();
@@ -164,6 +165,7 @@ pub(crate) fn merge_fragments(fragments: Vec<ScriptFragment>) -> Result<Script, 
             defaults: fragment_defaults,
             images: fragment_images,
             display_layers: fragment_display_layers,
+            transforms: fragment_transforms,
             label_parameters: fragment_label_parameters,
             labels: fragment_labels,
         } = fragment;
@@ -255,6 +257,22 @@ pub(crate) fn merge_fragments(fragments: Vec<ScriptFragment>) -> Result<Script, 
                 display_layers.insert(name, definition);
             }
         }
+        for (name, definition) in fragment_transforms {
+            if let Some(first) = transforms.get(&name) {
+                diagnostics.push(
+                    at(
+                        &definition.span,
+                        format!("transform `{name}` is declared more than once"),
+                    )
+                    .with_hint(format!(
+                        "the first declaration is at {}:{}:{}",
+                        first.span.source, first.span.line, first.span.column
+                    )),
+                );
+            } else {
+                transforms.insert(name, definition);
+            }
+        }
         for (name, block) in fragment_labels {
             if let Some(first) = labels.get(&name) {
                 let span = block.first().map_or_else(
@@ -303,6 +321,7 @@ pub(crate) fn merge_fragments(fragments: Vec<ScriptFragment>) -> Result<Script, 
             defaults,
             images,
             display_layers,
+            transforms,
             label_parameters,
             labels,
         })

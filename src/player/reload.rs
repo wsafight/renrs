@@ -47,6 +47,7 @@ impl App {
         }
         self.history_view.invalidate();
         self.dialogue_view.invalidate();
+        self.dialogue_cue_remaining = None;
         self.selected_choice = 0;
         self.clips.clear();
         self.video = None;

@@ -28,6 +28,7 @@ impl App {
                 self.fatal_error = None;
                 self.storage.chapter = None;
                 self.audio.stop_music();
+                self.audio.stop_sound();
                 self.audio.stop_voice();
                 self.handle_wait(result);
             }
@@ -44,18 +45,65 @@ impl App {
             .runtime
             .as_ref()
             .is_some_and(|runtime| matches!(runtime.waiting(), Some(WaitState::Dialogue)))
-            && self.dialogue_view.next_page()
         {
-            self.visible_characters = 0.0;
-            self.auto_remaining = self.settings.auto_delay;
-            self.skip_remaining = 0.08;
-            self.storage.progress_dirty = true;
-            return;
+            let visible = self.visible_characters as usize;
+            if self.dialogue_cue_remaining.is_some() {
+                self.complete_dialogue_cue();
+                return;
+            }
+            let count = self.dialogue_view.character_count();
+            if visible < count {
+                while let Some(cue) = self.dialogue_view.cue() {
+                    if cue.position < visible || matches!(cue.kind, renrs::text::TextCue::Fast) {
+                        self.dialogue_view.consume_cue();
+                        continue;
+                    }
+                    self.visible_characters = cue.position as f32;
+                    if let renrs::text::TextCue::Wait { hundredths }
+                    | renrs::text::TextCue::Page { hundredths } = cue.kind
+                    {
+                        self.dialogue_cue_remaining = Some(
+                            hundredths.map_or(f32::INFINITY, |value| f32::from(value) / 100.0),
+                        );
+                    }
+                    self.redraw = true;
+                    return;
+                }
+                self.visible_characters = count as f32;
+                self.redraw = true;
+                return;
+            }
+            if self.dialogue_view.next_page() {
+                self.visible_characters = 0.0;
+                self.auto_remaining = self.settings.auto_delay;
+                self.skip_remaining = 0.08;
+                self.storage.progress_dirty = true;
+                return;
+            }
         }
         if let Some(runtime) = &mut self.runtime {
             let result = runtime.continue_story();
             self.handle_wait(result);
         }
+    }
+
+    pub(super) fn complete_dialogue_cue(&mut self) {
+        self.dialogue_cue_remaining = None;
+        let Some(cue) = self.dialogue_view.consume_cue() else {
+            return;
+        };
+        if matches!(cue.kind, renrs::text::TextCue::Page { .. }) {
+            if self.dialogue_view.next_page() {
+                self.visible_characters = 0.0;
+                self.auto_remaining = self.settings.auto_delay;
+                self.skip_remaining = 0.08;
+                self.storage.progress_dirty = true;
+            } else if let Some(runtime) = &mut self.runtime {
+                let result = runtime.continue_story();
+                self.handle_wait(result);
+            }
+        }
+        self.redraw = true;
     }
 
     pub(super) fn handle_wait(&mut self, result: Result<WaitState, renrs::RuntimeError>) {
@@ -68,6 +116,7 @@ impl App {
             .map_or_else(Vec::new, |runtime| runtime.upcoming_images(4));
         self.history_view.invalidate();
         self.dialogue_view.invalidate();
+        self.dialogue_cue_remaining = None;
         self.storage.progress_dirty = true;
         match result {
             Ok(WaitState::Dialogue) => {
@@ -101,6 +150,10 @@ impl App {
                 } else {
                     effect.seconds()
                 };
+            }
+            Ok(WaitState::Screen { .. }) => {
+                self.visible_characters = f32::MAX;
+                self.focus.clear();
             }
             Ok(WaitState::Finished) => self.auto_save(),
             Err(error) => self.fatal_error = Some(error.to_string()),

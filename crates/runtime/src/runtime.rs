@@ -14,7 +14,7 @@ use renrs_model::{InstructionId, InstructionKind, Program, StatementId};
 const MAX_IMMEDIATE_STEPS: usize = 10_000;
 const MAX_ROLLBACK_CHECKPOINTS: usize = 256;
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StageState {
     #[serde(default)]
     pub camera: TransformState,
@@ -29,6 +29,38 @@ pub struct StageState {
     pub music_queue: Vec<MusicState>,
     pub voice: Option<String>,
     pub dialogue: Option<DialogueState>,
+    #[serde(default = "default_true")]
+    pub window: bool,
+    #[serde(default)]
+    pub shown_screens: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound: Option<MusicState>,
+    #[serde(default)]
+    pub sound_queue: Vec<MusicState>,
+}
+
+const fn default_true() -> bool {
+    true
+}
+
+impl Default for StageState {
+    fn default() -> Self {
+        Self {
+            camera: TransformState::identity(),
+            nvl: false,
+            nvl_start: 0,
+            background: None,
+            sprites: Vec::new(),
+            music: None,
+            music_queue: Vec::new(),
+            voice: None,
+            dialogue: None,
+            window: true,
+            shown_screens: Vec::new(),
+            sound: None,
+            sound_queue: Vec::new(),
+        }
+    }
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)] // Required by serde's skip predicate.
@@ -51,6 +83,8 @@ pub struct SpriteState {
     pub display_order: i32,
     #[serde(default)]
     pub transform: TransformState,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attributes: Vec<String>,
 }
 
 fn master_display_layer() -> String {
@@ -97,6 +131,8 @@ pub struct DialogueState {
     pub voice_path: Option<String>,
     #[serde(default)]
     pub runs: Vec<TextRun>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub no_wait: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -105,6 +141,7 @@ pub enum WaitState {
     Choice { options: Vec<String> },
     Pause { seconds: f32 },
     Effect { effect: VisualEffect },
+    Screen { name: String },
     Finished,
 }
 
@@ -139,6 +176,20 @@ pub enum VisualEffect {
         seconds: f32,
         easing: Easing,
     },
+    Push {
+        from: Box<StageState>,
+        left: bool,
+        seconds: f32,
+    },
+    Wipe {
+        from: Box<StageState>,
+        left: bool,
+        seconds: f32,
+    },
+    Punch {
+        vertical: bool,
+        seconds: f32,
+    },
 }
 
 impl VisualEffect {
@@ -150,7 +201,10 @@ impl VisualEffect {
             | Self::Video { seconds, .. }
             | Self::Dissolve { seconds, .. }
             | Self::Tween { seconds, .. }
-            | Self::Transform { seconds, .. } => *seconds,
+            | Self::Transform { seconds, .. }
+            | Self::Push { seconds, .. }
+            | Self::Wipe { seconds, .. }
+            | Self::Punch { seconds, .. } => *seconds,
         }
     }
 }
@@ -172,6 +226,12 @@ pub enum AudioEvent {
     PlaySound {
         path: String,
         volume: f32,
+        repeat: bool,
+    },
+    QueueSound {
+        path: String,
+        volume: f32,
+        repeat: bool,
     },
     PlayVoice {
         path: String,
@@ -179,7 +239,12 @@ pub enum AudioEvent {
     StopMusic {
         fade_out: f32,
     },
-    StopVoice,
+    StopSound {
+        fade_out: f32,
+    },
+    StopVoice {
+        fade_out: f32,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -311,6 +376,7 @@ mod display_tests;
 mod execute;
 #[path = "runtime/inspect.rs"]
 mod inspect;
+pub use inspect::DebugState;
 #[path = "runtime/localize.rs"]
 mod localize;
 #[path = "runtime/prediction.rs"]
@@ -327,14 +393,14 @@ mod session;
 #[cfg(test)]
 #[path = "runtime/sharing_tests.rs"]
 mod sharing_tests;
+#[path = "runtime/stage.rs"]
+mod stage;
 #[path = "runtime/value.rs"]
 mod value;
 
 #[cfg(test)]
 #[path = "runtime/tests.rs"]
 mod tests;
-
-pub use inspect::DebugState;
 
 /// Expands variable placeholders using the same rules as story dialogue.
 ///

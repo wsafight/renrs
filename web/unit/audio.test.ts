@@ -61,23 +61,42 @@ function fixture() {
     engine: {
       audio_events: () => JSON.stringify(events.splice(0)),
       music_ended: () => {},
-      state: () => '',
+      sound_ended: () => {
+        app.state.stage.sound = null;
+      },
+      state: () =>
+        JSON.stringify({
+          stage: { sprites: [], camera: {}, ...app.state.stage },
+          waiting: null,
+          debug: { paused: false },
+          profile_revision: 0,
+          history_count: 0,
+          can_rollback: false,
+        }),
     },
   };
   return { app, events, audio: setupAudio(app, FakeAudio) };
 }
-test('sound bursts stay bounded and ended/error channels release their resources', async () => {
+test('playing a sound replaces the channel and ended/error states release resources', async () => {
   const { app, events, audio } = fixture();
-  events.push(...Array.from({ length: 100 }, () => ({ PlaySound: { path: 'sound.wav' } })));
+  app.state.stage.sound = { path: 'sound.wav', repeat: false, volume: 1 };
+  events.push(
+    ...Array.from({ length: 100 }, () => ({
+      PlaySound: { path: 'sound.wav', repeat: false, volume: 1 },
+    })),
+  );
   await audio.events();
-  assert.equal(app.voices.size, 8);
-  const ended = [...app.voices.values()][0] as FakeAudio;
+  assert.equal(app.voices.size, 1);
+  const ended = app.voices.get('sound') as FakeAudio;
   ended.onended?.(new Event('ended'));
-  assert.equal(app.voices.size, 7);
+  assert.equal(app.voices.size, 0);
   assert.equal(ended.released, true);
-  const failed = [...app.voices.values()][0] as FakeAudio;
+  app.state.stage.sound = { path: 'broken.wav', repeat: false, volume: 1 };
+  events.push({ PlaySound: { path: 'broken.wav', repeat: false, volume: 1 } });
+  await audio.events();
+  const failed = app.voices.get('sound') as FakeAudio;
   if (typeof failed.onerror === 'function') failed.onerror(new Event('error'));
-  assert.equal(app.voices.size, 6);
+  assert.equal(app.voices.size, 0);
   assert.equal(failed.released, true);
   audio.reset();
   assert.equal(app.voices.size, 0);
@@ -101,10 +120,11 @@ test('relative media volume multiplies channel preferences', async () => {
   const { app, events, audio } = fixture();
   app.settings = settings();
   app.state.stage.music = { path: 'music.ogg', repeat: true, volume: 0.5 };
-  events.push({ PlaySound: { path: 'sound.wav', volume: 0.25 } });
+  app.state.stage.sound = { path: 'sound.wav', repeat: false, volume: 0.25 };
+  events.push({ PlaySound: { path: 'sound.wav', volume: 0.25, repeat: false } });
   await audio.events();
   assert.equal(app.voices.get('music')?.volume, 0.3);
-  assert.equal(app.voices.get('sound-1')?.volume, 0.2);
+  assert.equal(app.voices.get('sound')?.volume, 0.2);
   const first = app.voices.get('music');
   app.state.stage.music.volume = 0.25;
   await audio.events();

@@ -15,7 +15,10 @@ fn play_path(choices: &[usize]) -> Vec<String> {
     let mut state = runtime.advance().expect("demo path should execute");
     loop {
         state = match state {
-            WaitState::Dialogue | WaitState::Pause { .. } | WaitState::Effect { .. } => {
+            WaitState::Dialogue
+            | WaitState::Pause { .. }
+            | WaitState::Effect { .. }
+            | WaitState::Screen { .. } => {
                 runtime.continue_story().expect("demo path should continue")
             }
             WaitState::Choice { .. } => {

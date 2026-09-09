@@ -12,6 +12,7 @@ impl Parser {
         let mut defaults = IndexMap::new();
         let mut images = IndexMap::new();
         let mut display_layers = IndexMap::new();
+        let mut transforms = IndexMap::new();
         let mut label_parameters = IndexMap::new();
         let mut labels = IndexMap::new();
         let mut errors = Vec::new();
@@ -105,6 +106,22 @@ impl Parser {
                         self.current += 1;
                     }
                 }
+            } else if cursor.keyword("transform") {
+                match self.parse_named_transform(&line, &mut cursor) {
+                    Ok((name, definition)) => {
+                        if transforms.insert(name.clone(), definition).is_some() {
+                            errors.push(self.error(
+                                &line,
+                                1,
+                                format!("transform `{name}` is declared more than once"),
+                            ));
+                        }
+                    }
+                    Err(error) => {
+                        errors.push(error);
+                        self.current += 1;
+                    }
+                }
             } else if cursor.keyword("define") {
                 match self.parse_character(&line, &mut cursor) {
                     Ok((id, character)) => {
@@ -156,7 +173,7 @@ impl Parser {
                     self.error(
                         &line,
                         1,
-                        "expected `config`, `default`, `image`, `layer`, `define`, or `label`",
+                        "expected `config`, `default`, `image`, `layer`, `transform`, `define`, or `label`",
                     )
                     .with_hint("executable statements belong inside a label block"),
                 );
@@ -173,6 +190,7 @@ impl Parser {
                 defaults,
                 images,
                 display_layers,
+                transforms,
                 label_parameters,
                 labels,
             })
@@ -316,6 +334,13 @@ impl Parser {
         } else {
             "#f4f4f5".to_owned()
         };
+        let image = if cursor.keyword("image") {
+            Some(cursor.identifier().ok_or_else(|| {
+                self.error(line, cursor.column(), "expected character image name")
+            })?)
+        } else {
+            None
+        };
         cursor
             .end()
             .map_err(|message| self.error(line, cursor.column(), message))?;
@@ -324,6 +349,7 @@ impl Parser {
             CharacterDef {
                 name,
                 color,
+                image,
                 span: self.span(line.number, 1),
             },
         ))

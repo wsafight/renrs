@@ -41,6 +41,7 @@ pub(super) enum Overlay {
 #[allow(clippy::struct_excessive_bools)]
 pub(super) struct App {
     pub(super) canvas_target: Option<RenderTarget>,
+    pub(super) transition_target: Option<RenderTarget>,
     pub(super) drag_expression: Option<String>,
     pub(super) redraw: bool,
     pub(super) clips: std::collections::HashMap<String, renrs::video::VideoClip>,
@@ -74,6 +75,7 @@ pub(super) struct App {
     pub(super) selected_choice: usize,
     pub(super) playback: PlaybackModes,
     pub(super) auto_remaining: f32,
+    pub(super) dialogue_cue_remaining: Option<f32>,
     pub(super) skip_remaining: f32,
     pub(super) play_time_seconds: f64,
     pub(super) notice: Option<(String, f32)>,
@@ -81,6 +83,7 @@ pub(super) struct App {
     pub(super) quit: bool,
     pub(super) history_view: HistoryView,
     pub(super) dialogue_view: DialogueView,
+    pub(super) inspect: bool,
     pub(super) language_offset: usize,
     pub(super) slot_group: SlotGroup,
     pub(super) storage: super::saving::PlayerStorage,
@@ -118,6 +121,7 @@ impl App {
         let screens = super::ui_declarative::load_screens(&source).unwrap_or_default();
         Self {
             canvas_target: None,
+            transition_target: None,
             drag_expression: None,
             redraw: true,
             clips: std::collections::HashMap::new(),
@@ -151,6 +155,7 @@ impl App {
             selected_choice: 0,
             playback: PlaybackModes::default(),
             auto_remaining: auto_delay,
+            dialogue_cue_remaining: None,
             skip_remaining: 0.0,
             play_time_seconds: 0.0,
             notice: localization_notice.map(|notice| (notice, 6.0)),
@@ -158,6 +163,7 @@ impl App {
             quit: false,
             history_view: HistoryView::default(),
             dialogue_view: DialogueView::default(),
+            inspect: false,
             language_offset: 0,
             slot_group: SlotGroup::Manual,
             storage,
@@ -239,6 +245,8 @@ impl App {
                 &self.source,
                 &self.settings,
             );
+            self.audio
+                .sync_sound(runtime.stage().sound.as_ref(), &self.settings);
         }
     }
 
@@ -258,28 +266,7 @@ impl App {
                 self.runtime.as_ref().and_then(Runtime::waiting),
                 Some(WaitState::Dialogue)
             ) {
-                let dialogue_length = self.dialogue_view.character_count();
-                let previous = self.visible_characters as usize;
-                self.visible_characters = (self.visible_characters
-                    + delta * self.settings.text_speed)
-                    .min(dialogue_length as f32);
-                self.redraw |= previous != self.visible_characters as usize;
-                if self.playback.skip_read {
-                    if self.playback.current_dialogue_was_read {
-                        self.skip_remaining -= delta;
-                        should_continue = self.skip_remaining <= 0.0;
-                    } else {
-                        self.playback.skip_read = false;
-                    }
-                } else if self.playback.auto
-                    && self.visible_characters >= dialogue_length as f32
-                    && (!self.settings.wait_voice
-                        || self.settings.voice_volume <= f32::EPSILON
-                        || !self.audio.voice_busy())
-                {
-                    self.auto_remaining -= delta;
-                    should_continue = self.auto_remaining <= 0.0;
-                }
+                should_continue = self.update_dialogue_timer(delta);
             }
             if matches!(
                 self.runtime.as_ref().and_then(Runtime::waiting),
@@ -320,7 +307,72 @@ impl App {
         }
     }
 
+    fn update_dialogue_timer(&mut self, delta: f32) -> bool {
+        let dialogue_length = self.dialogue_view.character_count();
+        let previous = self.visible_characters as usize;
+        if let Some(remaining) = &mut self.dialogue_cue_remaining {
+            if remaining.is_finite() {
+                *remaining -= delta;
+                if *remaining <= 0.0 {
+                    self.complete_dialogue_cue();
+                }
+            }
+        } else if !self.playback.skip_read {
+            let mut target = (self.visible_characters + delta * self.settings.text_speed)
+                .min(dialogue_length as f32);
+            while let Some(cue) = self.dialogue_view.cue() {
+                if cue.position < previous {
+                    self.dialogue_view.consume_cue();
+                    continue;
+                }
+                if cue.position > target as usize {
+                    break;
+                }
+                match cue.kind {
+                    renrs::text::TextCue::Fast => {
+                        self.dialogue_view.consume_cue();
+                        target = dialogue_length as f32;
+                    }
+                    renrs::text::TextCue::Wait { hundredths }
+                    | renrs::text::TextCue::Page { hundredths } => {
+                        target = cue.position as f32;
+                        self.dialogue_cue_remaining = Some(
+                            hundredths.map_or(f32::INFINITY, |value| f32::from(value) / 100.0),
+                        );
+                        break;
+                    }
+                    renrs::text::TextCue::NoWait => {
+                        self.dialogue_view.consume_cue();
+                    }
+                }
+            }
+            self.visible_characters = target;
+        }
+        self.redraw |= previous != self.visible_characters as usize;
+        if self.playback.skip_read {
+            if self.playback.current_dialogue_was_read {
+                self.skip_remaining -= delta;
+                return self.skip_remaining <= 0.0;
+            }
+            self.playback.skip_read = false;
+        } else if (self.playback.auto || self.dialogue_view.no_wait())
+            && self.dialogue_cue_remaining.is_none()
+            && self.visible_characters >= dialogue_length as f32
+            && (!self.settings.wait_voice
+                || self.settings.voice_volume <= f32::EPSILON
+                || !self.audio.voice_busy()
+                || self.dialogue_view.no_wait())
+        {
+            self.auto_remaining -= delta;
+            return self.auto_remaining <= 0.0;
+        }
+        false
+    }
+
     pub(super) fn draw(&mut self, mouse: Vec2, actions: &UiActions) {
+        if is_key_pressed(KeyCode::F3) {
+            self.toggle_inspect();
+        }
         if is_key_pressed(KeyCode::F8) {
             self.settings.self_voicing = !self.settings.self_voicing;
             self.settings_dirty = true;
@@ -351,6 +403,7 @@ impl App {
         if let Some(error) = super::speech::finish(spoken) {
             self.notice = Some((error, 6.0));
         }
+        self.draw_inspect();
         if let Some((message, _)) = &self.notice {
             draw_rectangle(
                 360.0,

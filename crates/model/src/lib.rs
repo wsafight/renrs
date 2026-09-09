@@ -89,6 +89,10 @@ pub struct CompiledProgram {
     pub defaults: IndexMap<String, DefaultDef>,
     #[serde(default)]
     pub display_layers: BTreeMap<String, i32>,
+    #[serde(default)]
+    pub images: IndexMap<String, String>,
+    #[serde(default)]
+    pub transforms: IndexMap<String, TransformProperties>,
     pub instructions: Vec<Instruction>,
     pub labels: IndexMap<String, usize>,
     pub label_parameters: IndexMap<String, Vec<String>>,
@@ -217,8 +221,22 @@ pub enum InstructionKind {
         path: String,
         seconds: f32,
     },
+    Window {
+        visible: bool,
+    },
+    ShowScreen {
+        name: String,
+    },
+    HideScreen {
+        name: String,
+    },
+    CallScreen {
+        name: String,
+    },
     Dialogue {
         speaker: Option<String>,
+        #[serde(default)]
+        attributes: Vec<String>,
         text: String,
         translation_id: TranslationId,
     },
@@ -267,6 +285,8 @@ pub enum InstructionKind {
         repeat: bool,
         fade_in: f32,
         volume: f32,
+        #[serde(default)]
+        if_changed: bool,
     },
     QueueMusic {
         path: String,
@@ -277,11 +297,25 @@ pub enum InstructionKind {
     PlaySound {
         path: String,
         volume: f32,
+        #[serde(default)]
+        repeat: bool,
+    },
+    QueueSound {
+        path: String,
+        volume: f32,
+        #[serde(default)]
+        repeat: bool,
     },
     PlayVoice {
         path: String,
     },
     StopMusic {
+        fade_out: f32,
+    },
+    StopSound {
+        fade_out: f32,
+    },
+    StopVoice {
         fade_out: f32,
     },
     Pause {

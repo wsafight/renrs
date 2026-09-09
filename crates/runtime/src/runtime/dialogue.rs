@@ -45,6 +45,7 @@ pub(super) fn resolve_dialogue(
         translation_id: Some(request.translation_id.clone()),
         text: styled.plain,
         runs: styled.runs,
+        no_wait: false,
     })
 }
 
@@ -76,6 +77,8 @@ impl Runtime {
                 line,
             },
         )?;
+        let mut dialogue = dialogue;
+        dialogue.no_wait = Self::dialogue_no_wait(&dialogue.runs);
         Arc::make_mut(&mut self.stage).dialogue = Some(dialogue.clone());
         Arc::make_mut(&mut self.history).push(dialogue);
         Ok(())

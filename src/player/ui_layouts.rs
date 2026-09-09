@@ -28,10 +28,30 @@ impl App {
         }) {
             kinds.push(kind);
         }
-        kinds
+        let mut images = kinds
             .into_iter()
             .flat_map(|kind| self.screen_layouts.images(kind))
-            .collect()
+            .collect::<Vec<_>>();
+        if let Some(runtime) = &self.runtime {
+            let mut names = runtime.stage().shown_screens.clone();
+            if let Some(renrs::WaitState::Screen { name }) = runtime.waiting()
+                && !names.contains(name)
+            {
+                names.push(name.clone());
+            }
+            images.extend(names.into_iter().flat_map(|name| {
+                self.screens
+                    .story
+                    .get(&name)
+                    .into_iter()
+                    .flat_map(|screen| layout(screen).unwrap_or_default())
+                    .filter_map(|element| match element.widget {
+                        Widget::Image { path } => Some(path),
+                        _ => None,
+                    })
+            }));
+        }
+        images
     }
 }
 
