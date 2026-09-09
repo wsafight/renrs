@@ -1,5 +1,5 @@
 use super::*;
-use crate::screens::Screens;
+use crate::screens::{ScreenKind, Screens};
 
 #[test]
 fn rejects_overflow_unknown_actions_and_interactive_huds() {
@@ -37,4 +37,35 @@ fn nested_viewports_preserve_clip_ancestry_and_container_style() {
 fn story_screens_validate_visibility_and_hotspot_assignments() {
     assert!(Screens::from_slice(br#"{"story":{"map":{"bounds":{"x":0,"y":0,"width":1280,"height":720},"root":{"type":"hotspot","visible":"open &&","variable":"choice","expression":"1"}}}}"#).is_err());
     assert!(Screens::from_slice(br#"{"story":{"map":{"bounds":{"x":0,"y":0,"width":1280,"height":720},"root":{"type":"hotspot","variable":"choice"}}}}"#).is_err());
+}
+
+#[test]
+fn rejects_versions_styles_and_widgets_on_the_wrong_screen() {
+    assert!(Screens::from_slice(br#"{"version":2}"#).is_err());
+    assert!(
+        Screens::from_slice(br#"{"styles":{"big":{"font_size":8}},"hud":{"bounds":{"x":0,"y":0,"width":100,"height":40},"root":{"type":"text","text":"x","style":"big"}}}"#)
+            .is_err()
+    );
+    assert!(
+        Screens::from_slice(br#"{"styles":{"bad":{"text_color":"red"}},"hud":{"bounds":{"x":0,"y":0,"width":100,"height":40},"root":{"type":"text","text":"x","style":"bad"}}}"#)
+            .is_err()
+    );
+    assert!(
+        Screens::from_slice(br#"{"hud":{"bounds":{"x":0,"y":0,"width":100,"height":40},"root":{"type":"dialogue"}}}"#)
+            .is_err()
+    );
+    let screens = Screens::from_slice(br#"{"dialogue":{"bounds":{"x":0,"y":0,"width":400,"height":160},"root":{"type":"dialogue"}},"choices":{"bounds":{"x":0,"y":160,"width":400,"height":160},"root":{"type":"choices"}}}"#).unwrap();
+    assert!(screens.images().is_empty());
+    assert_eq!(screens.images_for(ScreenKind::Dialogue).len(), 0);
+}
+
+#[test]
+fn story_hotspots_require_paired_variable_and_expression() {
+    assert!(Screens::from_slice(br#"{"story":{"map":{"bounds":{"x":0,"y":0,"width":100,"height":100},"root":{"type":"hotspot","expression":"1"}}}}"#).is_err());
+    assert!(
+        Screens::from_slice(br#"{"story":{"":{"bounds":{"x":0,"y":0,"width":100,"height":100},"root":{"type":"text","text":"x"}}}}"#)
+            .is_err()
+    );
+    let screens = Screens::from_slice(br#"{"story":{"map":{"bounds":{"x":0,"y":0,"width":100,"height":100},"root":{"type":"hotspot","variable":"choice","expression":"1"}}}}"#).unwrap();
+    assert!(screens.story.contains_key("map"));
 }

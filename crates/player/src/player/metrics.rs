@@ -117,3 +117,22 @@ impl Drop for Metrics {
         let _ = self.stop.send(());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn records_frame_times_and_reports_percentiles() {
+        let mut metrics = Metrics::default();
+        assert_eq!(metrics.redraw_count(), 0);
+        metrics.redraw();
+        metrics.record(0.016, 1024, 2048);
+        metrics.record(0.032, 4096, 512);
+        let report = metrics.report();
+        assert_eq!(report.frames, 2);
+        assert_eq!(report.scene_redraws, 1);
+        assert!(report.frame_max_ms > 30.0);
+        assert_eq!(report.peak_texture_bytes, 4096);
+    }
+}

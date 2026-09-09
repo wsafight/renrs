@@ -203,6 +203,12 @@ mod story;
 mod top_level;
 
 #[cfg(test)]
+#[path = "parser/coverage_tests.rs"]
+mod coverage_tests;
+#[cfg(test)]
+#[path = "parser/error_paths.rs"]
+mod error_paths;
+#[cfg(test)]
 #[path = "parser/tests.rs"]
 mod tests;
 

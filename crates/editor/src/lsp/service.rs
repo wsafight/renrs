@@ -15,7 +15,7 @@ pub fn run_stdio() -> Result<(), String> {
     run(&mut stdin.lock(), &mut stdout.lock())
 }
 
-fn run(reader: &mut impl BufRead, writer: &mut impl Write) -> Result<(), String> {
+pub(super) fn run(reader: &mut impl BufRead, writer: &mut impl Write) -> Result<(), String> {
     let mut service = Service::default();
     while let Some(message) = read_message(reader).map_err(|error| error.to_string())? {
         if service.dispatch(writer, &message)? {

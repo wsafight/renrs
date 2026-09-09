@@ -205,3 +205,74 @@ impl Easing {
 fn lerp(from: f32, to: f32, progress: f32) -> f32 {
     from + (to - from) * progress
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interpolates_numeric_fields_and_clamps_progress() {
+        let mut from = TransformState::identity();
+        from.crop = Some(CropRect {
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+        });
+        let to = TransformProperties {
+            x: Some(10.0),
+            y: Some(-4.0),
+            scale: Some(2.0),
+            rotation: Some(90.0),
+            alpha: Some(0.0),
+            anchor: Some((0.5, 0.5)),
+            crop: Some(Some(CropRect {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 40.0,
+            })),
+            xalign: Some(1.0),
+            yalign: Some(0.0),
+        }
+        .apply(from);
+        let mid = from.interpolate(to, 0.5);
+        assert!((mid.x - 5.0).abs() < f32::EPSILON);
+        assert!((mid.scale - 1.5).abs() < f32::EPSILON);
+        assert!((mid.crop.unwrap().height - 20.0).abs() < f32::EPSILON);
+        assert_eq!(from.interpolate(to, -1.0), from);
+        assert_eq!(from.interpolate(to, 2.0), to);
+    }
+
+    #[test]
+    fn crop_and_align_hold_the_source_until_the_end() {
+        let from = TransformState::identity();
+        let mut to = from;
+        to.crop = Some(CropRect {
+            x: 1.0,
+            y: 2.0,
+            width: 3.0,
+            height: 4.0,
+        });
+        to.xalign = Some(1.0);
+        let mid = from.interpolate(to, 0.5);
+        assert_eq!(mid.crop, None);
+        assert_eq!(mid.xalign, None);
+        assert_eq!(from.interpolate(to, 1.0).crop, to.crop);
+        assert_eq!(from.interpolate(to, 1.0).xalign, Some(1.0));
+    }
+
+    #[test]
+    fn easing_samples_and_transition_names_are_stable() {
+        assert!((Easing::Linear.sample(0.25) - 0.25).abs() < f32::EPSILON);
+        assert!((Easing::EaseIn.sample(0.5) - 0.25).abs() < f32::EPSILON);
+        assert!((Easing::EaseOut.sample(0.5) - 0.75).abs() < f32::EPSILON);
+        assert!((Easing::EaseInOut.sample(0.25) - 0.125).abs() < f32::EPSILON);
+        assert!((Easing::Linear.sample(-1.0)).abs() < f32::EPSILON);
+        assert!((Easing::Linear.sample(2.0) - 1.0).abs() < f32::EPSILON);
+        assert_eq!(TransitionKind::Fade.name(), "fade");
+        assert_eq!(TransitionKind::PushLeft.name(), "push left");
+        assert_eq!(TransitionKind::WipeRight.name(), "wipe right");
+        assert_eq!(TransitionKind::PunchV.name(), "punch v");
+    }
+}

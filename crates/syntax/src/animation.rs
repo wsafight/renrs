@@ -60,3 +60,44 @@ pub fn validate_tracks(tracks: &[Vec<AnimationStep>]) -> Result<f32, String> {
     }
     Ok(duration)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::syntax::TransformProperties;
+
+    fn transform(alias: &str, seconds: f32) -> AnimationStep {
+        AnimationStep::Transform {
+            alias: alias.to_owned(),
+            properties: TransformProperties::default(),
+            seconds,
+            easing: crate::syntax::Easing::Linear,
+        }
+    }
+
+    #[test]
+    fn accepts_independent_tracks_and_returns_the_longest_duration() {
+        let duration = validate_tracks(&[
+            vec![transform("a", 0.5), AnimationStep::Pause { seconds: 0.25 }],
+            vec![transform("b", 1.0)],
+        ])
+        .unwrap();
+        assert!((duration - 1.0).abs() < f32::EPSILON);
+        assert!((transform("a", 0.4).seconds() - 0.4).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn rejects_empty_conflicting_or_unbounded_tracks() {
+        assert!(validate_tracks(&[vec![transform("a", 1.0)]]).is_err());
+        assert!(validate_tracks(&[vec![], vec![transform("a", 1.0)]]).is_err());
+        assert!(
+            validate_tracks(&[vec![transform("hero", 1.0)], vec![transform("hero", 0.5)]])
+                .unwrap_err()
+                .contains("`hero`")
+        );
+        assert!(validate_tracks(&[vec![transform("a", -1.0)], vec![transform("b", 1.0)]]).is_err());
+        assert!(
+            validate_tracks(&[vec![transform("a", 90_000.0)], vec![transform("b", 1.0)]]).is_err()
+        );
+    }
+}

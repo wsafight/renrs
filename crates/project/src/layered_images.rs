@@ -94,3 +94,58 @@ fn parse(source: &ProjectSource, path: &str) -> Result<CompiledLayeredImage, Str
         layers,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::source::ProjectSource;
+    use std::fs;
+
+    fn compile_layers(definition: &str) -> Result<Program, Vec<Diagnostic>> {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("body.png"), []).unwrap();
+        fs::write(root.path().join("actor.layers.json"), definition).unwrap();
+        fs::write(
+            root.path().join("script.rns"),
+            "label start:\n    show \"actor.layers.json\" as actor\n    return\n",
+        )
+        .unwrap();
+        ProjectSource::open(root.path()).unwrap().compile()
+    }
+
+    #[test]
+    fn rejects_invalid_canvas_missing_images_and_camera_aliases() {
+        assert!(
+            compile_layers(r#"{"width":0,"height":100,"layers":[{"path":"body.png"}]}"#).is_err()
+        );
+        assert!(compile_layers(r#"{"width":100,"height":100,"layers":[]}"#).is_err());
+        assert!(
+            compile_layers(r#"{"width":100,"height":100,"layers":[{"path":"missing.png"}]}"#)
+                .is_err()
+        );
+
+        let root = tempfile::tempdir().unwrap();
+        fs::write(
+            root.path().join("script.rns"),
+            "label start:\n    show \"a.png\" as camera\n    return\n",
+        )
+        .unwrap();
+        fs::write(root.path().join("a.png"), []).unwrap();
+        let errors = ProjectSource::open(root.path())
+            .unwrap()
+            .compile()
+            .unwrap_err();
+        assert!(errors.iter().any(|item| item.message.contains("reserved")));
+    }
+
+    #[test]
+    fn compiles_layer_conditions_and_frame_paths() {
+        let program = compile_layers(
+            r#"{"width":100,"height":200,"layers":[{"path":"body.png","when":"true","frames":[{"path":"body.png","seconds":0.2}]}]}"#,
+        )
+        .unwrap();
+        let layer = &program.layered_images["actor.layers.json"].layers[0];
+        assert!(layer.condition.is_some());
+        assert_eq!(layer.paths().count(), 2);
+    }
+}

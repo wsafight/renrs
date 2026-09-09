@@ -428,4 +428,25 @@ mod tests {
                 .any(|item| item.is_error() && item.message.contains("not closed"))
         );
     }
+
+    #[test]
+    fn reachable_labels_exclude_unused_entries() {
+        let program = compile(
+            &parse_script(
+                "label start:\n    jump done\nlabel done:\n    return\nlabel unused:\n    return",
+                "test.rns",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let labels = reachable_labels(&program);
+        assert!(labels.contains("start") && labels.contains("done"));
+        assert!(!labels.contains("unused"));
+    }
+
+    #[test]
+    fn pause_counts_as_an_interaction_in_a_cycle() {
+        let found = diagnostics("label start:\n    pause 1\n    jump start");
+        assert!(!found.iter().any(Diagnostic::is_error));
+    }
 }

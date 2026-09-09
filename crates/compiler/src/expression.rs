@@ -472,25 +472,5 @@ const fn is_identifier_continue(ch: char) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn respects_operator_precedence() {
-        let parsed = parse_expression("1 + 2 * 3 == 7 and not false", "test.rns", 1, 1).unwrap();
-        assert!(matches!(
-            parsed,
-            Expr::Binary {
-                op: BinaryOp::And,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn rejects_assignment() {
-        let error = parse_expression("score = 2", "test.rns", 4, 9).unwrap_err();
-        assert_eq!(error.line, 4);
-        assert!(error.message.contains("=="));
-    }
-}
+#[path = "expression/tests.rs"]
+mod tests;

@@ -9,7 +9,10 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<_> = std::env::args_os().skip(1).collect();
+    run_from(std::env::args_os().skip(1).collect())
+}
+
+fn run_from(args: Vec<std::ffi::OsString>) -> Result<(), Box<dyn std::error::Error>> {
     let (project, destination, shell) = match args.as_slice() {
         [project, destination] => (
             PathBuf::from(project),
@@ -113,4 +116,21 @@ fn copy_tree(source: &Path, target: &Path) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_usage_and_existing_output() {
+        assert!(run_from(Vec::new()).is_err());
+        let root = tempfile::tempdir().unwrap();
+        let out = root.path().join("dist");
+        std::fs::create_dir(&out).unwrap();
+        let error = run_from(vec![root.path().into(), out.into()]).unwrap_err();
+        assert!(
+            error.to_string().contains("already exists") || error.to_string().contains("usage")
+        );
+    }
 }

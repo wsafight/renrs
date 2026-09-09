@@ -146,3 +146,29 @@ fn write_project(root: &Path, title: &str, project_id: &str, template: &str) -> 
         })?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_unknown_templates_blank_titles_and_invalid_ids() {
+        let root = tempfile::tempdir().unwrap();
+        assert!(
+            create_from_template(&root.path().join("a"), "Title", "org.ok", "missing")
+                .unwrap_err()
+                .contains("unknown template")
+        );
+        assert!(create_project(&root.path().join("b"), "", "org.ok").is_err());
+        assert!(create_project(&root.path().join("c"), "Title", "Org.Bad").is_err());
+    }
+
+    #[test]
+    fn inventory_template_writes_extensions_and_compiles() {
+        let root = tempfile::tempdir().unwrap();
+        let game = root.path().join("bag");
+        create_from_template(&game, "Bag", "org.renrs.bag", "inventory").unwrap();
+        assert!(game.join("extensions.json").is_file());
+        assert!(game.join("extensions/reward.rhai").is_file());
+    }
+}

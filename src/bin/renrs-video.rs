@@ -9,7 +9,10 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let mut arguments: Vec<_> = std::env::args_os().skip(1).collect();
+    run_from(std::env::args_os().skip(1).collect())
+}
+
+fn run_from(mut arguments: Vec<std::ffi::OsString>) -> Result<(), Box<dyn std::error::Error>> {
     let streaming = arguments.last().is_some_and(|arg| arg == "--stream");
     if streaming {
         arguments.pop();
@@ -194,4 +197,33 @@ fn soundtrack(
         return Err("ffmpeg soundtrack conversion failed".into());
     }
     Ok(Some(format!("{relative}/audio.wav")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_usage_unsafe_paths_and_existing_destinations() {
+        assert!(run_from(Vec::new()).is_err());
+        let root = tempfile::tempdir().unwrap();
+        assert!(
+            run_from(vec![
+                "clip.mp4".into(),
+                root.path().into(),
+                "../secret".into()
+            ])
+            .is_err()
+        );
+        let dest = root.path().join("clips/name");
+        std::fs::create_dir_all(&dest).unwrap();
+        assert!(
+            run_from(vec![
+                "clip.mp4".into(),
+                root.path().into(),
+                "clips/name".into()
+            ])
+            .is_err()
+        );
+    }
 }

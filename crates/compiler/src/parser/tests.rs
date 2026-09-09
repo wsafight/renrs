@@ -336,3 +336,81 @@ label start:
         StatementKind::CallScreen { .. }
     ));
 }
+
+#[test]
+fn parses_if_elif_else_nvl_video_and_pause() {
+    let script = parse_script(
+        r#"label start:
+    nvl on
+    if score > 1:
+        "High"
+    elif score > 0:
+        "Mid"
+    else:
+        "Low"
+    video "clip.mp4" over 1.5
+    pause 0.25
+    nvl off
+    jump start
+"#,
+        "flow.rns",
+    )
+    .unwrap();
+    assert!(matches!(
+        script.labels["start"][0].kind,
+        StatementKind::Nvl { .. }
+    ));
+    let StatementKind::If {
+        branches,
+        else_block,
+    } = &script.labels["start"][1].kind
+    else {
+        panic!("expected if");
+    };
+    assert_eq!(branches.len(), 2);
+    assert_eq!(else_block.len(), 1);
+    assert!(matches!(
+        script.labels["start"][2].kind,
+        StatementKind::Video { seconds, .. } if (seconds - 1.5).abs() < f32::EPSILON
+    ));
+    assert!(matches!(
+        script.labels["start"][3].kind,
+        StatementKind::Pause { seconds } if (seconds - 0.25).abs() < f32::EPSILON
+    ));
+}
+
+#[test]
+fn parses_parallel_tracks_and_rejects_alias_conflicts() {
+    let script = parse_script(
+        "label start:\n    parallel:\n        timeline:\n            transform a x 8 over 0.2\n        timeline:\n            pause 0.2\n            transform b alpha 0 over 0.2\n",
+        "parallel.rns",
+    )
+    .unwrap();
+    let StatementKind::Parallel { tracks } = &script.labels["start"][0].kind else {
+        panic!("expected parallel");
+    };
+    assert_eq!(tracks.len(), 2);
+    assert_eq!(tracks[1].len(), 2);
+
+    let errors = parse_script(
+        "label start:\n    parallel:\n        timeline:\n            transform hero x 1 over 0.1\n        timeline:\n            transform hero y 1 over 0.1\n",
+        "parallel.rns",
+    )
+    .unwrap_err();
+    assert!(errors[0].message.contains("`hero`"));
+}
+
+#[test]
+fn rejects_empty_if_branches_and_invalid_nvl_modes() {
+    let empty_if = parse_script("label start:\n    if true:\n    return", "bad.rns").unwrap_err();
+    assert!(empty_if[0].message.contains("if branch cannot be empty"));
+    let nvl = parse_script("label start:\n    nvl maybe", "bad.rns").unwrap_err();
+    assert!(nvl[0].message.contains("nvl on, off or clear"));
+}
+
+#[test]
+fn derives_project_ids_from_titles() {
+    assert_eq!(derive_project_id("My Story"), "my-story");
+    assert_eq!(derive_project_id("  Hello---World  "), "hello-world");
+    assert_eq!(derive_project_id("***"), "renrs-game");
+}

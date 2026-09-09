@@ -362,3 +362,6 @@ pub enum ModelError {
     #[error("instruction alias target `{0}` does not exist")]
     UnknownAliasTarget(InstructionId),
 }
+
+#[cfg(test)]
+mod tests;

@@ -57,3 +57,48 @@ impl ImageLayer {
             .chain(self.frames.iter().map(|frame| frame.path.as_str()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn layer(speaking: bool) -> ImageLayer {
+        ImageLayer {
+            path: "idle.png".to_owned(),
+            when: None,
+            x: 0.0,
+            y: 0.0,
+            frames: vec![
+                ImageFrame {
+                    path: "a.png".to_owned(),
+                    seconds: 0.5,
+                },
+                ImageFrame {
+                    path: "b.png".to_owned(),
+                    seconds: 0.5,
+                },
+            ],
+            speaking,
+        }
+    }
+
+    #[test]
+    fn selects_cycled_frames_and_keeps_idle_when_not_speaking() {
+        let talking = layer(true);
+        assert_eq!(talking.frame(0.2, true), "a.png");
+        assert_eq!(talking.frame(0.6, true), "b.png");
+        assert_eq!(talking.frame(1.2, true), "a.png");
+        assert_eq!(talking.frame(0.6, false), "idle.png");
+        assert_eq!(
+            talking.paths().collect::<Vec<_>>(),
+            ["idle.png", "a.png", "b.png"]
+        );
+
+        let still = ImageLayer {
+            frames: Vec::new(),
+            speaking: false,
+            ..layer(false)
+        };
+        assert_eq!(still.frame(12.0, true), "idle.png");
+    }
+}

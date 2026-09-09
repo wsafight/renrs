@@ -420,3 +420,52 @@ mod tests {
         assert_eq!(script.labels["chapter"][0].span.source, "story/chapter.rns");
     }
 }
+
+#[cfg(test)]
+mod source_coverage_tests {
+    use crate::source::{ProjectSource, ProjectSourceError};
+    use std::fs;
+
+    #[test]
+    fn open_read_limit_and_screens_validation_cover_source_edges() {
+        assert!(matches!(
+            ProjectSource::open("missing-path"),
+            Err(ProjectSourceError::InvalidPath(_))
+        ));
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("script.rns"), "label start:\n    return\n").unwrap();
+        fs::write(root.path().join("big.bin"), vec![0_u8; 32]).unwrap();
+        fs::write(
+            root.path().join("screens.json"),
+            br#"{"hud":{"bounds":{"x":0,"y":0,"width":300,"height":80},"root":{"type":"image","path":"missing.png"}}}"#,
+        )
+        .unwrap();
+        let source = ProjectSource::open(root.path()).unwrap();
+        assert!(source.watch_root().is_some());
+        assert!(source.path().ends_with(root.path().file_name().unwrap()));
+        assert!(source.read_limited("big.bin", 8).is_err());
+        assert!(source.read_limited("big.bin", 64).is_ok());
+        assert!(
+            source
+                .validate_support_files()
+                .iter()
+                .any(|item| item.message.contains("missing") || item.file == "screens.json")
+        );
+        let script = crate::parse_script(
+            "define e = character \"Eileen\" color \"red\" image missing\nlabel start:\n    return",
+            "script.rns",
+        )
+        .unwrap();
+        let found = crate::validator::validate(&script, root.path());
+        assert!(
+            found
+                .iter()
+                .any(|item| item.message.contains("character color"))
+        );
+        assert!(
+            found
+                .iter()
+                .any(|item| item.message.contains("unknown image"))
+        );
+    }
+}

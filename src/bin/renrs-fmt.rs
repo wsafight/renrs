@@ -12,13 +12,17 @@ fn main() {
 }
 
 fn run() -> Result<(), String> {
+    run_from(env::args_os().skip(1).map(PathBuf::from).collect())
+}
+
+fn run_from(arguments: Vec<PathBuf>) -> Result<(), String> {
     let mut check = false;
     let mut inputs = Vec::new();
-    for argument in env::args_os().skip(1) {
-        if argument == "--check" {
+    for argument in arguments {
+        if argument == Path::new("--check") {
             check = true;
         } else {
-            inputs.push(PathBuf::from(argument));
+            inputs.push(argument);
         }
     }
     if inputs.is_empty() {
@@ -77,4 +81,24 @@ fn collect_scripts(path: &Path, output: &mut Vec<PathBuf>) -> std::io::Result<()
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn formats_and_checks_scripts() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("script.rns");
+        fs::write(&path, "label start:   \n    \"Hi\"\n").unwrap();
+        run_from(vec![root.path().to_path_buf()]).unwrap();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            "label start:\n    \"Hi\"\n"
+        );
+        fs::write(&path, "label start:   \n    \"Hi\"\n").unwrap();
+        assert!(run_from(vec![PathBuf::from("--check"), path.clone()]).is_err());
+        assert!(run_from(Vec::new()).is_err());
+    }
 }

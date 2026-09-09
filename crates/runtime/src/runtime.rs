@@ -374,6 +374,9 @@ mod dialogue;
 mod display_tests;
 #[path = "runtime/execute.rs"]
 mod execute;
+#[cfg(test)]
+#[path = "runtime/execute_tests.rs"]
+mod execute_tests;
 #[path = "runtime/inspect.rs"]
 mod inspect;
 pub use inspect::DebugState;

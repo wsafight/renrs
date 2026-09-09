@@ -53,3 +53,53 @@ fn load_inner(source: &ProjectSource, program: &mut Program) -> Result<(), Strin
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::source::ProjectSource;
+    use std::fs;
+
+    fn compile(files: &[(&str, &str)]) -> Result<Program, Vec<Diagnostic>> {
+        let root = tempfile::tempdir().unwrap();
+        for (path, contents) in files {
+            if let Some(parent) = std::path::Path::new(path).parent() {
+                fs::create_dir_all(root.path().join(parent)).unwrap();
+            }
+            fs::write(root.path().join(path), contents).unwrap();
+        }
+        ProjectSource::open(root.path()).unwrap().compile()
+    }
+
+    #[test]
+    fn loads_modules_and_rejects_unknown_or_unsupported_manifests() {
+        let program = compile(&[
+            (
+                "script.rns",
+                "default score = 0\nlabel start:\n    extend score = \"reward\" 1\n    return\n",
+            ),
+            ("extensions/reward.rhai", "input + 1"),
+            (
+                "extensions.json",
+                r#"{"version":1,"modules":{"reward":"extensions/reward.rhai"}}"#,
+            ),
+        ])
+        .unwrap();
+        assert!(program.extensions.contains_key("reward"));
+
+        assert!(
+            compile(&[(
+                "script.rns",
+                "default score = 0\nlabel start:\n    extend score = \"missing\" 1\n    return\n"
+            ),])
+            .is_err()
+        );
+        assert!(
+            compile(&[
+                ("script.rns", "label start:\n    return\n"),
+                ("extensions.json", r#"{"version":2,"modules":{}}"#),
+            ])
+            .is_err()
+        );
+    }
+}

@@ -13,11 +13,13 @@ fn main() {
 }
 
 fn run() -> Result<(), String> {
-    let mut arguments = env::args_os().skip(1);
-    let game_root = arguments
-        .next()
-        .map_or_else(|| PathBuf::from("demo"), PathBuf::from);
-    let output = arguments.next().map(PathBuf::from);
+    run_from(env::args_os().skip(1).map(PathBuf::from).collect())
+}
+
+fn run_from(arguments: Vec<PathBuf>) -> Result<(), String> {
+    let mut arguments = arguments.into_iter();
+    let game_root = arguments.next().unwrap_or_else(|| PathBuf::from("demo"));
+    let output = arguments.next();
     if arguments.next().is_some() {
         return Err("usage: renrs-graph [game-directory] [output.dot]".to_owned());
     }
@@ -43,4 +45,31 @@ fn join_diagnostics(diagnostics: Vec<renrs::Diagnostic>) -> String {
         .map(|diagnostic| diagnostic.to_string())
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn writes_a_story_graph_for_a_minimal_project() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("script.rns"), "label start:\n    return\n").unwrap();
+        let output = root.path().join("story.dot");
+        run_from(vec![root.path().to_path_buf(), output.clone()]).unwrap();
+        let graph = fs::read_to_string(output).unwrap();
+        assert!(graph.contains("start"));
+        assert!(
+            run_from(vec![
+                root.path().to_path_buf(),
+                root.path().join("a.dot"),
+                root.path().join("b.dot")
+            ])
+            .is_err()
+        );
+        assert!(
+            join_diagnostics(vec![renrs::Diagnostic::new("a.rns", 1, 1, "x")]).contains("a.rns")
+        );
+    }
 }

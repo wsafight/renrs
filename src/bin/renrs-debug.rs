@@ -269,3 +269,38 @@ fn print_interactive_json(value: &impl Serialize) -> Result<(), String> {
     );
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inspects_explores_and_rejects_bad_arguments() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(
+            root.path().join("script.rns"),
+            "label start:\n    \"Hi\"\n    return\n",
+        )
+        .unwrap();
+        let path = root.path().to_string_lossy().into_owned();
+        assert!(run(&[]).is_err());
+        assert_eq!(
+            run(&["inspect".to_owned(), path.clone()]).map_err(|error| error.message),
+            Ok(true)
+        );
+        assert!(
+            run(&[
+                "explore".to_owned(),
+                path.clone(),
+                "--max-runs".to_owned(),
+                "2".to_owned(),
+                "--max-steps".to_owned(),
+                "20".to_owned(),
+                "--max-depth".to_owned(),
+                "4".to_owned()
+            ])
+            .is_ok()
+        );
+        assert!(run(&["test".to_owned(), path, "missing.json".to_owned()]).is_err());
+    }
+}

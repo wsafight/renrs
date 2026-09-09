@@ -102,3 +102,59 @@ impl SaveFile {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Runtime, compile, parse_script};
+
+    fn sample() -> SaveFile {
+        let program =
+            compile(&parse_script("label start:\n    \"Hello\"", "test.rns").unwrap()).unwrap();
+        let mut runtime = Runtime::new(program).unwrap();
+        runtime.advance().unwrap();
+        let mut save = SaveFile {
+            container_version: SaveFile::CONTAINER_VERSION,
+            engine_version: "test".to_owned(),
+            saved_at_unix: 1,
+            project_id: "org.test".to_owned(),
+            content_version: String::new(),
+            play_time_seconds: 12,
+            chapter: Some("start".to_owned()),
+            snapshot: runtime.snapshot(),
+            checksum_sha256: String::new(),
+            presentation: Some(SavePresentation {
+                note: "desk".to_owned(),
+                ..SavePresentation::default()
+            }),
+        };
+        save.checksum_sha256 = checksum(&save).unwrap();
+        save
+    }
+
+    #[test]
+    fn checksum_covers_presentation_and_rejects_other_games() {
+        let save = sample();
+        save.validate("org.test").unwrap();
+        assert_eq!(
+            save.validate("org.other").unwrap_err(),
+            "Save belongs to another game"
+        );
+
+        let mut other_version = save.clone();
+        other_version.container_version = 1;
+        assert!(
+            other_version
+                .validate("org.test")
+                .unwrap_err()
+                .contains("unsupported save container")
+        );
+
+        let mut tampered = save;
+        tampered.presentation.as_mut().unwrap().note = "changed".to_owned();
+        assert_eq!(
+            tampered.validate("org.test").unwrap_err(),
+            "Save checksum mismatch"
+        );
+    }
+}

@@ -192,3 +192,30 @@ fn format_diagnostics(diagnostics: &[renrs::Diagnostic]) -> String {
 fn usage() -> String {
     "usage: renrs-i18n extract <project> <language> <catalog.json>\n       renrs-i18n update <project> <catalog.json>\n       renrs-i18n check <project> <catalog.json>".to_owned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsString;
+
+    #[test]
+    fn extract_update_and_check_a_minimal_catalog() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(
+            root.path().join("script.rns"),
+            "label start:\n    @id \"hello\" \"Hello\"\n    return\n",
+        )
+        .unwrap();
+        let catalog = root.path().join("en.json");
+        extract(
+            root.path().as_os_str(),
+            OsString::from("en").as_os_str(),
+            catalog.as_os_str(),
+        )
+        .unwrap();
+        assert!(catalog.is_file());
+        update(root.path().as_os_str(), catalog.as_os_str()).unwrap();
+        check(root.path().as_os_str(), catalog.as_os_str()).unwrap();
+        assert!(usage().contains("extract"));
+    }
+}

@@ -87,3 +87,75 @@ fn state_includes_stage_mutated_between_non_checkpoint_waits() {
         serde_json::from_str(&engine.action("next", 0).unwrap()).unwrap();
     assert_eq!(second["stage"]["background"], "two.png");
 }
+
+fn engine(source: &str) -> Engine {
+    let program =
+        renrs_compiler::compile(&renrs_compiler::parse_script(source, "test.rns").unwrap())
+            .unwrap();
+    Engine::new(&serde_json::to_string(&program).unwrap(), "").unwrap()
+}
+
+#[test]
+fn engine_actions_inspect_history_language_and_audio() {
+    let mut engine = engine(
+        r#"default score = 1
+label start:
+    play music "theme.ogg"
+    @id "line" "Hello {score}"
+    menu:
+        "Go":
+            "Next"
+        "Stay":
+            return
+"#,
+    );
+    engine.action("start", 0).unwrap();
+    assert_eq!(engine.screen_value("score").unwrap(), "1");
+    assert!(engine.screen_visible("score == 1").unwrap());
+    assert_eq!(engine.translate_ui("Save Game"), "Save Game");
+    engine
+        .catalog(r#"{"language":"en","messages":{"ui.save_game":"Store"}}"#)
+        .unwrap();
+    engine.language("en").unwrap();
+    assert_eq!(engine.translate_ui("Save Game"), "Store");
+    engine.set_variable("score", "2").unwrap();
+    engine.apply_expression("score", "score + 1").unwrap();
+    let history: serde_json::Value = serde_json::from_str(&engine.history(0, 10).unwrap()).unwrap();
+    assert!(!history.as_array().unwrap().is_empty());
+    engine.profile().unwrap();
+    engine.inspect().unwrap();
+    engine.audio_events().unwrap();
+    engine.music_ended();
+    engine.sound_ended();
+    engine.screen_text("Score {score}").unwrap();
+    let snapshot = engine.snapshot().unwrap();
+    engine.restore(&snapshot).unwrap();
+    engine.breakpoints("[]").unwrap();
+    engine.action("next", 0).unwrap();
+    engine.action("choose", 0).unwrap();
+    engine.action("rollback", 0).unwrap();
+}
+
+#[test]
+fn parallel_animation_frames_are_sampled() {
+    let mut engine = engine(
+        r#"label start:
+    show "a.png" as a
+    parallel:
+        timeline:
+            transform a x 10 over 1
+        timeline:
+            pause 1
+    "Done"
+"#,
+    );
+    engine.action("start", 0).unwrap();
+    let sprites: serde_json::Value =
+        serde_json::from_str(&engine.animation_frame(0.5).unwrap()).unwrap();
+    assert!(sprites.as_array().unwrap().len() >= 1);
+    engine.camera_frame(0.5).unwrap();
+    let frames: serde_json::Value =
+        serde_json::from_str(&engine.animation_frames().unwrap()).unwrap();
+    assert!(frames.as_array().unwrap().len() > 1);
+    engine.camera_frames().unwrap();
+}

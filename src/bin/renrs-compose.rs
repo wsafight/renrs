@@ -5,7 +5,10 @@ fn main() {
     }
 }
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+    run_from(std::env::args_os().skip(1).collect())
+}
+
+fn run_from(arguments: Vec<std::ffi::OsString>) -> Result<(), Box<dyn std::error::Error>> {
     let [project, manifest, destination] = arguments.as_slice() else {
         return Err("usage: renrs-compose <project> <character.json> <images/variants>".into());
     };
@@ -16,4 +19,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     println!("Composed {count} character presets");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_wrong_argument_counts() {
+        assert!(run_from(Vec::new()).is_err());
+        assert!(run_from(vec!["a".into()]).is_err());
+    }
 }

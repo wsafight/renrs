@@ -343,3 +343,28 @@ pub enum BinaryOp {
     And,
     Or,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builtin_display_layers_and_value_type_names_are_stable() {
+        assert_eq!(builtin_display_layer_order("master"), Some(0));
+        assert_eq!(builtin_display_layer_order("transient"), Some(100));
+        assert_eq!(builtin_display_layer_order("screens"), Some(200));
+        assert_eq!(builtin_display_layer_order("overlay"), Some(300));
+        assert_eq!(builtin_display_layer_order("effects"), None);
+        assert_eq!(Value::Integer(1).type_name(), "integer");
+        assert_eq!(Value::Boolean(true).type_name(), "boolean");
+        assert_eq!(Value::String(String::new()).type_name(), "string");
+        assert_eq!(
+            Value::List(std::sync::Arc::new(Vec::new())).type_name(),
+            "list"
+        );
+        assert_eq!(
+            Value::Record(std::sync::Arc::new(std::collections::BTreeMap::new())).type_name(),
+            "record"
+        );
+    }
+}
