@@ -66,7 +66,7 @@ test('search locates documentation by title', async ({ page }) => {
   const box = dialog.getByRole('searchbox', { name: 'Search docs' });
   await expect(box).toBeVisible();
   await box.fill('Quick start');
-  const result = dialog.getByRole('link', { name: /Quick start/ });
+  const result = dialog.locator(`a[href="${quickstart}"]`);
   await expect(result).toBeVisible();
   await result.click();
   await expect(page).toHaveURL(quickstart);

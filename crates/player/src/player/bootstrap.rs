@@ -24,7 +24,7 @@ pub(crate) fn window_conf() -> macroquad::conf::Conf {
         window_resizable: true,
         ..Default::default()
     };
-    native.platform.blocking_event_loop = cfg!(target_os = "macos");
+    native.platform.blocking_event_loop = true;
     macroquad::conf::Conf {
         miniquad_conf: native,
         update_on: Some(macroquad::conf::UpdateTrigger {
@@ -318,7 +318,6 @@ async fn run_player(
             && (pointer != previous_pointer
                 || !get_keys_pressed().is_empty()
                 || !get_keys_released().is_empty()
-                || !get_keys_down().is_empty()
                 || is_mouse_button_down(MouseButton::Left)
                 || is_mouse_button_released(MouseButton::Left)
                 || is_mouse_button_pressed(MouseButton::Right)

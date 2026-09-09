@@ -1373,37 +1373,23 @@ dependencies = [
 name = "renrs"
 version = "0.1.0-rc.1"
 dependencies = [
- "ab_glyph",
- "dispatch2",
  "ed25519-dalek",
- "etagere",
  "getrandom 0.3.4",
  "hound",
  "image",
  "indexmap",
  "lewton 0.9.4",
- "macroquad",
- "notify",
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
  "renrs-compiler",
  "renrs-editor",
  "renrs-model",
  "renrs-project",
  "renrs-runtime",
  "renrs-syntax",
- "rodio",
- "rustybuzz",
  "serde",
  "serde_json",
  "sha2",
- "sysinfo",
  "tempfile",
  "thiserror 2.0.20",
- "unicode-bidi",
- "unicode-script",
- "unicode-segmentation",
 ]
 
 [[package]]
@@ -1448,6 +1434,34 @@ dependencies = [
  "renrs-syntax",
  "serde",
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "renrs-player"
+version = "0.1.0-rc.1"
+dependencies = [
+ "ab_glyph",
+ "dispatch2",
+ "etagere",
+ "hound",
+ "image",
+ "macroquad",
+ "notify",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "renrs",
+ "renrs-project",
+ "renrs-runtime",
+ "rodio",
+ "rustybuzz",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tempfile",
+ "unicode-bidi",
+ "unicode-script",
+ "unicode-segmentation",
 ]
 
 [[package]]

@@ -13,7 +13,7 @@ probe using the actual release dependency measured RSS at 1.56 MiB before loadin
 30,890 mapped characters. This identified a large allocation source, rather than
 attributing process memory to the implementation language.
 
-The new path in `src/player/text.rs` uses ab_glyph 0.2.32 for font parsing and
+The new path in `crates/player/src/player/text.rs` uses ab_glyph 0.2.32 for font parsing and
 rasterization, and etagere 0.2.15 for atlas allocation:
 
 - Width measurement reads glyph advances and kerning without allocating glyph
@@ -102,7 +102,8 @@ Reproduce from the repository root with an interactive desktop and the earlier
 comparison fixtures/official SDK available:
 
 ```sh
-cargo build --offline --release --bin renrs --example text_cache_smoke --example inspect_frames
+cargo build --offline --release -p renrs-player --example text_cache_smoke
+cargo build --offline --release --example inspect_frames
 target/release/examples/text_cache_smoke target/my-text-cache-check
 node scripts/compare-engines.mjs target/engine-comparison-verified target/renpy-sdk/renpy-8.5.3-sdk 3
 ```

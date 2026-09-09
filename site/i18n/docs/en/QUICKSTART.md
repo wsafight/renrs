@@ -18,6 +18,7 @@ on Debian / Ubuntu install `libasound2-dev`.
 ```sh
 rustc --version
 cargo build --bins
+cargo build -p renrs-player --bin renrs
 ```
 
 The web player and workspace need Node.js. The official docs site needs Node.js 22.12
@@ -28,7 +29,7 @@ stories do not.
 
 ```sh
 cargo run --bin renrs-check -- demo
-cargo run --bin renrs -- demo
+cargo run -p renrs-player --bin renrs -- demo
 ```
 
 The first command checks syntax, asset refs, and control flow. The second opens the
@@ -42,7 +43,7 @@ Generate a project in a directory that does not exist yet:
 
 ```sh
 cargo run --bin renrs-init -- my-story --title "My Story" --id org.example.my-story
-cargo run --bin renrs -- my-story
+cargo run -p renrs-player --bin renrs -- my-story
 ```
 
 `config id` is the isolation key for game data. Use a different ID for each project.
@@ -80,7 +81,7 @@ Layouts and controls are in [Screens and interaction](SCREENS.md).
 
 ```sh
 cargo run --bin renrs-check -- my-story
-cargo run --bin renrs -- my-story
+cargo run -p renrs-player --bin renrs -- my-story
 cargo run --bin renrs-debug -- test my-story my-story/routes.json
 cargo run --bin renrs-build -- my-story dist/my-story
 ```

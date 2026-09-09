@@ -4,8 +4,12 @@
 旧存档格式不必保持兼容。
 
 当前范围决定（2026-09-08）：发布类 P0、真机和真实项目验收暂缓。仓库内可闭环的 P1/P2
-以 `node scripts/verify-local.mjs` 作为验收门禁，不再扩展 GitHub Actions CI。
-面向 Agent 的 `SKILL.md`、`llms.txt`、只读 MCP Server 及相关集成也暂缓。
+以 `node scripts/verify-local.mjs` 作为验收门禁。Ubuntu GitHub Actions 工作流现在会运行
+fmt、Clippy、Rust workspace/player 测试和 Web 检查。面向 Agent 的 `SKILL.md`、`llms.txt`、
+只读 MCP Server 及相关集成也暂缓。
+
+原生播放器位于 `crates/player`（`renrs` 二进制），因此 CLI 工具不再链接 macroquad 或
+rodio。Web 运行时状态会省略未变化的舞台快照，并在 WASM 中采样并行动画。
 
 ## 当前结论
 

@@ -93,7 +93,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_vec(
             &serde_json::json!({"program": program, "program_json": serde_json::to_string(&program)?, "catalogs": catalogs, "theme": theme,
                 "screens": {"styles": screens.styles, "layouts": layouts},
-                "ui_zh": serde_json::from_str::<serde_json::Value>(include_str!("../player/ui_zh.json"))?}),
+                "ui_zh": serde_json::from_str::<serde_json::Value>(include_str!("../../crates/player/src/player/ui_zh.json"))?}),
         )?,
     )?;
     std::fs::rename(staging.path(), &destination)?;

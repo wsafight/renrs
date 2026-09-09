@@ -178,9 +178,17 @@ function validateDialogue(value: unknown): Dialogue {
   return dialogue as unknown as Dialogue;
 }
 
-export function parseRuntimeState(text: string): RuntimeState {
+export function parseRuntimeState(
+  text: string,
+  previous?: Pick<RuntimeState, 'stage'>,
+): RuntimeState {
   const value = record(parseJson(text, 'runtime state'), 'runtime state');
-  validateStage(value.stage);
+  if (value.stage == null) {
+    if (previous == null) throw new Error('Invalid runtime state: missing stage');
+    value.stage = previous.stage;
+  } else {
+    validateStage(value.stage);
+  }
   record(value.debug, 'runtime debug state');
   number(value.profile_revision, 'profile revision');
   number(value.history_count, 'history count');

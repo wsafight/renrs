@@ -24,8 +24,8 @@ pub(super) struct AssetWorker {
 
 impl AssetWorker {
     pub(super) fn new(source: ProjectSource) -> Self {
-        let (requests, receiver) = sync_channel::<(String, u64)>(8);
-        let (sender, responses) = sync_channel(2);
+        let (requests, receiver) = sync_channel::<(String, u64)>(16);
+        let (sender, responses) = sync_channel(8);
         let budget = ByteBudget::new(DECODE_LIMIT);
         let decoding_budget = budget.clone();
         thread::spawn(move || {

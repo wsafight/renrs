@@ -1,11 +1,16 @@
 #![allow(clippy::missing_errors_doc)] // Exported errors are JavaScript values, not Rust API errors.
 
 use renrs_runtime::{Program, Runtime, RuntimeError};
+use std::cell::RefCell;
+use std::sync::Arc;
 use wasm_bindgen::prelude::*;
+
+const PARALLEL_SAMPLES: u16 = 12;
 
 #[wasm_bindgen]
 pub struct Engine {
     runtime: Runtime,
+    last_stage: RefCell<Option<Arc<renrs_runtime::runtime::StageState>>>,
 }
 
 mod saves;
@@ -28,7 +33,10 @@ impl Engine {
                 .map_err(js_error)?;
         }
         runtime.enable_tracing();
-        Ok(Self { runtime })
+        Ok(Self {
+            runtime,
+            last_stage: RefCell::new(None),
+        })
     }
 
     pub fn action(&mut self, command: &str, index: usize) -> Result<String, JsValue> {
@@ -48,57 +56,46 @@ impl Engine {
     }
 
     pub fn state(&self) -> Result<String, JsValue> {
-        serde_json::to_string(&serde_json::json!({
-            "stage": self.runtime.stage(), "waiting": self.runtime.waiting(),
+        let stage = self.runtime.shared_stage();
+        let unchanged = self
+            .last_stage
+            .borrow()
+            .as_ref()
+            .is_some_and(|previous| Arc::ptr_eq(previous, &stage));
+        let encoded = serde_json::to_string(&serde_json::json!({
+            "stage": if unchanged { serde_json::Value::Null } else { serde_json::to_value(stage.as_ref()).map_err(js_error)? },
+            "waiting": self.runtime.waiting(),
             "debug": {"label": self.runtime.current_label(), "paused": self.runtime.debug_paused()},
             "profile_revision": self.runtime.profile_revision(),
             "history_count": self.runtime.history().len(),
-            "can_rollback": self.runtime.can_rollback()
-            ,"nvl": self.runtime.nvl_dialogue()
+            "can_rollback": self.runtime.can_rollback(),
+            "nvl": self.runtime.nvl_dialogue()
         }))
-        .map_err(js_error)
+        .map_err(js_error)?;
+        *self.last_stage.borrow_mut() = Some(stage);
+        Ok(encoded)
+    }
+
+    pub fn animation_frame(&self, progress: f32) -> Result<String, JsValue> {
+        match self.try_sample_parallel(progress) {
+            Some(stage) => serde_json::to_string(&stage.sprites).map_err(js_error),
+            None => Ok("[]".to_owned()),
+        }
+    }
+
+    pub fn camera_frame(&self, progress: f32) -> Result<String, JsValue> {
+        match self.try_sample_parallel(progress) {
+            Some(stage) => serde_json::to_string(&stage.camera).map_err(js_error),
+            None => Ok("null".to_owned()),
+        }
     }
 
     pub fn animation_frames(&self) -> Result<String, JsValue> {
-        let Some(renrs_runtime::WaitState::Effect {
-            effect:
-                renrs_runtime::runtime::VisualEffect::Parallel {
-                    from,
-                    tracks,
-                    seconds,
-                },
-        }) = self.runtime.waiting()
-        else {
-            return Ok("[]".to_owned());
-        };
-        let frames: Vec<_> = (0..=60_u16)
-            .map(|index| {
-                renrs_runtime::animation::sample(from, tracks, f32::from(index) * seconds / 60.0)
-                    .sprites
-            })
-            .collect();
-        serde_json::to_string(&frames).map_err(js_error)
+        self.parallel_sprite_frames()
     }
 
     pub fn camera_frames(&self) -> Result<String, JsValue> {
-        let Some(renrs_runtime::WaitState::Effect {
-            effect:
-                renrs_runtime::runtime::VisualEffect::Parallel {
-                    from,
-                    tracks,
-                    seconds,
-                },
-        }) = self.runtime.waiting()
-        else {
-            return Ok("[]".to_owned());
-        };
-        let frames: Vec<_> = (0..=60_u16)
-            .map(|index| {
-                renrs_runtime::animation::sample(from, tracks, f32::from(index) * seconds / 60.0)
-                    .camera
-            })
-            .collect();
-        serde_json::to_string(&frames).map_err(js_error)
+        self.parallel_camera_frames()
     }
 
     pub fn inspect(&self) -> Result<String, JsValue> {
@@ -215,6 +212,7 @@ impl Engine {
             .map_err(js_error)?;
         next.enable_tracing();
         self.runtime = next;
+        *self.last_stage.borrow_mut() = None;
         self.state()
     }
 
@@ -248,5 +246,76 @@ impl Engine {
 
     pub fn sound_ended(&mut self) {
         self.runtime.complete_sound_track();
+    }
+}
+
+impl Engine {
+    fn try_sample_parallel(&self, progress: f32) -> Option<renrs_runtime::runtime::StageState> {
+        let renrs_runtime::WaitState::Effect {
+            effect:
+                renrs_runtime::runtime::VisualEffect::Parallel {
+                    from,
+                    tracks,
+                    seconds,
+                },
+        } = self.runtime.waiting()?
+        else {
+            return None;
+        };
+        Some(renrs_runtime::animation::sample(
+            from,
+            tracks,
+            progress.clamp(0.0, 1.0) * seconds,
+        ))
+    }
+
+    fn parallel_sprite_frames(&self) -> Result<String, JsValue> {
+        let Some(renrs_runtime::WaitState::Effect {
+            effect:
+                renrs_runtime::runtime::VisualEffect::Parallel {
+                    from,
+                    tracks,
+                    seconds,
+                },
+        }) = self.runtime.waiting()
+        else {
+            return Ok("[]".to_owned());
+        };
+        let frames: Vec<_> = (0..=PARALLEL_SAMPLES)
+            .map(|index| {
+                renrs_runtime::animation::sample(
+                    from,
+                    tracks,
+                    f32::from(index) * seconds / f32::from(PARALLEL_SAMPLES),
+                )
+                .sprites
+            })
+            .collect();
+        serde_json::to_string(&frames).map_err(js_error)
+    }
+
+    fn parallel_camera_frames(&self) -> Result<String, JsValue> {
+        let Some(renrs_runtime::WaitState::Effect {
+            effect:
+                renrs_runtime::runtime::VisualEffect::Parallel {
+                    from,
+                    tracks,
+                    seconds,
+                },
+        }) = self.runtime.waiting()
+        else {
+            return Ok("[]".to_owned());
+        };
+        let frames: Vec<_> = (0..=PARALLEL_SAMPLES)
+            .map(|index| {
+                renrs_runtime::animation::sample(
+                    from,
+                    tracks,
+                    f32::from(index) * seconds / f32::from(PARALLEL_SAMPLES),
+                )
+                .camera
+            })
+            .collect();
+        serde_json::to_string(&frames).map_err(js_error)
     }
 }

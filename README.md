@@ -21,7 +21,7 @@ Needs Rust 1.88+. Linux also needs ALSA (`libasound2-dev` on Debian / Ubuntu).
 
 ```sh
 cargo run --bin renrs-check -- demo
-cargo run -- demo
+cargo run -p renrs-player --bin renrs -- demo
 ```
 
 The player takes a project directory or a `.renrs` archive. Directory mode
@@ -36,7 +36,7 @@ directory for `game.renrs` or `demo/`.
 ```sh
 cargo run --bin renrs-init -- my-story --title "My Story" --id org.example.my-story
 cargo run --bin renrs-debug -- test my-story my-story/routes.json
-cargo run -- my-story
+cargo run -p renrs-player --bin renrs -- my-story
 ```
 
 The template includes art, Chinese translations, two endings, and route tests.
@@ -65,7 +65,8 @@ label start:
 
 ```sh
 cargo run --bin renrs-pack -- demo demo.renrs
-cargo build --bin renrs --bin renrs-build
+cargo build --bin renrs-build
+cargo build -p renrs-player --bin renrs
 cargo run --bin renrs-build -- demo dist/signal-at-dusk
 ```
 
@@ -114,7 +115,7 @@ crates/project        Sources, assets, archives, theme, screens
 crates/editor         LSP, symbols, format, story graph
 crates/extensions     Sandboxed deterministic extension execution
 crates/web            Shared runtime WASM bindings
-src/player/*          Native UI, render, audio
+crates/player          Native UI, render, audio (`renrs` binary)
 src/migration/*       Supported Ren'Py static subset
 src/bin/*             Headless CLI entry points
 ```
@@ -133,7 +134,7 @@ cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
 cargo test --offline --workspace --all-targets
 
 # Native muted capture. The output directory must not exist.
-cargo run -- demo --smoke-test target/demo-captures --window-size 800x600
+cargo run -p renrs-player --bin renrs -- demo --smoke-test target/demo-captures --window-size 800x600
 ```
 
 Use `node scripts/verify-local.mjs --full` for the Web browser, VS Code host,

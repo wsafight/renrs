@@ -18,6 +18,7 @@ fn rust_source_files_stay_below_the_cohesion_limit() {
         root.join("crates/editor/src"),
         root.join("crates/web/src"),
         root.join("crates/extensions/src"),
+        root.join("crates/player/src"),
     ] {
         inspect(&directory, &mut oversized);
     }

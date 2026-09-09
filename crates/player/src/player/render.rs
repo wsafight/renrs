@@ -60,24 +60,26 @@ impl App {
 
         match waiting {
             Some(WaitState::Dialogue) => {
-                let previous = self.theme.clone();
-                self.theme = self.dialogue_theme();
+                let previous = self.apply_dialogue_theme();
                 let nvl = self.dialogue_view.nvl.clone();
                 if stage.window
                     && let Some(dialogue) = nvl.as_deref().or(stage.dialogue.as_ref())
                 {
                     self.draw_dialogue(dialogue, mouse, actions, true);
                 }
-                self.theme = previous;
+                if let Some(previous) = previous {
+                    self.theme = previous;
+                }
             }
             Some(WaitState::Choice { options }) => {
                 if stage.window
                     && let Some(dialogue) = &stage.dialogue
                 {
-                    let previous = self.theme.clone();
-                    self.theme = self.dialogue_theme();
+                    let previous = self.apply_dialogue_theme();
                     self.draw_dialogue(dialogue, mouse, actions, false);
-                    self.theme = previous;
+                    if let Some(previous) = previous {
+                        self.theme = previous;
+                    }
                 }
                 self.draw_choices(&options, mouse, actions);
             }

@@ -18,7 +18,7 @@ RenRS 是用 Rust 独立实现、受 Ren'Py 启发的视觉小说引擎。用 `.
 
 ```sh
 cargo run --bin renrs-check -- demo
-cargo run -- demo
+cargo run -p renrs-player --bin renrs -- demo
 ```
 
 播放器接受项目目录或 `.renrs` 归档。目录模式在校验通过后热重载；归档模式只读。
@@ -31,7 +31,7 @@ cargo run -- demo
 ```sh
 cargo run --bin renrs-init -- my-story --title "My Story" --id org.example.my-story
 cargo run --bin renrs-debug -- test my-story my-story/routes.json
-cargo run -- my-story
+cargo run -p renrs-player --bin renrs -- my-story
 ```
 
 模板含插图、中文翻译、双结局和路线测试。每个游戏使用不同的 `config id`。
@@ -59,7 +59,8 @@ label start:
 
 ```sh
 cargo run --bin renrs-pack -- demo demo.renrs
-cargo build --bin renrs --bin renrs-build
+cargo build --bin renrs-build
+cargo build -p renrs-player --bin renrs
 cargo run --bin renrs-build -- demo dist/signal-at-dusk
 ```
 
@@ -107,7 +108,7 @@ crates/project        来源、资源、归档、主题、界面
 crates/editor         LSP、符号、格式化、剧情图
 crates/extensions     沙箱化确定性扩展执行
 crates/web            共享运行时的 WASM 绑定
-src/player/*          原生 UI、渲染、音频
+crates/player         原生 UI、渲染、音频（`renrs` 二进制）
 src/migration/*       支持的 Ren'Py 静态子集
 src/bin/*             无窗口 CLI 入口
 ```
@@ -126,7 +127,7 @@ cargo clippy --offline --workspace --all-targets --all-features -- -D warnings
 cargo test --offline --workspace --all-targets
 
 # 原生静音截图验收，输出目录必须不存在
-cargo run -- demo --smoke-test target/demo-captures --window-size 800x600
+cargo run -p renrs-player --bin renrs -- demo --smoke-test target/demo-captures --window-size 800x600
 ```
 
 `node scripts/verify-local.mjs --full` 还会验证 Web 浏览器流程、VS Code 扩展宿主、release

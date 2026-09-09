@@ -194,7 +194,7 @@ export const app: PlayerApp = {
     localStorage.setItem(settingsKey(app.data.program.project_id), JSON.stringify(app.settings));
   },
   async setLanguage(language: string): Promise<void> {
-    app.state = parseRuntimeState(app.engine.language(language));
+    app.state = parseRuntimeState(app.engine.language(language), stateValue);
     app.settings.language = language;
     app.applySettings();
     app.localize(document);
@@ -222,7 +222,7 @@ export const app: PlayerApp = {
   async act(command: string, index = 0): Promise<void> {
     if (command === 'next' && app.state.waiting === 'Dialogue' && app.reading.finish()) return;
     clearAppTimer();
-    app.state = parseRuntimeState(app.engine.action(command, index));
+    app.state = parseRuntimeState(app.engine.action(command, index), stateValue);
     app.reading.reset();
     app.pausedRemaining = null;
     app.trackRead();
@@ -266,7 +266,7 @@ export const app: PlayerApp = {
     });
   },
   async restore(save: SaveRecord): Promise<void> {
-    const next = parseRuntimeState(app.engine.restore(save.snapshot));
+    const next = parseRuntimeState(app.engine.restore(save.snapshot), stateValue);
     app.layerTime = save.presentation?.sprite_elapsed_ms || 0;
     app.state = next;
     app.route = [];

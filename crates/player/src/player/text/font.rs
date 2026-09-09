@@ -2,7 +2,10 @@ use ab_glyph::{Font, FontArc, FontRef, GlyphId};
 
 const MAX_FONT_BYTES: usize = 32 * 1024 * 1024;
 pub(super) const MAX_GLYPH_SIDE: u16 = 1020;
-const FALLBACK: &[u8] = include_bytes!("../../../assets/fonts/NotoSansSC-Medium.ttf");
+const FALLBACK: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../assets/fonts/NotoSansSC-Medium.ttf"
+));
 
 pub(crate) struct Face {
     font: FontArc,
@@ -36,8 +39,16 @@ impl Face {
     pub(crate) fn defaults() -> Vec<Self> {
         let mut faces = vec![Self::fallback()];
         for bytes in [
-            include_bytes!("../../../assets/fonts/NotoSansArabic.ttf").as_slice(),
-            include_bytes!("../../../assets/fonts/NotoSansDevanagari.ttf").as_slice(),
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../assets/fonts/NotoSansArabic.ttf"
+            ))
+            .as_slice(),
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../assets/fonts/NotoSansDevanagari.ttf"
+            ))
+            .as_slice(),
         ] {
             faces.push(
                 Self::new(

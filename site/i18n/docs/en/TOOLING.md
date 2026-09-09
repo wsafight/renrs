@@ -132,7 +132,8 @@ can read it directly. Player archive mode does not hot-reload.
 ## Build a shipping directory
 
 ```sh
-cargo build --bin renrs --bin renrs-build
+cargo build --bin renrs-build
+cargo build -p renrs-player --bin renrs
 cargo run --bin renrs-build -- game dist/my-game
 ```
 

@@ -245,6 +245,7 @@ export async function customScreen(
         if (widget.variable && widget.expression) {
           app.state = parseRuntimeState(
             app.engine.apply_expression(widget.variable, widget.expression),
+            app.state,
           );
           app.syncProfile();
           await app.render();
@@ -260,6 +261,7 @@ export async function customScreen(
           throw new Error('Set widget requires variable and expression');
         app.state = parseRuntimeState(
           app.engine.apply_expression(widget.variable, widget.expression),
+          app.state,
         );
         app.syncProfile();
         if (app.$('modal').open) await app.openPanel(kind);
@@ -305,6 +307,7 @@ export async function customScreen(
       input.oninput = app.guard(() => {
         app.state = parseRuntimeState(
           app.engine.set_variable(widget.variable ?? '', JSON.stringify(input.value)),
+          app.state,
         );
         app.syncProfile();
       });

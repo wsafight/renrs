@@ -60,6 +60,7 @@ claim.
 
 ```sh
 cargo build --release --bins
+cargo build --release -p renrs-player --bin renrs
 target/release/renrs-bench generate target/benchmark-story 100 100
 target/release/renrs-bench target/benchmark-story 5
 ```
@@ -119,8 +120,8 @@ external author's work. Real authoring, migration, and shipping acceptance remai
 ```sh
 cargo run --example generate_visual_fixture -- target/visual-story
 cargo run --bin renrs-debug -- test target/visual-story target/visual-story/routes.json
-cargo run -- demo --smoke-test target/captures-demo --window-size 1280x720
-cargo run -- target/visual-story --smoke-test target/captures-visual --window-size 800x600
+cargo run -p renrs-player --bin renrs -- demo --smoke-test target/captures-demo --window-size 1280x720
+cargo run -p renrs-player --bin renrs -- target/visual-story --smoke-test target/captures-visual --window-size 800x600
 ```
 
 The test output directory must not exist. The mode uses `data/` under the output

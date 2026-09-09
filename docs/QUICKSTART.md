@@ -14,6 +14,7 @@ Linux 编译还需要 ALSA 开发库，Debian / Ubuntu 可安装 `libasound2-dev
 ```sh
 rustc --version
 cargo build --bins
+cargo build -p renrs-player --bin renrs
 ```
 
 Web 播放器和工作区需要 Node.js；官方文档站需要 Node.js 22.12 或更高版本。
@@ -23,7 +24,7 @@ Web 播放器和工作区需要 Node.js；官方文档站需要 Node.js 22.12 �
 
 ```sh
 cargo run --bin renrs-check -- demo
-cargo run --bin renrs -- demo
+cargo run -p renrs-player --bin renrs -- demo
 ```
 
 第一条命令检查语法、资源引用和控制流，第二条打开播放器。示例中的背景、角色、音频及翻译
@@ -35,7 +36,7 @@ cargo run --bin renrs -- demo
 
 ```sh
 cargo run --bin renrs-init -- my-story --title "My Story" --id org.example.my-story
-cargo run --bin renrs -- my-story
+cargo run -p renrs-player --bin renrs -- my-story
 ```
 
 `config id` 决定游戏数据隔离标识，请为不同项目选择不同 ID。模板包含图片、中文翻译、
@@ -71,7 +72,7 @@ label start:
 
 ```sh
 cargo run --bin renrs-check -- my-story
-cargo run --bin renrs -- my-story
+cargo run -p renrs-player --bin renrs -- my-story
 cargo run --bin renrs-debug -- test my-story my-story/routes.json
 cargo run --bin renrs-build -- my-story dist/my-story
 ```

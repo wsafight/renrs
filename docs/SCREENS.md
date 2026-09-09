@@ -86,7 +86,7 @@
 
 ```sh
 cargo run --example generate_visual_fixture -- target/visual-story
-cargo run -- target/visual-story
+cargo run -p renrs-player --bin renrs -- target/visual-story
 ```
 
 桌面与 Web 共用 Rust 校验后的布局；Web 在手机尺寸按叶子控件顺序重新排列。原生对白分页，Web 正文可滚动。

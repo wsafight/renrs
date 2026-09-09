@@ -36,7 +36,8 @@ npm test
 ## 本地门禁与发布
 
 文档站的质量门禁在本地执行，以 `npm run check`、`npm run build` 为准；需要浏览器回归时
-再单独运行现有 `npm test`。本轮不新增 GitHub Actions CI。
+再单独运行现有 `npm test`。文档站仍由 `.github/workflows/docs.yml` 发布；Rust 核心与 Web
+检查由 `.github/workflows/core.yml` 运行。
 
 现有 `.github/workflows/docs.yml` 只保留为文档产物和 GitHub Pages 的可选发布通道，不作为
 本地验收的替代。需要发布时，在仓库 **Settings → Pages → Build and deployment** 中选择

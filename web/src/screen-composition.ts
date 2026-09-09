@@ -69,6 +69,7 @@ export async function dataControl(
         required(variable, 'variable'),
         required(expression, 'expression'),
       ),
+      app.state,
     );
     app.syncProfile();
     if (app.$('modal').open) await app.openPanel(kind);
@@ -85,6 +86,7 @@ export async function dataControl(
           required(widget.name, 'name'),
           widget.input ?? '',
         ),
+        app.state,
       );
       app.syncProfile();
       if (app.$('modal').open) await app.openPanel(kind);

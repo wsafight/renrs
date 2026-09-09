@@ -66,6 +66,7 @@ fn next_deadline(previous: Option<Instant>, started: Instant, interval: Duration
 }
 
 // Miniquad's request channel alone does not wake Cocoa's nextEvent wait.
+// Windows and Linux blocking loops wake from schedule_update().
 #[cfg(target_os = "macos")]
 fn wake_event_loop() {
     dispatch2::DispatchQueue::main().exec_async(|| {

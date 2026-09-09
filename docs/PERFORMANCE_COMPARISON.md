@@ -158,7 +158,8 @@ after:  7f50d976d33928df1ff847c0468a598306cbb47079b4c6cffb5c065eaa813687
 From the repository root, with the official SDK unpacked at the path below:
 
 ```sh
-cargo build --offline --release --bin renrs --bin renrs-bench --example inspect_frames
+cargo build --offline --release --bin renrs-bench --example inspect_frames
+cargo build --offline --release -p renrs-player --bin renrs
 node scripts/generate-engine-comparison.mjs target/my-engine-comparison
 node scripts/compare-engines.mjs target/my-engine-comparison target/renpy-sdk/renpy-8.5.3-sdk 3
 node scripts/compare-state.mjs target/my-engine-comparison

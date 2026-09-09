@@ -117,7 +117,8 @@ cargo run --bin renrs-check -- game.renrs
 ## 构建发行目录
 
 ```sh
-cargo build --bin renrs --bin renrs-build
+cargo build --bin renrs-build
+cargo build -p renrs-player --bin renrs
 cargo run --bin renrs-build -- game dist/my-game
 ```
 

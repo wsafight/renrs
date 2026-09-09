@@ -6,8 +6,13 @@ excluded by the owner. Previous save formats need not remain compatible.
 
 Current scope decision (2026-09-08): release P0 work, physical-device and real-project
 acceptance are paused. Repository-closed P1/P2 work uses `node scripts/verify-local.mjs`
-as the acceptance gate; no additional GitHub Actions CI is planned. Agent-facing
-`SKILL.md`, `llms.txt`, a read-only MCP server, and related integration work are also paused.
+as the acceptance gate. An Ubuntu GitHub Actions workflow now runs fmt, Clippy,
+Rust workspace/player tests, and Web checks. Agent-facing `SKILL.md`, `llms.txt`,
+a read-only MCP server, and related integration work are also paused.
+
+The native player lives in `crates/player` (`renrs` binary) so CLI tools no longer
+link macroquad or rodio. Web runtime state omits an unchanged stage snapshot, and
+parallel animations are sampled in WASM.
 
 ## At a glance
 

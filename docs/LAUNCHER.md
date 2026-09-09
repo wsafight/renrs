@@ -7,6 +7,7 @@ Launcher 是本地项目工作区，复用 Rust 命令行工具完成迁移、�
 
 ```sh
 cargo build --bins
+cargo build -p renrs-player --bin renrs
 npm ci --prefix launcher
 npm run build --prefix launcher
 node scripts/launcher.mjs --port 4185
@@ -48,6 +49,7 @@ node scripts/build-web.mjs
 
 ```sh
 cargo build --release --bins
+cargo build --release -p renrs-player --bin renrs
 npm run build --prefix launcher
 npm run build --prefix editors/vscode-renrs
 node scripts/package-sdk.mjs dist/renrs-sdk target/release

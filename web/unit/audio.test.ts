@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import type { AudioApp } from '../src/audio';
 import { setupAudio } from '../src/audio';
-import type { AudioEvent } from '../src/protocol';
+import { type AudioEvent, parseRuntimeState } from '../src/protocol';
 import type { AudioHandle, PlayerSettings } from '../src/types';
 
 class FakeAudio implements AudioHandle {
@@ -50,13 +50,22 @@ const settings = (): PlayerSettings => ({
   reduced: false,
   language: '',
 });
-function fixture() {
+function fixture(omitStage = false) {
   const events: AudioEvent[] = [];
   const app: AudioApp = {
     voices: new Map(),
     asset: (path: string) => path,
     settings: settings(),
-    state: { stage: {} },
+    state: parseRuntimeState(
+      JSON.stringify({
+        stage: { sprites: [], camera: {} },
+        waiting: null,
+        debug: { paused: false },
+        profile_revision: 0,
+        history_count: 0,
+        can_rollback: false,
+      }),
+    ),
     notify: () => {},
     engine: {
       audio_events: () => JSON.stringify(events.splice(0)),
@@ -66,7 +75,7 @@ function fixture() {
       },
       state: () =>
         JSON.stringify({
-          stage: { sprites: [], camera: {}, ...app.state.stage },
+          stage: omitStage ? null : app.state.stage,
           waiting: null,
           debug: { paused: false },
           profile_revision: 0,
@@ -77,6 +86,16 @@ function fixture() {
   };
   return { app, events, audio: setupAudio(app, FakeAudio) };
 }
+test('audio completion reuses the previous stage when the engine omits it', async () => {
+  const { app, events, audio } = fixture(true);
+  app.state.stage.sound = { path: 'sound.wav', repeat: false, volume: 1 };
+  events.push({ PlaySound: { path: 'sound.wav', repeat: false, volume: 1 } });
+  await audio.events();
+
+  const ended = app.voices.get('sound');
+  assert.doesNotThrow(() => ended?.onended?.(new Event('ended')));
+  assert.equal(app.state.stage.sound, null);
+});
 test('playing a sound replaces the channel and ended/error states release resources', async () => {
   const { app, events, audio } = fixture();
   app.state.stage.sound = { path: 'sound.wav', repeat: false, volume: 1 };

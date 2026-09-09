@@ -96,7 +96,7 @@ and can generate a playable fixture:
 
 ```sh
 cargo run --example generate_visual_fixture -- target/visual-story
-cargo run -- target/visual-story
+cargo run -p renrs-player --bin renrs -- target/visual-story
 ```
 
 Desktop and web share the Rust-validated layout. Web reflows leaf controls in order

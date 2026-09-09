@@ -19,6 +19,43 @@ describe('web protocol boundaries', () => {
     expect(state.debug.paused).toBe(true);
   });
 
+  it('reuses the previous stage when the engine omits an unchanged snapshot', () => {
+    const previous = parseRuntimeState(
+      JSON.stringify({
+        stage: { sprites: [], camera: {}, background: 'studio.png' },
+        waiting: 'Dialogue',
+        debug: { paused: false },
+        profile_revision: 0,
+        history_count: 2,
+        can_rollback: true,
+      }),
+    );
+    const state = parseRuntimeState(
+      JSON.stringify({
+        stage: null,
+        waiting: 'Dialogue',
+        debug: { paused: false },
+        profile_revision: 0,
+        history_count: 2,
+        can_rollback: true,
+      }),
+      previous,
+    );
+    expect(state.stage.background).toBe('studio.png');
+    expect(() =>
+      parseRuntimeState(
+        JSON.stringify({
+          stage: null,
+          waiting: 'Dialogue',
+          debug: { paused: false },
+          profile_revision: 0,
+          history_count: 2,
+          can_rollback: true,
+        }),
+      ),
+    ).toThrow(/missing stage/);
+  });
+
   it('normalizes the portable save metadata before assigning a local slot', () => {
     const save = parseImportedSave(
       JSON.stringify({

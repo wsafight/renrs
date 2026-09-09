@@ -20,6 +20,16 @@ pub(super) fn load_screens(source: &ProjectSource) -> Result<Screens, String> {
 
 impl App {
     pub(super) fn dialogue_theme(&self) -> Theme {
+        self.dialogue_theme_override()
+            .unwrap_or_else(|| self.theme.clone())
+    }
+
+    pub(super) fn apply_dialogue_theme(&mut self) -> Option<Theme> {
+        let next = self.dialogue_theme_override()?;
+        Some(std::mem::replace(&mut self.theme, next))
+    }
+
+    fn dialogue_theme_override(&self) -> Option<Theme> {
         if self
             .runtime
             .as_ref()
@@ -32,20 +42,15 @@ impl App {
                 width: 1120.0,
                 height: 580.0,
             };
-            return theme;
+            return Some(theme);
         }
-        let Some(elements) = self.screen_layouts.elements(ScreenKind::Dialogue) else {
-            return self.theme.clone();
-        };
-        let Some(element) = elements
+        let elements = self.screen_layouts.elements(ScreenKind::Dialogue)?;
+        let element = elements
             .iter()
-            .find(|item| matches!(item.widget, Widget::Dialogue))
-        else {
-            return self.theme.clone();
-        };
+            .find(|item| matches!(item.widget, Widget::Dialogue))?;
         let mut theme = self.element_theme(element.style.as_deref());
         theme.layout.dialogue_rect = element.bounds;
-        theme
+        Some(theme)
     }
     #[allow(clippy::too_many_lines)]
     pub(super) fn draw_custom_screen(

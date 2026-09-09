@@ -48,6 +48,7 @@ Cargo release 配置启用 thin LTO。以下数值用于建立可复现的当前
 
 ```sh
 cargo build --release --bins
+cargo build --release -p renrs-player --bin renrs
 target/release/renrs-bench generate target/benchmark-story 100 100
 target/release/renrs-bench target/benchmark-story 5
 ```
@@ -99,8 +100,8 @@ target/release/renrs-bench target/reference-story 5
 ```sh
 cargo run --example generate_visual_fixture -- target/visual-story
 cargo run --bin renrs-debug -- test target/visual-story target/visual-story/routes.json
-cargo run -- demo --smoke-test target/captures-demo --window-size 1280x720
-cargo run -- target/visual-story --smoke-test target/captures-visual --window-size 800x600
+cargo run -p renrs-player --bin renrs -- demo --smoke-test target/captures-demo --window-size 1280x720
+cargo run -p renrs-player --bin renrs -- target/visual-story --smoke-test target/captures-visual --window-size 800x600
 ```
 
 测试输出目录必须不存在。模式使用输出目录下的 `data/`，三个音频通道固定静音，

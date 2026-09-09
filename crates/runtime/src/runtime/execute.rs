@@ -19,18 +19,20 @@ impl Runtime {
         }
 
         for _ in 0..MAX_IMMEDIATE_STEPS {
-            let Some(instruction) = self.program.instructions.get(self.instruction).cloned() else {
+            let Some(instruction) = self.program.instructions.get(self.instruction) else {
                 self.waiting = Some(WaitState::Finished);
                 return Ok(WaitState::Finished);
             };
             let line = instruction.span.line;
-            self.check_debug_stop(&instruction.id)?;
+            let id = instruction.id.clone();
+            let statement_id = instruction.statement_id.clone();
+            self.check_debug_stop(&id)?;
             self.observe_progress();
             self.last_instruction = self.instruction;
             if let Some(trace) = &mut self.trace {
                 trace.insert(self.instruction);
             }
-            match instruction.kind {
+            match &self.program.instructions[self.instruction].kind {
                 InstructionKind::Nvl { mode } => {
                     if mode == "on" {
                         Arc::make_mut(&mut self.stage).nvl = true;
@@ -42,6 +44,7 @@ impl Runtime {
                     self.instruction += 1;
                 }
                 InstructionKind::Parallel { tracks } => {
+                    let tracks = tracks.clone();
                     let seconds = crate::animation::validate(&self.stage, &tracks)
                         .map_err(|message| execution(line, message))?;
                     let from = Box::new(self.stage.as_ref().clone());
@@ -56,6 +59,8 @@ impl Runtime {
                     }));
                 }
                 InstructionKind::Video { path, seconds } => {
+                    let path = path.clone();
+                    let seconds = *seconds;
                     self.instruction += 1;
                     return Ok(self.set_waiting(WaitState::Effect {
                         effect: VisualEffect::Video { path, seconds },
@@ -67,11 +72,15 @@ impl Runtime {
                     text,
                     translation_id,
                 } => {
+                    let speaker = speaker.clone();
+                    let attributes = attributes.clone();
+                    let text = text.clone();
+                    let translation_id = translation_id.clone();
                     if let Some(speaker) = speaker.as_deref() {
                         self.apply_say_attributes(speaker, &attributes, line)?;
                     }
                     self.present_dialogue(
-                        &instruction.statement_id,
+                        &statement_id,
                         speaker.as_deref(),
                         &text,
                         &translation_id,
@@ -83,7 +92,7 @@ impl Runtime {
                 InstructionKind::Scene { path } => {
                     self.previous_stage = Some(self.stage.as_ref().clone());
                     let stage = Arc::make_mut(&mut self.stage);
-                    stage.background = Some(path);
+                    stage.background = Some(path.clone());
                     stage.sprites.clear();
                     self.instruction += 1;
                 }
@@ -96,20 +105,20 @@ impl Runtime {
                     display_order,
                 } => {
                     let sprite = SpriteState {
-                        composition: self.resolve_image(&path, line)?,
-                        path,
+                        composition: self.resolve_image(path, line)?,
+                        path: path.clone(),
                         alias: alias.clone(),
-                        position,
-                        layer,
-                        display_layer,
-                        display_order,
+                        position: *position,
+                        layer: *layer,
+                        display_layer: display_layer.clone(),
+                        display_order: *display_order,
                         transform: TransformState::identity(),
                         attributes: Vec::new(),
                     };
                     if let Some(existing) = Arc::make_mut(&mut self.stage)
                         .sprites
                         .iter_mut()
-                        .find(|item| item.alias == alias)
+                        .find(|item| item.alias == *alias)
                     {
                         *existing = sprite;
                     } else {
@@ -120,19 +129,21 @@ impl Runtime {
                 InstructionKind::Hide { alias } => {
                     Arc::make_mut(&mut self.stage)
                         .sprites
-                        .retain(|item| item.alias != alias);
+                        .retain(|item| item.alias != *alias);
                     self.instruction += 1;
                 }
                 InstructionKind::ClearLayer { display_layer } => {
                     Arc::make_mut(&mut self.stage)
                         .sprites
-                        .retain(|item| item.display_layer != display_layer);
+                        .retain(|item| item.display_layer != *display_layer);
                     self.instruction += 1;
                 }
                 InstructionKind::Choice { prompt, options } => {
-                    if let Some(prompt) = prompt {
+                    let prompt = prompt.clone();
+                    let options = options.clone();
+                    if let Some(prompt) = &prompt {
                         self.present_dialogue(
-                            &instruction.statement_id,
+                            &statement_id,
                             prompt.speaker.as_deref(),
                             &prompt.text,
                             &prompt.translation_id,
@@ -145,7 +156,7 @@ impl Runtime {
                         visible_choice_labels(&options, &self.variables, &self.localizer, line)?;
                     return Ok(self.set_waiting(WaitState::Choice { options: labels }));
                 }
-                InstructionKind::Jump { target } => self.instruction = target,
+                InstructionKind::Jump { target } => self.instruction = *target,
                 InstructionKind::Call {
                     target,
                     arguments,
@@ -161,18 +172,19 @@ impl Runtime {
                             (parameter.clone(), self.variables.get(parameter).cloned())
                         })
                         .collect();
-                    for (parameter, value) in parameters.into_iter().zip(values) {
-                        Arc::make_mut(&mut self.variables).insert(parameter, value);
+                    for (parameter, value) in parameters.iter().zip(values) {
+                        Arc::make_mut(&mut self.variables).insert(parameter.clone(), value);
                     }
                     self.call_stack.push(CallFrame {
                         return_address: self.instruction + 1,
                         previous_variables,
                     });
-                    self.instruction = target;
+                    self.instruction = *target;
                 }
                 InstructionKind::Return { value } => {
                     let returned = value
-                        .map(|expression| evaluate(&expression, &self.variables, line))
+                        .as_ref()
+                        .map(|expression| evaluate(expression, &self.variables, line))
                         .transpose()?;
                     if let Some(frame) = self.call_stack.pop() {
                         let variables = Arc::make_mut(&mut self.variables);
@@ -197,7 +209,8 @@ impl Runtime {
                     }
                 }
                 InstructionKind::Set { variable, value } => {
-                    let value = evaluate(&value, &self.variables, line)?;
+                    let variable = variable.clone();
+                    let value = evaluate(value, &self.variables, line)?;
                     self.set_persistent_variable(&variable, &value);
                     Arc::make_mut(&mut self.variables).insert(variable, value);
                     self.instruction += 1;
@@ -207,7 +220,9 @@ impl Runtime {
                     variable,
                     input,
                 } => {
-                    let input = evaluate(&input, &self.variables, line)?;
+                    let name = name.clone();
+                    let variable = variable.clone();
+                    let input = evaluate(input, &self.variables, line)?;
                     let value = self
                         .extensions
                         .invoke(&name, &input)
@@ -217,10 +232,10 @@ impl Runtime {
                     self.instruction += 1;
                 }
                 InstructionKind::JumpIfFalse { condition, target } => {
-                    let value = evaluate(&condition, &self.variables, line)?;
+                    let value = evaluate(condition, &self.variables, line)?;
                     match value {
                         Value::Boolean(true) => self.instruction += 1,
-                        Value::Boolean(false) => self.instruction = target,
+                        Value::Boolean(false) => self.instruction = *target,
                         other => {
                             return Err(RuntimeError::Execution {
                                 line,
@@ -239,7 +254,13 @@ impl Runtime {
                     volume,
                     if_changed,
                 } => {
-                    self.play_music_if_changed(path, repeat, fade_in, volume, if_changed);
+                    self.play_music_if_changed(
+                        path.clone(),
+                        *repeat,
+                        *fade_in,
+                        *volume,
+                        *if_changed,
+                    );
                 }
                 InstructionKind::QueueMusic {
                     path,
@@ -249,25 +270,25 @@ impl Runtime {
                 } => {
                     let music = MusicState {
                         path: path.clone(),
-                        repeat,
-                        fade_in,
-                        volume,
+                        repeat: *repeat,
+                        fade_in: *fade_in,
+                        volume: *volume,
                     };
                     if self.stage.music.is_none() {
                         Arc::make_mut(&mut self.stage).music = Some(music);
                         self.audio_events.push(AudioEvent::PlayMusic {
-                            path,
-                            repeat,
-                            fade_in,
-                            volume,
+                            path: path.clone(),
+                            repeat: *repeat,
+                            fade_in: *fade_in,
+                            volume: *volume,
                         });
                     } else {
                         Arc::make_mut(&mut self.stage).music_queue.push(music);
                         self.audio_events.push(AudioEvent::QueueMusic {
-                            path,
-                            repeat,
-                            fade_in,
-                            volume,
+                            path: path.clone(),
+                            repeat: *repeat,
+                            fade_in: *fade_in,
+                            volume: *volume,
                         });
                     }
                     self.instruction += 1;
@@ -277,36 +298,40 @@ impl Runtime {
                     volume,
                     repeat,
                 } => {
-                    self.play_sound(path, volume, repeat, false);
+                    self.play_sound(path.clone(), *volume, *repeat, false);
                 }
                 InstructionKind::QueueSound {
                     path,
                     volume,
                     repeat,
                 } => {
-                    self.play_sound(path, volume, repeat, true);
+                    self.play_sound(path.clone(), *volume, *repeat, true);
                 }
-                InstructionKind::StopSound { fade_out } => self.stop_sound(fade_out),
-                InstructionKind::StopVoice { fade_out } => self.stop_voice(fade_out),
-                InstructionKind::Window { visible } => self.apply_window(visible),
-                InstructionKind::ShowScreen { name } => self.show_screen(name),
-                InstructionKind::HideScreen { name } => self.hide_screen(&name),
+                InstructionKind::StopSound { fade_out } => self.stop_sound(*fade_out),
+                InstructionKind::StopVoice { fade_out } => self.stop_voice(*fade_out),
+                InstructionKind::Window { visible } => self.apply_window(*visible),
+                InstructionKind::ShowScreen { name } => self.show_screen(name.clone()),
+                InstructionKind::HideScreen { name } => self.hide_screen(&name.clone()),
                 InstructionKind::CallScreen { name } => {
-                    return Ok(self.call_screen(name));
+                    return Ok(self.call_screen(name.clone()));
                 }
                 InstructionKind::PlayVoice { path } => {
                     Arc::make_mut(&mut self.stage).voice = Some(path.clone());
-                    self.audio_events.push(AudioEvent::PlayVoice { path });
+                    self.audio_events
+                        .push(AudioEvent::PlayVoice { path: path.clone() });
                     self.instruction += 1;
                 }
                 InstructionKind::StopMusic { fade_out } => {
                     let stage = Arc::make_mut(&mut self.stage);
                     stage.music = None;
                     stage.music_queue.clear();
-                    self.audio_events.push(AudioEvent::StopMusic { fade_out });
+                    self.audio_events.push(AudioEvent::StopMusic {
+                        fade_out: *fade_out,
+                    });
                     self.instruction += 1;
                 }
                 InstructionKind::Pause { seconds } => {
+                    let seconds = *seconds;
                     self.instruction += 1;
                     return Ok(self.set_waiting(WaitState::Pause { seconds }));
                 }
@@ -318,7 +343,7 @@ impl Runtime {
                     let Some(sprite) = Arc::make_mut(&mut self.stage)
                         .sprites
                         .iter_mut()
-                        .find(|sprite| sprite.alias == alias)
+                        .find(|sprite| sprite.alias == *alias)
                     else {
                         return Err(RuntimeError::Execution {
                             line,
@@ -326,14 +351,14 @@ impl Runtime {
                         });
                     };
                     let from = sprite.position;
-                    sprite.position = position;
+                    sprite.position = *position;
                     self.instruction += 1;
                     return Ok(self.set_waiting(WaitState::Effect {
                         effect: VisualEffect::Tween {
-                            alias,
+                            alias: alias.clone(),
                             from,
-                            to: position,
-                            seconds,
+                            to: *position,
+                            seconds: *seconds,
                         },
                     }));
                 }
@@ -350,7 +375,7 @@ impl Runtime {
                         &mut stage
                             .sprites
                             .iter_mut()
-                            .find(|sprite| sprite.alias == alias)
+                            .find(|sprite| sprite.alias == *alias)
                             .ok_or_else(|| {
                                 execution(
                                     line,
@@ -365,16 +390,16 @@ impl Runtime {
                     self.instruction += 1;
                     return Ok(self.set_waiting(WaitState::Effect {
                         effect: VisualEffect::Transform {
-                            alias,
+                            alias: alias.clone(),
                             from,
                             to,
-                            seconds,
-                            easing,
+                            seconds: *seconds,
+                            easing: *easing,
                         },
                     }));
                 }
                 InstructionKind::Transition { kind, seconds } => {
-                    let effect = self.transition_effect(kind, seconds);
+                    let effect = self.transition_effect(*kind, *seconds);
                     self.instruction += 1;
                     return Ok(self.set_waiting(WaitState::Effect { effect }));
                 }

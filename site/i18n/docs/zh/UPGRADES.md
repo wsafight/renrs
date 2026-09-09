@@ -130,6 +130,7 @@ Web 支持自定义界面、主题颜色/字体、富文本、裁剪/锚点、NV
 
 ```sh
 cargo build --release --bins
+cargo build --release -p renrs-player --bin renrs
 target/release/renrs-build demo target/distribution --player target/release/renrs
 node scripts/release.mjs mac-app target/distribution target/Signal.app
 node scripts/release.mjs store-files target/distribution target/store-files 12345 12346

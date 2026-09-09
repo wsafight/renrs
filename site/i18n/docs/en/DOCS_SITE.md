@@ -44,7 +44,8 @@ npm test
 
 The docs quality gate runs locally. `npm run check` and `npm run build` are the
 authoritative checks; run the existing `npm test` separately when browser regression
-coverage is needed. This round does not add GitHub Actions CI.
+coverage is needed. The docs site is still published by `.github/workflows/docs.yml`;
+Rust core and Web checks run in `.github/workflows/core.yml`.
 
 The existing `.github/workflows/docs.yml` remains only as an optional artifact and
 GitHub Pages publishing channel, not a replacement for local acceptance. To publish,

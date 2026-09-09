@@ -55,15 +55,7 @@ const ease = (name: TransformEffect['easing'], x: number): number =>
         : x;
 function interpolate(from: TransformState, to: TransformState, progress: number): TransformState {
   const value = { ...to };
-  const keys = [
-    'x',
-    'y',
-    'scale',
-    'rotation',
-    'alpha',
-    'anchor_x',
-    'anchor_y',
-  ] as const;
+  const keys = ['x', 'y', 'scale', 'rotation', 'alpha', 'anchor_x', 'anchor_y'] as const;
   for (const key of keys) value[key] = from[key] + (to[key] - from[key]) * progress;
   if (from.crop && to.crop) {
     value.crop = { x: 0, y: 0, width: 0, height: 0 };
@@ -101,7 +93,10 @@ function animateCamera(
   Object.assign(node.style, cameraStyle(camera));
   let keys: Keyframe[] | undefined;
   if (frames?.length)
-    keys = frames.map((frame, index) => ({ ...cameraStyle(frame), offset: index / 60 }));
+    keys = frames.map((frame, index) => ({
+      ...cameraStyle(frame),
+      offset: frames.length > 1 ? index / (frames.length - 1) : 0,
+    }));
   else if (effect?.Transform?.alias === 'camera') {
     const animation = effect.Transform;
     keys = Array.from({ length: 61 }, (_, index) => ({
@@ -164,13 +159,15 @@ async function spriteNode(
   Object.assign(node.style, final.outer);
   Object.assign(image.style, final.inner);
   if (!app.settings.reduced && parallel) {
+    const offset = (index: number) =>
+      parallel.frames.length > 1 ? index / (parallel.frames.length - 1) : 0;
     const frames = parallel.frames.map((sprites, index) => ({
       ...geometry(
         sprite,
         sprites.find((item) => item.alias === sprite.alias)?.transform ?? sprite.transform,
         source,
       ).outer,
-      offset: index / 60,
+      offset: offset(index),
     }));
     const imageFrames = parallel.frames.map((sprites, index) => ({
       ...geometry(
@@ -178,7 +175,7 @@ async function spriteNode(
         sprites.find((item) => item.alias === sprite.alias)?.transform ?? sprite.transform,
         source,
       ).inner,
-      offset: index / 60,
+      offset: offset(index),
     }));
     node.animate(frames, { duration: parallel.seconds * 1000, fill: 'forwards' }).currentTime =
       elapsed;
@@ -323,9 +320,7 @@ async function oldStageNode(app: PlayerApp, stage: StageState): Promise<HTMLElem
     );
   content.append(
     ...(await Promise.all(
-      [...stage.sprites]
-        .sort(spriteOrder)
-        .map((sprite) => spriteNode(app, sprite, null, 0)),
+      [...stage.sprites].sort(spriteOrder).map((sprite) => spriteNode(app, sprite, null, 0)),
     )),
   );
   old.append(content);

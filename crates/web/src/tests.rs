@@ -51,3 +51,39 @@ fn action_payload_is_bounded_as_history_grows() {
     let inspection: serde_json::Value = serde_json::from_str(&engine.inspect().unwrap()).unwrap();
     assert!(inspection["coverage"].as_array().unwrap().len() >= 1101);
 }
+
+#[test]
+fn repeated_state_omits_an_unchanged_stage() {
+    let program = renrs_compiler::compile(
+        &renrs_compiler::parse_script("label start:\n    \"Hello\"\n    return\n", "state.rns")
+            .unwrap(),
+    )
+    .unwrap();
+    let mut engine = Engine::new(&serde_json::to_string(&program).unwrap(), "").unwrap();
+    let first: serde_json::Value =
+        serde_json::from_str(&engine.action("start", 0).unwrap()).unwrap();
+    assert!(first.get("stage").is_some_and(|stage| !stage.is_null()));
+    let second: serde_json::Value = serde_json::from_str(&engine.state().unwrap()).unwrap();
+    assert!(second.get("stage").is_some_and(serde_json::Value::is_null));
+    assert_eq!(second["history_count"], first["history_count"]);
+}
+
+#[test]
+fn state_includes_stage_mutated_between_non_checkpoint_waits() {
+    let program = renrs_compiler::compile(
+        &renrs_compiler::parse_script(
+            "label start:\n    scene \"one.png\"\n    pause 1\n    scene \"two.png\"\n    pause 1\n    return\n",
+            "state.rns",
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let mut engine = Engine::new(&serde_json::to_string(&program).unwrap(), "").unwrap();
+    let first: serde_json::Value =
+        serde_json::from_str(&engine.action("start", 0).unwrap()).unwrap();
+    assert_eq!(first["stage"]["background"], "one.png");
+
+    let second: serde_json::Value =
+        serde_json::from_str(&engine.action("next", 0).unwrap()).unwrap();
+    assert_eq!(second["stage"]["background"], "two.png");
+}

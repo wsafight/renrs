@@ -8,6 +8,7 @@ job logs, and SDK path configuration.
 
 ```sh
 cargo build --bins
+cargo build -p renrs-player --bin renrs
 npm ci --prefix launcher
 npm run build --prefix launcher
 node scripts/launcher.mjs --port 4185
@@ -52,6 +53,7 @@ installed first. Full commands are in [Command-line tools](TOOLING.md#web-and-mo
 
 ```sh
 cargo build --release --bins
+cargo build --release -p renrs-player --bin renrs
 npm run build --prefix launcher
 npm run build --prefix editors/vscode-renrs
 node scripts/package-sdk.mjs dist/renrs-sdk target/release

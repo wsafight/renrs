@@ -10,7 +10,7 @@
 10,589,136 字节字体后 11.81 MiB，解析 30,890 个已映射字符后 254.14 MiB。这标出了一处
 大分配来源，而不是把进程内存归到实现语言。
 
-`src/player/text.rs` 的新路径用 ab_glyph 0.2.32 解析和栅格化，etagere 0.2.15 分配图集：
+`crates/player/src/player/text.rs` 的新路径用 ab_glyph 0.2.32 解析和栅格化，etagere 0.2.15 分配图集：
 
 - 宽度测量读取 advance 和 kerning，不分配轮廓、位图或 GPU 图集。只有实际绘制的字形才栅格化。
 - 项目字体字节移入自有 face，输入上限 32 MiB。内置回退借用静态字节。整份字体仍可用。
@@ -80,7 +80,8 @@ after:  f6237c2f7c4ae7fda7ce5acedea14fb6e2ed8ca97b4940e3181e8d3c594355f2
 在仓库根目录、交互桌面、以及更早对比夹具/官方 SDK 可用时复现：
 
 ```sh
-cargo build --offline --release --bin renrs --example text_cache_smoke --example inspect_frames
+cargo build --offline --release -p renrs-player --example text_cache_smoke
+cargo build --offline --release --example inspect_frames
 target/release/examples/text_cache_smoke target/my-text-cache-check
 node scripts/compare-engines.mjs target/engine-comparison-verified target/renpy-sdk/renpy-8.5.3-sdk 3
 ```

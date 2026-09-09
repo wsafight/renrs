@@ -1,17 +1,11 @@
 import { audioVolume } from './presentation';
 import { parseAudioEvents, parseRuntimeState } from './protocol';
-import type {
-  AudioConstructor,
-  AudioHandle,
-  PlayerSettings,
-  RuntimeState,
-  StageState,
-} from './types';
+import type { AudioConstructor, AudioHandle, PlayerSettings, RuntimeState } from './types';
 
 export interface AudioApp {
   voices: Map<string, AudioHandle>;
   settings: PlayerSettings;
-    state: { stage: Pick<StageState, 'music' | 'sound' | 'voice'> };
+  state: RuntimeState;
   engine: {
     audio_events(): string;
     music_ended(): void;
@@ -66,11 +60,11 @@ export function setupAudio(app: AudioApp, AudioClass: AudioConstructor = Audio) 
       stop(channel);
       if (channel === 'music') {
         app.engine.music_ended();
-        app.state = parseRuntimeState(app.engine.state()) as RuntimeState;
+        app.state = parseRuntimeState(app.engine.state(), app.state);
         events().catch(app.notify);
       } else if (channel === 'sound') {
         app.engine.sound_ended();
-        app.state = parseRuntimeState(app.engine.state()) as RuntimeState;
+        app.state = parseRuntimeState(app.engine.state(), app.state);
         events().catch(app.notify);
       }
     };
@@ -79,7 +73,7 @@ export function setupAudio(app: AudioApp, AudioClass: AudioConstructor = Audio) 
         stop(channel);
         if (channel === 'sound') {
           app.engine.sound_ended();
-          app.state = parseRuntimeState(app.engine.state()) as RuntimeState;
+          app.state = parseRuntimeState(app.engine.state(), app.state);
           events().catch(app.notify);
         }
       }
@@ -101,12 +95,7 @@ export function setupAudio(app: AudioApp, AudioClass: AudioConstructor = Audio) 
   async function events(): Promise<void> {
     for (const event of parseAudioEvents(app.engine.audio_events())) {
       if ('PlaySound' in event)
-        await play(
-          event.PlaySound.path,
-          'sound',
-          event.PlaySound.repeat,
-          event.PlaySound.volume,
-        );
+        await play(event.PlaySound.path, 'sound', event.PlaySound.repeat, event.PlaySound.volume);
       if (typeof event === 'object' && 'PlayVoice' in event)
         await play(event.PlayVoice.path, 'voice');
       if ('StopVoice' in event) {

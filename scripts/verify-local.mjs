@@ -352,6 +352,15 @@ try {
 
   if (release) {
     run('Release binaries', 'cargo', ['build', '--offline', '--release', '--bins']);
+    run('Release player', 'cargo', [
+      'build',
+      '--offline',
+      '--release',
+      '-p',
+      'renrs-player',
+      '--bin',
+      'renrs',
+    ]);
     const visual = path.join(temporary, 'visual');
     const distribution = path.join(temporary, 'distribution');
     const captures = path.join(temporary, 'captures');

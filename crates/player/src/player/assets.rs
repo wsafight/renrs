@@ -41,9 +41,13 @@ impl AssetCache {
         let prefetch = self.resident_bytes() < self.budget;
         self.worker
             .get_or_insert_with(|| AssetWorker::new(source.clone()));
-        if let Some((path, generation, decoded)) = self.worker.as_mut().unwrap().poll()
-            && generation == self.generation
-        {
+        for _ in 0..4 {
+            let Some((path, generation, decoded)) = self.worker.as_mut().unwrap().poll() else {
+                break;
+            };
+            if generation != self.generation {
+                continue;
+            }
             self.revision = self.revision.wrapping_add(1);
             match decoded {
                 Ok(image) if image.rgba.len() <= self.budget => {
@@ -52,7 +56,7 @@ impl AssetCache {
                         self.failed.insert(path.clone());
                         self.notices
                             .push(format!("{path}: visible images exceed texture budget"));
-                        return;
+                        continue;
                     }
                     let texture = Texture2D::from_rgba8(image.width, image.height, &image.rgba);
                     texture.set_filter(FilterMode::Linear);
