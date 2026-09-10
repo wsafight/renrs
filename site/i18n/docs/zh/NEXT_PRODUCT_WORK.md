@@ -52,8 +52,8 @@ Launcher 把 inspect、check、run、graph、pack 和 build 交给现有 Rust �
 
 ## 存档证据
 
-快照 v7 对标量/集合节点做 intern，恢复共享集合，并保留动态 label 参数作用域。存档容器仍是
-v2，只接受当前快照。原生摘要供两套列表 API 使用，并在轮换时复制；Web IndexedDB 摘要与载荷分离，
+快照 v8 对标量/集合节点和重复舞台状态做 intern，恢复共享集合，并保留动态 label 参数作用域。存档容器仍是
+v2，写入 v8 并接受 v7/v8 快照。原生摘要供两套列表 API 使用，并在轮换时复制；Web IndexedDB 摘要与载荷分离，
 按项目索引。加载仍会检查载荷。
 
 同一份 818 指令/401 次交互的大状态夹具，release 构建，本地各跑一次前后对比：

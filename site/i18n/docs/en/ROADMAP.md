@@ -28,7 +28,7 @@ detailed matrix is [Gap with Ren’Py](RENPY_GAP_ANALYSIS.md).
 - [x] Added conditional menus and fixed definite-assignment analysis across `call` / `return` edges.
 - [x] Split execution IDs, translation IDs, and read IDs. Support `@id` and old-ID `alias`.
 - [x] JSON translation catalogs, explicit and language-tag fallback, empty translations falling back to source, translation before interpolation and rich-text parse.
-- [x] Saves only accept current snapshot format v7 and the current script fingerprint. Development hot reload keeps stable ID mapping.
+- [x] Saves write current snapshot format v8, read v7, and validate the current script fingerprint. Development hot reload keeps stable ID mapping.
 - [x] Saves include project ID, content fingerprint, play time, and chapter, with SHA-256 integrity. Corrupt slots stay visible.
 - [x] Save container reads and writes v2 only, with mandatory checksums. Archive unpack rejects symlink escapes and overwrite.
 - [x] 3 quick and 5 auto rotating slots, plus import/export store API.

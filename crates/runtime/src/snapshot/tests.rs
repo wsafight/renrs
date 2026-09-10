@@ -63,3 +63,29 @@ fn repeated_large_values_are_encoded_once_across_checkpoints() {
     assert!(json.len() < text.len() + 10000);
     runtime.continue_story().unwrap();
 }
+
+#[test]
+fn interned_stages_are_shared_and_format_7_keeps_inline_stages() {
+    let runtime = runtime();
+    let mut snapshot = runtime.snapshot();
+    for checkpoint in &mut snapshot.rollback {
+        checkpoint.stage = snapshot.stage.clone();
+    }
+    let encoded = serde_json::to_value(&snapshot).unwrap();
+    assert_eq!(encoded["format_version"], 8);
+    assert_eq!(encoded["stages"].as_array().unwrap().len(), 1);
+    assert!(encoded["current"].get("stage").is_none());
+    assert_eq!(encoded["current"]["stage_index"], serde_json::json!(0));
+    for checkpoint in encoded["rollback"].as_array().unwrap() {
+        assert!(checkpoint.get("stage").is_none());
+        assert_eq!(checkpoint["stage_index"], serde_json::json!(0));
+    }
+
+    snapshot.format_version = 7;
+    let encoded = serde_json::to_value(&snapshot).unwrap();
+    assert!(encoded.get("stages").is_none());
+    assert!(encoded["current"]["stage"].is_object());
+    assert!(encoded["current"].get("stage_index").is_none());
+    let restored: RuntimeSnapshot = serde_json::from_value(encoded).unwrap();
+    Runtime::restore(runtime.shared_program(), restored).unwrap();
+}

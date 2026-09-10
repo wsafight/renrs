@@ -41,10 +41,7 @@ impl AssetCache {
         let prefetch = self.resident_bytes() < self.budget;
         self.worker
             .get_or_insert_with(|| AssetWorker::new(source.clone()));
-        for _ in 0..4 {
-            let Some((path, generation, decoded)) = self.worker.as_mut().unwrap().poll() else {
-                break;
-            };
+        while let Some((path, generation, decoded)) = self.worker.as_mut().unwrap().poll() {
             if generation != self.generation {
                 continue;
             }
@@ -56,14 +53,14 @@ impl AssetCache {
                         self.failed.insert(path.clone());
                         self.notices
                             .push(format!("{path}: visible images exceed texture budget"));
-                        continue;
+                    } else {
+                        let texture = Texture2D::from_rgba8(image.width, image.height, &image.rgba);
+                        texture.set_filter(FilterMode::Linear);
+                        self.usage
+                            .insert(path.clone(), (self.frame, image.rgba.len()));
+                        self.textures.insert(path, texture);
+                        self.resident += image.rgba.len();
                     }
-                    let texture = Texture2D::from_rgba8(image.width, image.height, &image.rgba);
-                    texture.set_filter(FilterMode::Linear);
-                    self.usage
-                        .insert(path.clone(), (self.frame, image.rgba.len()));
-                    self.textures.insert(path, texture);
-                    self.resident += image.rgba.len();
                 }
                 result => {
                     let reason = result
@@ -73,6 +70,7 @@ impl AssetCache {
                     self.failed.insert(path);
                 }
             }
+            break;
         }
         for path in paths.iter().chain(hints.iter().filter(|_| prefetch)) {
             if let Some((last_used, _)) = self.usage.get_mut(path) {

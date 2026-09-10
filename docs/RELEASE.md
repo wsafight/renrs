@@ -16,7 +16,7 @@ P1/P2 完成状态。
 | 机器 JSON 协议 | `1` | 消费者先检查 `protocol_version`；允许新增可选字段 | 提高 `protocol_version` 并保留旧 schema |
 | `screens.json` | `1` | 拒绝未知版本和字段 | 提高文件 `version` |
 | `.renrs` 资源归档 | `1` | 校验 magic、版本、边界和 SHA-256 | 提高归档版本或提供显式重打包工具 |
-| Runtime snapshot | `7` | 只接受当前版本 | 提高版本；旧开发存档可以丢弃 |
+| Runtime snapshot | `8` | 写入 v8；兼容读取 v7 和 v8，其他版本拒绝 | 提高版本并同步兼容范围与升级说明 |
 | 桌面/Web 存档容器 | `2` | 只接受当前版本并验证校验和 | 提高版本并同步两端解析器 |
 | extension/composition | `1` | 拒绝未知版本 | 提高对应 manifest 版本 |
 | 帧视频/流式视频 | `1` / `2` | 严格校验形态、版本及可选的本地化音轨/字幕轨 | 提高对应视频 manifest 版本 |

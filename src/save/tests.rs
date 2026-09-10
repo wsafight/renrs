@@ -44,12 +44,17 @@ fn detects_corruption_and_keeps_the_slot_visible() {
     let path = temporary.path().join("slot-1.json");
     let mut encoded = fs::read_to_string(&path).unwrap();
     encoded = encoded.replace("Hello", "Changed");
-    fs::write(path, encoded).unwrap();
+    fs::write(&path, encoded).unwrap();
 
     assert!(matches!(
         repository.load("slot-1"),
         Err(SaveError::Checksum(_))
     ));
+    let slots = repository.list().unwrap();
+    assert_eq!(slots.len(), 1);
+    assert_eq!(slots[0].name, "slot-1");
+
+    fs::write(&path, "{not-json").unwrap();
     assert!(repository.list().unwrap()[0].corrupt);
 }
 

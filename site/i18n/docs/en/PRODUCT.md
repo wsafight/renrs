@@ -111,8 +111,8 @@ validation with real users.
 ### 5.5 Current-version saves
 
 - The project is not released. Breaking format changes are allowed. Old container and snapshot formats are not migrated.
-- The current runtime snapshot is v7. An identical fingerprint restores directly. After a content update, only explicit `@id`/`alias` positions are mapped; automatic, removed, or inconsistent positions are rejected.
-- v7 records stable execution positions, call-site return addresses, shared value nodes, stage, transforms, audio queues with relative gain, language, history, and bounded rollback checkpoints.
+- The current runtime snapshot is v8 and v7 saves remain readable. An identical fingerprint restores directly. After a content update, only explicit `@id`/`alias` positions are mapped; automatic, removed, or inconsistent positions are rejected.
+- v8 records stable execution positions, call-site return addresses, shared value nodes, an interned stage table, transforms, audio queues with relative gain, language, history, and bounded rollback checkpoints.
 - The current save container is v2: engine version, project ID, content fingerprint, play time, chapter, and SHA-256 integrity. Other container versions and missing or mismatched checksums are rejected.
 - Corrupt slots stay visible in the list. The store API supports import/export. The player rotates 3 quick and 5 auto slots.
 - Read state is not part of a single snapshot. It is stored in project-level `read.json`.

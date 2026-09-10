@@ -287,7 +287,7 @@ pub struct RollbackCheckpoint {
 }
 
 impl RuntimeSnapshot {
-    pub const FORMAT_VERSION: u32 = 7;
+    pub const FORMAT_VERSION: u32 = 8;
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

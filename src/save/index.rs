@@ -1,6 +1,49 @@
-use super::{SaveError, SaveRepository, SaveSlot};
+use super::{SaveError, SavePresentation, SaveRepository, SaveSlot};
+use serde::Deserialize;
 use std::collections::HashMap;
+use std::path::Path;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+#[derive(Deserialize)]
+struct ListingFile {
+    saved_at_unix: u64,
+    #[serde(default)]
+    project_id: String,
+    #[serde(default)]
+    play_time_seconds: u64,
+    #[serde(default)]
+    chapter: Option<String>,
+    snapshot: ListingSnapshot,
+    #[serde(default)]
+    presentation: Option<SavePresentation>,
+}
+
+#[derive(Deserialize)]
+struct ListingSnapshot {
+    current: ListingCheckpoint,
+    #[serde(default)]
+    stages: Vec<ListingStage>,
+}
+
+#[derive(Deserialize)]
+struct ListingCheckpoint {
+    #[serde(default)]
+    stage: Option<ListingStage>,
+    #[serde(default)]
+    stage_index: Option<usize>,
+}
+
+#[derive(Deserialize)]
+struct ListingStage {
+    #[serde(default)]
+    dialogue: Option<ListingDialogue>,
+}
+
+#[derive(Deserialize)]
+struct ListingDialogue {
+    #[serde(default)]
+    text: String,
+}
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct SaveIndex {
@@ -57,43 +100,7 @@ impl SaveRepository {
                 } else if let Some(summary) = self.read_summary(name, &metadata) {
                     summary
                 } else {
-                    self.load(name).map_or_else(
-                        |_| SaveSlot {
-                            name: name.to_owned(),
-                            saved_at_unix: modified
-                                .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-                                .map_or(0, |time| time.as_secs()),
-                            title: "Corrupt save".to_owned(),
-                            project_id: String::new(),
-                            play_time_seconds: 0,
-                            chapter: None,
-                            corrupt: true,
-                            note: String::new(),
-                            thumbnail_png: Vec::new(),
-                        },
-                        |save| {
-                            let _ = self.write_summary(name, &save);
-                            SaveSlot {
-                                name: name.to_owned(),
-                                saved_at_unix: save.saved_at_unix,
-                                title: save.snapshot.stage.dialogue.as_ref().map_or_else(
-                                    || "No dialogue".to_owned(),
-                                    |dialogue| dialogue.text.clone(),
-                                ),
-                                project_id: save.project_id,
-                                play_time_seconds: save.play_time_seconds,
-                                chapter: save.chapter,
-                                corrupt: false,
-                                note: save
-                                    .presentation
-                                    .as_ref()
-                                    .map_or_else(String::new, |view| view.note.clone()),
-                                thumbnail_png: save
-                                    .presentation
-                                    .map_or_else(Vec::new, |view| view.thumbnail_png),
-                            }
-                        },
-                    )
+                    self.slot_from_listing(name, &path, modified)
                 };
                 entries.insert(name.to_owned(), (metadata.len(), modified, slot));
             }
@@ -108,6 +115,73 @@ impl SaveRepository {
         index.entries = entries;
         index.scanned_at = Some(Instant::now());
         Ok(index.slots.clone())
+    }
+
+    fn slot_from_listing(&self, name: &str, path: &Path, modified: Option<SystemTime>) -> SaveSlot {
+        std::fs::File::open(path)
+            .ok()
+            .and_then(|file| {
+                serde_json::from_reader::<_, ListingFile>(std::io::BufReader::new(file)).ok()
+            })
+            .map_or_else(
+                || corrupt_slot(name, modified),
+                |file| {
+                    let slot = listing_slot(name, file);
+                    let _ = self.write_slot_summary(name, slot.clone());
+                    slot
+                },
+            )
+    }
+}
+
+fn listing_slot(name: &str, file: ListingFile) -> SaveSlot {
+    let title = file
+        .snapshot
+        .current
+        .stage
+        .as_ref()
+        .or_else(|| {
+            file.snapshot
+                .current
+                .stage_index
+                .and_then(|index| file.snapshot.stages.get(index))
+        })
+        .and_then(|stage| stage.dialogue.as_ref())
+        .map_or_else(
+            || "No dialogue".to_owned(),
+            |dialogue| dialogue.text.clone(),
+        );
+    SaveSlot {
+        name: name.to_owned(),
+        saved_at_unix: file.saved_at_unix,
+        title,
+        project_id: file.project_id,
+        play_time_seconds: file.play_time_seconds,
+        chapter: file.chapter,
+        corrupt: false,
+        note: file
+            .presentation
+            .as_ref()
+            .map_or_else(String::new, |view| view.note.clone()),
+        thumbnail_png: file
+            .presentation
+            .map_or_else(Vec::new, |view| view.thumbnail_png),
+    }
+}
+
+fn corrupt_slot(name: &str, modified: Option<SystemTime>) -> SaveSlot {
+    SaveSlot {
+        name: name.to_owned(),
+        saved_at_unix: modified
+            .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+            .map_or(0, |time| time.as_secs()),
+        title: "Corrupt save".to_owned(),
+        project_id: String::new(),
+        play_time_seconds: 0,
+        chapter: None,
+        corrupt: true,
+        note: String::new(),
+        thumbnail_png: Vec::new(),
     }
 }
 
@@ -136,5 +210,23 @@ mod tests {
         assert_eq!(repository.list_cached().unwrap().len(), 1);
         repository.index().scanned_at = None;
         assert!(repository.list_cached().unwrap().is_empty());
+    }
+
+    #[test]
+    fn listing_without_summary_skips_checksum_and_keeps_title() {
+        let root = tempfile::tempdir().unwrap();
+        let repository = SaveRepository::new(root.path());
+        let mut runtime = Runtime::new(
+            compile(&parse_script("label start:\n    \"Hello\"", "test.rns").unwrap()).unwrap(),
+        )
+        .unwrap();
+        runtime.advance().unwrap();
+        repository.save("slot-1", &runtime.snapshot()).unwrap();
+        std::fs::remove_file(root.path().join(".slot-1.summary")).unwrap();
+        repository.index().invalidate();
+        let slots = repository.list().unwrap();
+        assert_eq!(slots.len(), 1);
+        assert_eq!(slots[0].title, "Hello");
+        assert!(!slots[0].corrupt);
     }
 }

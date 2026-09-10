@@ -96,7 +96,7 @@ The checked compatibility matrix and RC gates are in [docs/RELEASE.md](docs/RELE
 
 - Declarative `.rns` for characters, dialogue, menus, transforms, audio, and NVL
 - Check before run: assets, control flow, definite assignment, unreachable story
-- Recoverable state: snapshot v7, rollback, checksummed saves, desktop/web exchange
+- Recoverable state: snapshot v8 (v7 saves remain readable), rollback, checksummed saves, desktop/web exchange
 - `screens.json` layouts, `theme.json`, JSON catalogs, `renrs-i18n`
 - Headless tools: check, fmt, graph, LSP, debug, pack, build, migrate
 - Web (WASM) and Capacitor Android/iOS packaging

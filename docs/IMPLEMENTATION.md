@@ -13,8 +13,9 @@ It is a dated delivery record, not the live project summary. See
 - [x] Share project resource inclusion rules across loading, packing and watching.
 
 P0 verification: 114 tests, formatting and strict Clippy passed locally.
-The current snapshot v7 uses call-site IDs for return addresses, preserves dynamic
-parameter scopes, and interns shared values. Older snapshot formats are rejected;
+At the time of this historical record, snapshot v7 used call-site IDs for return
+addresses, preserved dynamic parameter scopes, and interned shared values. The
+current v8 format remains compatible with v7; older snapshot formats are rejected;
 content updates restore only through
 explicit positions, while automatic positions are rejected when the fingerprint changes.
 

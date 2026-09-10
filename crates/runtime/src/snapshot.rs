@@ -4,7 +4,7 @@ use crate::runtime::{
 use crate::syntax::Value;
 use renrs_model::InstructionId;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 mod values;
@@ -20,6 +20,8 @@ pub(crate) struct Snapshot {
     history: Arc<Vec<DialogueState>>,
     rollback: Vec<Checkpoint>,
     values: Vec<Node>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    stages: Vec<Arc<StageState>>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -32,7 +34,10 @@ struct Checkpoint {
     instruction_is_interaction_anchor: bool,
     call_stack_ids: Vec<InstructionId>,
     variables: usize,
-    stage: Arc<StageState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    stage: Option<Arc<StageState>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    stage_index: Option<usize>,
     waiting: Option<WaitState>,
     history_len: usize,
 }
@@ -47,12 +52,16 @@ struct SavedCallFrame {
 impl From<RuntimeSnapshot> for Snapshot {
     fn from(snapshot: RuntimeSnapshot) -> Self {
         let mut encoder = Encoder::default();
+        let mut stages = StageInterner::default();
+        // Format 8 stores stages in a table; format 7 keeps inline stages for checksums.
+        let intern = snapshot.format_version >= 8;
         // Stable traversal and content interning make checksums independent of Arc identities.
         let rollback = snapshot
             .rollback
             .into_iter()
             .map(|checkpoint| {
                 let call_stack = encode_call_stack(&mut encoder, &checkpoint.call_stack);
+                let (stage, stage_index) = intern_stage(&mut stages, intern, checkpoint.stage);
                 Checkpoint {
                     instruction: checkpoint.instruction,
                     call_stack,
@@ -61,13 +70,15 @@ impl From<RuntimeSnapshot> for Snapshot {
                     instruction_is_interaction_anchor: checkpoint.instruction_is_interaction_anchor,
                     call_stack_ids: checkpoint.call_stack_ids,
                     variables: encoder.record(&checkpoint.variables),
-                    stage: checkpoint.stage,
+                    stage,
+                    stage_index,
                     waiting: Some(checkpoint.waiting),
                     history_len: checkpoint.history_len,
                 }
             })
             .collect();
         let call_stack = encode_call_stack(&mut encoder, &snapshot.call_stack);
+        let (stage, stage_index) = intern_stage(&mut stages, intern, snapshot.stage);
         let current = Checkpoint {
             instruction: snapshot.instruction,
             call_stack,
@@ -76,7 +87,8 @@ impl From<RuntimeSnapshot> for Snapshot {
             instruction_is_interaction_anchor: snapshot.instruction_is_interaction_anchor,
             call_stack_ids: snapshot.call_stack_ids,
             variables: encoder.record(&snapshot.variables),
-            stage: snapshot.stage,
+            stage,
+            stage_index,
             waiting: snapshot.waiting,
             history_len: snapshot.history.len(),
         };
@@ -88,8 +100,69 @@ impl From<RuntimeSnapshot> for Snapshot {
             history: snapshot.history,
             rollback,
             values: encoder.finish(),
+            stages: stages.finish(),
         }
     }
+}
+
+fn intern_stage(
+    stages: &mut StageInterner,
+    intern: bool,
+    stage: Arc<StageState>,
+) -> (Option<Arc<StageState>>, Option<usize>) {
+    if intern {
+        (None, Some(stages.intern(&stage)))
+    } else {
+        (Some(stage), None)
+    }
+}
+
+#[derive(Default)]
+struct StageInterner {
+    stages: Vec<Arc<StageState>>,
+    pointers: HashMap<usize, usize>,
+}
+
+impl StageInterner {
+    fn intern(&mut self, stage: &Arc<StageState>) -> usize {
+        let address = Arc::as_ptr(stage) as usize;
+        if let Some(index) = self.pointers.get(&address) {
+            return *index;
+        }
+        if let Some((index, _)) = self
+            .stages
+            .iter()
+            .enumerate()
+            .find(|(_, existing)| existing.as_ref() == stage.as_ref())
+        {
+            self.pointers.insert(address, index);
+            return index;
+        }
+        let index = self.stages.len();
+        self.stages.push(stage.clone());
+        self.pointers.insert(address, index);
+        index
+    }
+
+    fn finish(self) -> Vec<Arc<StageState>> {
+        self.stages
+    }
+}
+
+fn checkpoint_stage(
+    checkpoint: &Checkpoint,
+    stages: &[Arc<StageState>],
+) -> Result<Arc<StageState>, String> {
+    if let Some(index) = checkpoint.stage_index {
+        return stages
+            .get(index)
+            .cloned()
+            .ok_or_else(|| "invalid snapshot stage reference".to_owned());
+    }
+    checkpoint
+        .stage
+        .clone()
+        .ok_or_else(|| "checkpoint has no stage".to_owned())
 }
 
 fn encode_call_stack(encoder: &mut Encoder, call_stack: &[CallFrame]) -> Vec<SavedCallFrame> {
@@ -152,7 +225,7 @@ impl TryFrom<Snapshot> for RuntimeSnapshot {
     type Error = String;
 
     fn try_from(snapshot: Snapshot) -> Result<Self, Self::Error> {
-        if snapshot.format_version != Self::FORMAT_VERSION {
+        if !(7..=Self::FORMAT_VERSION).contains(&snapshot.format_version) {
             return Err(format!(
                 "unsupported snapshot format {}",
                 snapshot.format_version
@@ -169,6 +242,7 @@ impl TryFrom<Snapshot> for RuntimeSnapshot {
                 if checkpoint.history_len > snapshot.history.len() {
                     return Err("checkpoint history exceeds saved history".to_owned());
                 }
+                let stage = checkpoint_stage(&checkpoint, &snapshot.stages)?;
                 Ok(RollbackCheckpoint {
                     instruction: checkpoint.instruction,
                     call_stack: call_stack(&values, checkpoint.call_stack)?,
@@ -177,13 +251,14 @@ impl TryFrom<Snapshot> for RuntimeSnapshot {
                     instruction_is_interaction_anchor: checkpoint.instruction_is_interaction_anchor,
                     call_stack_ids: checkpoint.call_stack_ids,
                     variables: variables(&values, checkpoint.variables)?,
-                    stage: checkpoint.stage,
+                    stage,
                     waiting: checkpoint.waiting.ok_or("checkpoint has no wait state")?,
                     history_len: checkpoint.history_len,
                 })
             })
             .collect::<Result<_, String>>()?;
         let current = snapshot.current;
+        let stage = checkpoint_stage(&current, &snapshot.stages)?;
         Ok(Self {
             format_version: snapshot.format_version,
             program_fingerprint: snapshot.program_fingerprint,
@@ -194,7 +269,7 @@ impl TryFrom<Snapshot> for RuntimeSnapshot {
             instruction_is_interaction_anchor: current.instruction_is_interaction_anchor,
             call_stack_ids: current.call_stack_ids,
             variables: variables(&values, current.variables)?,
-            stage: current.stage,
+            stage,
             waiting: current.waiting,
             language: snapshot.language,
             history: snapshot.history,

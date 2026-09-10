@@ -29,7 +29,7 @@ migration report must reject it or list it as todo.
 | Video | partial | Image frames or streaming video, localized WAV audio/subtitle tracks, pause/resume on the audio clock | More platform and long-form sync measurement still pending |
 | Reading and a11y | partial | NVL, underline, ruby, RTL shaping, shaped-cluster wrapping, keyboard controls, self-voicing, Web semantics | Vertical text, color emoji, and a native OS accessibility tree still missing |
 | Localization | done | JSON catalog, stable IDs, alias, fallback, CLDR plurals, RTL shaping, font families | Full ICU rich text and screen-reader trees still missing |
-| Saves | done | Snapshot v7, async saves, explicit-ID content-update restore, desktop/web container exchange and load acceptance | Old-format migration and cloud sync still missing |
+| Saves | done | Snapshot v8 (v7 compatible), async saves, explicit-ID content-update restore, desktop/web container exchange and load acceptance | Older-format migration and cloud sync still missing |
 | Rollback/read/auto/skip | done | Bounded checkpoints, independent profile, rollback barrier | Fixed rollback and advanced preference sync still missing |
 | Archives and shipping | partial | Signed delta patches, local app and store config tools | Shipping credentials and external acceptance still pending |
 | Editor tools | partial | Separate editor crate, LSP, VS Code grammar, launcher, templates, SDK pack | Visual story authoring and a full debugger still missing |

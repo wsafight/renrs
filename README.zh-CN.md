@@ -90,7 +90,7 @@ Web 与移动端见 [命令行工具](https://wsafight.github.io/renrs/reference
 
 - 声明式 `.rns`：角色、对白、菜单、transform、音频、NVL
 - 先检查再运行：资源、控制流、确定赋值、不可达剧情
-- 可恢复状态：快照 v7、回滚、带校验和的存档、桌面/Web 交换
+- 可恢复状态：快照 v8（仍可读取 v7 存档）、回滚、带校验和的存档、桌面/Web 交换
 - `screens.json`、`theme.json`、JSON 翻译目录、`renrs-i18n`
 - 无窗口工具：check、fmt、graph、LSP、debug、pack、build、migrate
 - Web（WASM）与 Capacitor Android/iOS 打包

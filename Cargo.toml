@@ -59,6 +59,13 @@ tempfile.workspace = true
 ed25519-dalek = "2.2"
 getrandom = "0.3"
 
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "engine"
+harness = false
+
 [profile.release]
 lto = "thin"
 strip = true

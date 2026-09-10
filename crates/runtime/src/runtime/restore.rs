@@ -84,7 +84,8 @@ impl Runtime {
         mut snapshot: RuntimeSnapshot,
     ) -> Result<(Self, ReloadReport), RuntimeError> {
         let program = program.into();
-        if snapshot.format_version != RuntimeSnapshot::FORMAT_VERSION {
+        if snapshot.format_version < 7 || snapshot.format_version > RuntimeSnapshot::FORMAT_VERSION
+        {
             return Err(RuntimeError::SaveVersion {
                 found: snapshot.format_version,
                 supported: RuntimeSnapshot::FORMAT_VERSION,

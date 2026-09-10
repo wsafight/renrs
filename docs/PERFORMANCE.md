@@ -62,12 +62,13 @@ Implementation details and limits:
 - Runtime and player share `Arc<Program>`. Snapshots share history until a
   writer changes it. Runtime, snapshots and the bounded 256 rollback entries now
   share variable maps and stage state; nested lists and records also use
-  copy-on-write sharing. JSON serialization still repeats checkpoint contents.
-- Storage accepts owned snapshots and streams checksum JSON through a 64 KiB
-  buffer. File replacement and checksums remain validated. Loading accepts only
-  the current container v2 and snapshot v7. A changed compiled-script fingerprint
+  copy-on-write sharing. JSON serialization retains checkpoint metadata while
+  values and repeated stages are interned.
+- Storage accepts owned snapshots and interns stage state once before hashing and
+  encoding. File replacement and checksums remain validated. Loading accepts only
+  the current container v2 and snapshot v7/v8. A changed compiled-script fingerprint
   is accepted only when active positions resolve through explicit IDs or aliases;
-  old-format compatibility and save migration are not supported.
+  snapshots older than v7 and save migration are not supported.
 - GPU story textures have a 256 MiB cap. Image workers separately reserve up
   to 256 MiB for encoded inputs, decoder scratch and queued RGBA buffers.
   Encoded images are limited to 32 MiB. Oversized images report a load error.

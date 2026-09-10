@@ -51,9 +51,9 @@ provide layer cameras or arbitrary displayables and is not described as full ATL
 ### Saves and rollback
 
 Ren'Py saves an object graph, rollback log, screenshots, and JSON metadata. RenRS
-saves a small explicit snapshot and does not use pickle. v7 snapshots record execution
-position, variables, stage, dynamic call frames, language, history, and bounded full
-checkpoints. Older snapshot formats are rejected. The outer save adds
+saves a small explicit snapshot and does not use pickle. v8 snapshots record execution
+position, variables, an interned stage table, dynamic call frames, language, history,
+and bounded full checkpoints; v7 snapshots remain readable. Older snapshot formats are rejected. The outer save adds
 project/content identity, play time, chapter, and SHA-256.
 
 Read state and player settings are not in a single snapshot. They are project-level

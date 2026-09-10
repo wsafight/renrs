@@ -5,9 +5,11 @@ Cargo boundaries are in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Current Saves And Resources
 
-Runtime snapshots use version 7 inside version 2 save containers. Other formats
-and different compiled-script fingerprints are rejected. The project is pre-release;
-old save migration and backward compatibility are not required. Current saves
+Runtime snapshots use version 8 inside version 2 save containers; version 7 saves
+remain readable. Other snapshot formats are rejected. Different compiled-script
+fingerprints are accepted only when active positions resolve through explicit IDs or
+aliases. The project is pre-release; old save migration beyond this compatibility
+window is not required. Current saves
 retain call-site IDs, runtime state and rollback history with checksum validation.
 Editor hot reload separately remaps a live session using explicit `@id` anchors
 and initializes newly declared defaults. See [current policy](PRODUCT_UPGRADES.md).

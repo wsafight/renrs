@@ -18,7 +18,7 @@ do not block completion of the current repository-contained P1/P2 scope.
 | Machine JSON protocol | `1` | Check `protocol_version` first; new optional fields are allowed | Raise `protocol_version` and retain the old schema |
 | `screens.json` | `1` | Reject unknown versions and fields | Raise file `version` |
 | `.renrs` resource archive | `1` | Check magic, version, bounds, and SHA-256 | Raise archive version or provide an explicit repack tool |
-| Runtime snapshot | `7` | Accept only the current version | Raise version; old development saves may be discarded |
+| Runtime snapshot | `8` | Write v8; read v7 and v8, reject other versions | Raise version and update the compatibility range and upgrade notes |
 | Desktop/Web save container | `2` | Accept only the current version and verify checksum | Raise version and update both parsers |
 | extension/composition | `1` | Reject unknown versions | Raise the matching manifest version |
 | Frame/stream video | `1` / `2` | Strictly validate shape, version, and optional localized audio/subtitle tracks | Raise the matching video manifest version |

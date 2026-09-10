@@ -145,9 +145,7 @@ fn rejects_noncurrent_snapshot_formats() {
         compile(&parse_script("label start:\n    \"Hello\"", "test.rns").unwrap()).unwrap();
     let mut runtime = Runtime::new(program.clone()).unwrap();
     runtime.advance().unwrap();
-    for version in (0..RuntimeSnapshot::FORMAT_VERSION)
-        .chain(std::iter::once(RuntimeSnapshot::FORMAT_VERSION + 1))
-    {
+    for version in (0..7).chain(std::iter::once(RuntimeSnapshot::FORMAT_VERSION + 1)) {
         let mut snapshot = runtime.snapshot();
         snapshot.format_version = version;
         assert!(matches!(

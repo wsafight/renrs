@@ -12,8 +12,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 mod index;
 mod summary;
 pub mod worker;
-use renrs_runtime::save_format::checksum;
 pub use renrs_runtime::save_format::{SaveFile, SavePresentation};
+use renrs_runtime::save_format::{checksum, encode_save};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SaveMetadata {
@@ -130,9 +130,9 @@ impl SaveRepository {
             checksum_sha256: String::new(),
             presentation: metadata.presentation,
         };
-        save.checksum_sha256 = checksum(&save)?;
-
-        crate::storage::write_json(&destination, &save)?;
+        let (hash, bytes) = encode_save(&save)?;
+        save.checksum_sha256 = hash;
+        crate::storage::atomic_write(&destination, |file| file.write_all(&bytes))?;
         let _ = self.write_summary(slot, &save);
         Ok(())
     }
@@ -271,12 +271,13 @@ impl SaveRepository {
         let file = File::open(source)?;
         let save: SaveFile = serde_json::from_reader(BufReader::new(file))?;
         validate_container_version(save.container_version)?;
-        if checksum(&save)? != save.checksum_sha256 {
+        let (hash, bytes) = encode_save(&save)?;
+        if hash != save.checksum_sha256 {
             return Err(SaveError::Checksum(slot.to_owned()));
         }
         fs::create_dir_all(&self.root)?;
         let destination = self.slot_path(slot)?;
-        crate::storage::write_json(&destination, &save)?;
+        crate::storage::atomic_write(&destination, |file| file.write_all(&bytes))?;
         let _ = self.write_summary(slot, &save);
         Ok(())
     }
