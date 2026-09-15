@@ -20,7 +20,10 @@ pub(super) fn invoke(
                 let Value::String(key) = key else {
                     return Err(execution(line, "record keys must be strings"));
                 };
-                if record.insert(key, arguments.next().unwrap()).is_some() {
+                if record
+                    .insert(key.into_string(), arguments.next().unwrap())
+                    .is_some()
+                {
                     return Err(execution(line, "duplicate record key"));
                 }
             }
@@ -40,7 +43,7 @@ pub(super) fn invoke(
                 (Value::List(values), Value::Integer(index)) => usize::try_from(*index)
                     .ok()
                     .and_then(|index| values.get(index)),
-                (Value::Record(values), Value::String(key)) => values.get(key),
+                (Value::Record(values), Value::String(key)) => values.get(key.as_str()),
                 _ => {
                     return Err(execution(
                         line,
@@ -55,8 +58,8 @@ pub(super) fn invoke(
         }
         Builtin::Contains => Value::Boolean(match (&arguments[0], &arguments[1]) {
             (Value::List(values), value) => values.contains(value),
-            (Value::Record(values), Value::String(key)) => values.contains_key(key),
-            (Value::String(text), Value::String(part)) => text.contains(part),
+            (Value::Record(values), Value::String(key)) => values.contains_key(key.as_str()),
+            (Value::String(text), Value::String(part)) => text.contains(part.as_str()),
             _ => return Err(execution(line, "contains expects a list, record or string")),
         }),
         Builtin::Push => {
@@ -93,8 +96,8 @@ fn edit(function: Builtin, mut arguments: Vec<Value>, line: usize) -> Result<Val
         }
         (Value::Record(mut values), Value::String(key)) => {
             if let Some(value) = replacement {
-                Arc::make_mut(&mut values).insert(key, value);
-            } else if Arc::make_mut(&mut values).remove(&key).is_none() {
+                Arc::make_mut(&mut values).insert(key.into_string(), value);
+            } else if Arc::make_mut(&mut values).remove(key.as_str()).is_none() {
                 return Err(execution(line, "missing record key"));
             }
             Ok(Value::Record(values))

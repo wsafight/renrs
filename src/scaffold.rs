@@ -127,11 +127,14 @@ fn write_project(root: &Path, title: &str, project_id: &str, template: &str) -> 
         fs::write(root.join("routes.json"), br#"{"routes":[]}"#)
             .map_err(|error| error.to_string())?;
         fs::create_dir(root.join("extensions")).map_err(|error| error.to_string())?;
-        fs::write(root.join("extensions/reward.rhai"), "input + 1")
-            .map_err(|error| error.to_string())?;
+        fs::write(
+            root.join("extensions/reward.velin"),
+            "perform return(input + 1)\n",
+        )
+        .map_err(|error| error.to_string())?;
         fs::write(
             root.join("extensions.json"),
-            br#"{"version":1,"modules":{"reward":"extensions/reward.rhai"}}"#,
+            br#"{"version":2,"modules":{"reward":"extensions/reward.velin"}}"#,
         )
         .map_err(|error| error.to_string())?;
     }
@@ -169,6 +172,6 @@ mod tests {
         let game = root.path().join("bag");
         create_from_template(&game, "Bag", "org.renrs.bag", "inventory").unwrap();
         assert!(game.join("extensions.json").is_file());
-        assert!(game.join("extensions/reward.rhai").is_file());
+        assert!(game.join("extensions/reward.velin").is_file());
     }
 }

@@ -111,11 +111,11 @@ impl Engine {
         let mut variables = self.runtime.variables().clone();
         variables.insert(
             "title".to_owned(),
-            Value::String(self.runtime.shared_program().title.clone()),
+            Value::String(self.runtime.shared_program().title.clone().into()),
         );
         variables.insert(
             "chapter".to_owned(),
-            Value::String(self.runtime.current_label().unwrap_or("").to_owned()),
+            Value::String(self.runtime.current_label().unwrap_or("").into()),
         );
         renrs_runtime::runtime::format_text(text, &variables).map_err(js_error)
     }

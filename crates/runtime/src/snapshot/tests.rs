@@ -52,7 +52,7 @@ fn rejects_cycles_missing_references_and_oversized_rollback() {
 fn repeated_large_values_are_encoded_once_across_checkpoints() {
     let mut runtime = runtime();
     let text = "payload".repeat(10000);
-    let value = Value::List(Arc::new(vec![Value::String(text.clone())]));
+    let value = Value::List(Arc::new(vec![Value::String(text.clone().into())]));
     let mut snapshot = runtime.snapshot();
     Arc::make_mut(&mut snapshot.variables).insert("bag".to_owned(), value.clone());
     for checkpoint in &mut snapshot.rollback {

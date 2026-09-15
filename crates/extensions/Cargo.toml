@@ -7,7 +7,14 @@ license.workspace = true
 
 [dependencies]
 renrs-syntax.workspace = true
-rhai = { version = "1.23", default-features = false, features = ["std", "sync", "serde", "no_float", "no_time", "only_i64"] }
+velin.workspace = true
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "extensions"
+harness = false
 
 [lints]
 workspace = true

@@ -62,7 +62,7 @@ Dialogue body uses separate paging.
 | `viewport` | `id`, `content_height`, `child` | Nested scroll region; native and web keep independent scroll and clip |
 | `data_list` | `variable`, `selected`, `item_height`, `label` | Bounded choices from a list variable, written to a string variable |
 | `drag` / `drop` | `expression` / `variable` | Constrained drag-and-drop; touch, mouse, and keyboard share assignment |
-| `extension` | `name`, `input`, `variable` | Calls a pure Rhai module and writes back transactionally |
+| `extension` | `name`, `input`, `variable` | Calls a pure Velin module and writes back transactionally |
 | `row` / `column` | `children`, `gap`, `padding` | Row and column layout |
 
 `setting` supports `text_speed`, `auto_delay`, `music_volume`, `sound_volume`,

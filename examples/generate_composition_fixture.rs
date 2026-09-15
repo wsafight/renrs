@@ -37,10 +37,13 @@ label departure:
         include_bytes!("composable_screens.json"),
     )?;
     fs::create_dir_all(root.join("extensions"))?;
-    fs::write(root.join("extensions/reward.rhai"), "input + 1")?;
+    fs::write(
+        root.join("extensions/reward.velin"),
+        "perform return(input + 1)\n",
+    )?;
     fs::write(
         root.join("extensions.json"),
-        br#"{"version":1,"modules":{"reward":"extensions/reward.rhai"}}"#,
+        br#"{"version":2,"modules":{"reward":"extensions/reward.velin"}}"#,
     )?;
     let image = image::open(root.join("images/mira.png"))?.to_rgba8();
     let (width, height) = image.dimensions();

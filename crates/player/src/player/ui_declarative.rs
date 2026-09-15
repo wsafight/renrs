@@ -235,7 +235,7 @@ impl App {
                 } => {
                     if let Some(runtime) = &mut self.runtime {
                         let mut value = match runtime.variables().get(variable) {
-                            Some(Value::String(value)) => value.clone(),
+                            Some(Value::String(value)) => value.as_str().to_owned(),
                             _ => String::new(),
                         };
                         let before = value.clone();
@@ -254,7 +254,7 @@ impl App {
                         value = value.chars().take(*max_length).collect();
                         if value != before
                             && let Err(error) =
-                                runtime.set_screen_variable(variable, Value::String(value))
+                                runtime.set_screen_variable(variable, Value::String(value.into()))
                         {
                             self.notice = Some((error.to_string(), 5.0));
                         }
@@ -467,7 +467,7 @@ impl App {
             .map_or_else(Default::default, |runtime| runtime.variables().clone());
         variables.insert(
             "title".to_owned(),
-            Value::String(self.program.title.clone()),
+            Value::String(self.program.title.clone().into()),
         );
         variables.insert(
             "chapter".to_owned(),
@@ -476,7 +476,7 @@ impl App {
                     .as_ref()
                     .and_then(renrs::Runtime::current_label)
                     .unwrap_or("")
-                    .to_owned(),
+                    .into(),
             ),
         );
         renrs::runtime::format_text(text, &variables).unwrap_or_else(|_| text.to_owned())

@@ -39,7 +39,7 @@ impl Encoder {
         let node = match value {
             Value::Integer(value) => Node::Integer(*value),
             Value::Boolean(value) => Node::Boolean(*value),
-            Value::String(value) => Node::String(value.clone()),
+            Value::String(value) => Node::String(value.as_str().to_owned()),
             Value::Record(values) => return self.record(values),
             Value::List(values) => {
                 let address = Arc::as_ptr(values) as usize;
@@ -114,7 +114,7 @@ pub(super) fn decode(nodes: Vec<Node>) -> Result<Vec<Value>, String> {
         let value = match node {
             Node::Integer(value) => Value::Integer(value),
             Node::Boolean(value) => Value::Boolean(value),
-            Node::String(value) => Value::String(value),
+            Node::String(value) => Value::String(value.into()),
             Node::List(children) => Value::List(Arc::new(
                 children.into_iter().map(child).collect::<Result<_, _>>()?,
             )),

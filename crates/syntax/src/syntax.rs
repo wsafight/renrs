@@ -299,28 +299,7 @@ pub enum Expr {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Value {
-    Integer(i64),
-    Boolean(bool),
-    String(String),
-    List(std::sync::Arc<Vec<Value>>),
-    Record(std::sync::Arc<std::collections::BTreeMap<String, Value>>),
-}
-
-impl Value {
-    #[must_use]
-    pub const fn type_name(&self) -> &'static str {
-        match self {
-            Self::Integer(_) => "integer",
-            Self::Boolean(_) => "boolean",
-            Self::String(_) => "string",
-            Self::List(_) => "list",
-            Self::Record(_) => "record",
-        }
-    }
-}
+pub use velin_syntax::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UnaryOp {
@@ -357,7 +336,7 @@ mod tests {
         assert_eq!(builtin_display_layer_order("effects"), None);
         assert_eq!(Value::Integer(1).type_name(), "integer");
         assert_eq!(Value::Boolean(true).type_name(), "boolean");
-        assert_eq!(Value::String(String::new()).type_name(), "string");
+        assert_eq!(Value::String(String::new().into()).type_name(), "string");
         assert_eq!(
             Value::List(std::sync::Arc::new(Vec::new())).type_name(),
             "list"

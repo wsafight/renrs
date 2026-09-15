@@ -12,6 +12,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 intl_pluralrules = "7"
 unic-langid = "0.9"
+velin-syntax.workspace = true
 
 [lints]
 workspace = true

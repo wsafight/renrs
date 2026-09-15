@@ -31,7 +31,6 @@ const acceptedRustAdvisories = [
   'RUSTSEC-2025-0035', // macroquad soundness; replacement requires a renderer migration
   'RUSTSEC-2026-0192', // ttf-parser via macroquad and ab_glyph
   'RUSTSEC-2026-0206', // rustybuzz; harfrust migration is tracked separately
-  'RUSTSEC-2026-0249', // smartstring via Rhai
 ];
 run('cargo', [
   'audit',

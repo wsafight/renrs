@@ -249,7 +249,7 @@ impl App {
                         value
                     };
                     let text = match text {
-                        Value::String(text) => text.clone(),
+                        Value::String(text) => text.as_str().to_owned(),
                         value => serde_json::to_string(value).unwrap_or_default(),
                     };
                     let row_rect = Rect::new(

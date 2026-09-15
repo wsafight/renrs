@@ -5,7 +5,7 @@ fn checkpoints_share_large_inventory_but_edits_rollback_and_saved_copies_are_ind
     let program = crate::compile(&crate::parse_script("default bag = list()\ndefault score = 0\nlabel start:\n    \"Before\"\n    \"Still before\"\n    set score = 1\n    \"Scored\"\n    set bag = put(bag, 0, \"used\")\n    \"Used\"\n", "test.rns").unwrap()).unwrap();
     let mut runtime = Runtime::new(program).unwrap();
     runtime.advance().unwrap();
-    let inventory = Arc::new(vec![Value::String("item".repeat(32)); 2000]);
+    let inventory = Arc::new(vec![Value::String("item".repeat(32).into()); 2000]);
     runtime
         .set_screen_variable("bag", Value::List(inventory.clone()))
         .unwrap();
@@ -25,7 +25,7 @@ fn checkpoints_share_large_inventory_but_edits_rollback_and_saved_copies_are_ind
         panic!("list");
     };
     assert!(!Arc::ptr_eq(used, &inventory));
-    assert_eq!(used[0], Value::String("used".to_owned()));
+    assert_eq!(used[0], Value::String("used".into()));
     assert_eq!(saved.variables["score"], Value::Integer(0));
     assert_eq!(saved.stage.dialogue.as_ref().unwrap().text, "Before");
     runtime.rollback().unwrap();

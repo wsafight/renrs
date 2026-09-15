@@ -60,7 +60,7 @@ fn binary(left: Value, op: BinaryOp, right: Value, line: usize) -> Result<Value,
                 .map(Value::Integer)
                 .ok_or_else(|| execution(line, "integer overflow")),
             (Value::String(mut left), Value::String(right)) => {
-                left.push_str(&right);
+                left.make_mut().push_str(&right);
                 Ok(Value::String(left))
             }
             (left, right) => Err(binary_type_error(line, "`+`", &left, &right)),

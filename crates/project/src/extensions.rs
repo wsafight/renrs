@@ -23,10 +23,13 @@ fn load_inner(source: &ProjectSource, program: &mut Program) -> Result<(), Strin
                 .map_err(|error| error.to_string())?,
         )
         .map_err(|error| error.to_string())?;
-        if manifest.version != 1 || manifest.modules.len() > 64 {
+        if manifest.version != 2 || manifest.modules.len() > 64 {
             return Err("unsupported extension manifest".to_owned());
         }
         for (name, path) in manifest.modules {
+            if std::path::Path::new(&path).extension() != Some(std::ffi::OsStr::new("velin")) {
+                return Err(format!("extension module {name} must use a .velin file"));
+            }
             let bytes = source
                 .read_limited(&path, 1024 * 1024)
                 .map_err(|error| error.to_string())?;
@@ -72,16 +75,16 @@ mod tests {
     }
 
     #[test]
-    fn loads_modules_and_rejects_unknown_or_unsupported_manifests() {
+    fn loads_velin_modules_and_rejects_unknown_or_unsupported_manifests() {
         let program = compile(&[
             (
                 "script.rns",
                 "default score = 0\nlabel start:\n    extend score = \"reward\" 1\n    return\n",
             ),
-            ("extensions/reward.rhai", "input + 1"),
+            ("extensions/reward.velin", "perform return(input + 1)\n"),
             (
                 "extensions.json",
-                r#"{"version":1,"modules":{"reward":"extensions/reward.rhai"}}"#,
+                r#"{"version":2,"modules":{"reward":"extensions/reward.velin"}}"#,
             ),
         ])
         .unwrap();
@@ -97,7 +100,17 @@ mod tests {
         assert!(
             compile(&[
                 ("script.rns", "label start:\n    return\n"),
-                ("extensions.json", r#"{"version":2,"modules":{}}"#),
+                ("extensions.json", r#"{"version":1,"modules":{}}"#),
+            ])
+            .is_err()
+        );
+        assert!(
+            compile(&[
+                ("script.rns", "label start:\n    return\n"),
+                (
+                    "extensions.json",
+                    r#"{"version":2,"modules":{"old":"extensions/old.rhai"}}"#,
+                ),
             ])
             .is_err()
         );

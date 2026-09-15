@@ -388,7 +388,7 @@ impl ExpressionParser<'_> {
         match token.kind {
             TokenKind::Integer(value) => Ok(Expr::Value(Value::Integer(value))),
             TokenKind::Boolean(value) => Ok(Expr::Value(Value::Boolean(value))),
-            TokenKind::String(value) => Ok(Expr::Value(Value::String(value))),
+            TokenKind::String(value) => Ok(Expr::Value(Value::String(value.into()))),
             TokenKind::Identifier(value) if self.consume(&TokenKind::LeftParen) => {
                 let function = Builtin::named(&value)
                     .ok_or_else(|| self.error(format!("unknown built-in function `{value}`")))?;

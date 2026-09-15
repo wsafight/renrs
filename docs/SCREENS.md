@@ -56,7 +56,7 @@
 | `viewport` | `id`, `content_height`, `child` | 可嵌套滚动区域，原生和 Web 保持独立滚动位置并裁剪内容 |
 | `data_list` | `variable`, `selected`, `item_height`, `label` | 从列表变量生成有界选择项，结果写入字符串变量 |
 | `drag` / `drop` | `expression` / `variable` | 受限表达式拖放，触摸、鼠标和键盘走同一确定性赋值 |
-| `extension` | `name`, `input`, `variable` | 调用纯 Rhai 模块并事务性写回结果 |
+| `extension` | `name`, `input`, `variable` | 调用纯 Velin 模块并事务性写回结果 |
 | `row` / `column` | `children`, `gap`, `padding` | 行列布局 |
 | `hotspot` | `action`, `variable`, `expression` | 不可见点击区；可关界面、写变量或继续剧情 |
 

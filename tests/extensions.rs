@@ -6,10 +6,10 @@ fn script_and_screen_extensions_preserve_exact_values_and_rollback() {
     let mut program = compile(&parse_script(script, "extension.rns").unwrap()).unwrap();
     program
         .extensions
-        .insert("double".into(), "input * 2".into());
+        .insert("double".into(), "perform return(input * 2)\n".into());
     program
         .extensions
-        .insert("fail".into(), "throw \"failure\";".into());
+        .insert("fail".into(), "perform fail(\"failure\")\n".into());
     let mut runtime = Runtime::new(program.clone()).unwrap();
     runtime.advance().unwrap();
     runtime.continue_story().unwrap();
