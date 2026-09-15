@@ -157,8 +157,11 @@ set greeting = "Hello, " + player_name
 ```
 
 Supported operators are `+ - * /`, comparison, equality, `and`, `or`, `not`, and
-parentheses. `+` can concatenate two strings. Expressions cannot call files, network,
-Python, or Rust.
+parentheses. `+` can concatenate two strings. Velin 0.3.0 provides the expression AST,
+parser, static checker, evaluator, and value semantics. RenRS applies a restricted story
+profile: expressions cannot call files, network, Python, or Rust, and `random` / `chance`
+remain unavailable. `[` and `]` stay literal inside strings; Velin string interpolation is
+not enabled for RenRS expressions.
 
 ```text
 default bag = list("key")
@@ -175,7 +178,9 @@ checks keys on records. Updates return a new value; catch it with `set`. Duplica
 keys, wrong types, and out-of-range access error. `get` may supply a missing value.
 Built-in results and screen variable updates are capped at 4096 values, 16 collection
 levels, and 1 MiB of text. Expressions are capped at 512 tokens and 32 parenthesis
-levels. Collections enter saves and rollback like ordinary variables.
+levels. Provable type errors are reported while loading the project, including conditions
+known to be non-boolean; unknown variable types remain runtime-checked. Collections enter
+saves and rollback like ordinary variables.
 
 ## Conditions and menus
 

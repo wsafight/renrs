@@ -280,48 +280,7 @@ pub struct MenuPrompt {
     pub text: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Expr {
-    Invoke {
-        function: Builtin,
-        arguments: Vec<Expr>,
-    },
-    Value(Value),
-    Variable(String),
-    Unary {
-        op: UnaryOp,
-        value: Box<Expr>,
-    },
-    Binary {
-        left: Box<Expr>,
-        op: BinaryOp,
-        right: Box<Expr>,
-    },
-}
-
-pub use velin_syntax::Value;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum UnaryOp {
-    Negate,
-    Not,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BinaryOp {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Equal,
-    NotEqual,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual,
-    And,
-    Or,
-}
+pub use velin_syntax::{BinaryOp, Expr, StrPart, UnaryOp, Value};
 
 #[cfg(test)]
 mod tests {

@@ -3,7 +3,7 @@ use std::path::Path;
 use indexmap::IndexMap;
 
 use crate::diagnostic::Diagnostic;
-use crate::expression::parse_expression;
+use crate::expression::{parse_condition, parse_expression};
 use crate::localization::TranslationId;
 use crate::syntax::{
     Block, CallArgument, CharacterDef, CropRect, DefaultDef, DisplayLayerDef, Easing, ImageDef,

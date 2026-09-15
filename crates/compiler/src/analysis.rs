@@ -5,7 +5,7 @@ use std::collections::{BTreeSet, HashSet, VecDeque};
 
 use crate::compiler::{InstructionKind, Program, StatementId};
 use crate::diagnostic::Diagnostic;
-use crate::syntax::{Expr, Span};
+use crate::syntax::{Expr, Span, StrPart};
 use crate::text::{is_text_tag, validate_text_source};
 
 use graph::{ControlFlowGraph, strongly_connected_components};
@@ -218,6 +218,14 @@ fn expression_variables(expression: &Expr, variables: &mut HashSet<String>) {
         Expr::Binary { left, right, .. } => {
             expression_variables(left, variables);
             expression_variables(right, variables);
+        }
+        Expr::Spanned { expression, .. } => expression_variables(expression, variables),
+        Expr::Interpolate { parts } => {
+            for part in parts {
+                if let StrPart::Hole(expression) = part {
+                    expression_variables(expression, variables);
+                }
+            }
         }
         Expr::Value(_) => {}
     }

@@ -8,6 +8,7 @@ use std::hint::black_box;
 use std::sync::{Arc, LazyLock};
 
 use criterion::{Criterion, criterion_group, criterion_main};
+use renrs::expression;
 use renrs::runtime::RuntimeSnapshot;
 use renrs::save_format::{SaveFile, checksum};
 use renrs::syntax::Script;
@@ -15,6 +16,8 @@ use renrs::text::parse_text_markup;
 use renrs::{Program, Runtime, WaitState, compile, load_project, parse_script};
 
 const MARKUP: &str = "{b}Chapter {n}{/b}{br}{color=#ff0080}signal{/color}{w=0.5} {ruby=note}word{/ruby}{p=0.25}next{nw}";
+const STORY_EXPRESSION: &str =
+    "trust + 2 * 3 >= 6 and contains(list(\"signal\", \"key\"), \"key\")";
 
 struct Fixture {
     chapter_source: String,
@@ -109,6 +112,26 @@ fn play_route(criterion: &mut Criterion) {
     });
 }
 
+fn expressions(criterion: &mut Criterion) {
+    criterion.bench_function("parse_story_expression", |bencher| {
+        bencher.iter(|| {
+            expression::parse_expression(black_box(STORY_EXPRESSION), "bench.rns", 1, 1)
+                .expect("story expression should parse")
+        });
+    });
+
+    let runtime = Runtime::new(Arc::clone(&FIXTURE.program)).expect("runtime should start");
+    let expression = expression::parse_expression(STORY_EXPRESSION, "bench.rns", 1, 1)
+        .expect("story expression should parse");
+    criterion.bench_function("evaluate_story_expression", |bencher| {
+        bencher.iter(|| {
+            runtime
+                .evaluate_expression(black_box(&expression))
+                .expect("story expression should evaluate")
+        });
+    });
+}
+
 fn persist(criterion: &mut Criterion) {
     let fixture = &*FIXTURE;
     criterion.bench_function("snapshot_serialize_json", |bencher| {
@@ -137,5 +160,12 @@ fn markup(criterion: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, parse_and_compile, play_route, persist, markup);
+criterion_group!(
+    benches,
+    parse_and_compile,
+    play_route,
+    expressions,
+    persist,
+    markup
+);
 criterion_main!(benches);

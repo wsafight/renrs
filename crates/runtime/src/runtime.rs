@@ -5,9 +5,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::localization::{LocalizationError, Localizer, TranslationCatalog, TranslationId};
-use crate::syntax::{
-    BinaryOp, Easing, Expr, Position, TransformState, TransitionKind, UnaryOp, Value,
-};
+use crate::syntax::{Easing, Expr, Position, TransformState, TransitionKind, Value};
 use crate::text::{TextRun, is_text_tag, parse_text_markup};
 use renrs_model::{InstructionId, InstructionKind, Program, StatementId};
 
@@ -366,7 +364,6 @@ pub enum RuntimeError {
     Localization(String),
 }
 
-mod builtins;
 #[path = "runtime/dialogue.rs"]
 mod dialogue;
 #[cfg(test)]

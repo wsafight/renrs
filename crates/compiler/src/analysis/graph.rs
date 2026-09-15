@@ -91,7 +91,7 @@ fn valid_targets<const N: usize>(targets: [Option<usize>; N], length: usize) -> 
 }
 
 fn constant_boolean(expression: &Expr) -> Option<bool> {
-    match expression {
+    match expression.unspanned() {
         Expr::Value(Value::Boolean(value)) => Some(*value),
         _ => None,
     }

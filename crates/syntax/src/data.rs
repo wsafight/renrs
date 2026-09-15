@@ -1,45 +1,4 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Builtin {
-    List,
-    Record,
-    Get,
-    Put,
-    Push,
-    Remove,
-    Len,
-    Contains,
-}
-
-impl Builtin {
-    #[must_use]
-    pub fn named(name: &str) -> Option<Self> {
-        Some(match name {
-            "list" => Self::List,
-            "record" => Self::Record,
-            "get" => Self::Get,
-            "put" => Self::Put,
-            "push" => Self::Push,
-            "remove" => Self::Remove,
-            "len" => Self::Len,
-            "contains" => Self::Contains,
-            _ => return None,
-        })
-    }
-    #[must_use]
-    pub const fn accepts(self, count: usize) -> bool {
-        match self {
-            Self::List => count <= 128,
-            Self::Record => count <= 128 && count.is_multiple_of(2),
-            Self::Get => count == 2 || count == 3,
-            Self::Put => count == 3,
-            Self::Push | Self::Remove | Self::Contains => count == 2,
-            Self::Len => count == 1,
-        }
-    }
-}
+pub use velin_syntax::Builtin;
 
 #[cfg(test)]
 mod tests {
@@ -52,6 +11,7 @@ mod tests {
     fn names_and_argument_counts_match_the_data_builtins() {
         assert_eq!(Builtin::named("list"), Some(Builtin::List));
         assert_eq!(Builtin::named("contains"), Some(Builtin::Contains));
+        assert_eq!(Builtin::named("random"), Some(Builtin::Random));
         assert_eq!(Builtin::named("unknown"), None);
         assert!(Builtin::List.accepts(0));
         assert!(Builtin::Record.accepts(2));

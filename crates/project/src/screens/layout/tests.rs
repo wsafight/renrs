@@ -36,6 +36,7 @@ fn nested_viewports_preserve_clip_ancestry_and_container_style() {
 #[test]
 fn story_screens_validate_visibility_and_hotspot_assignments() {
     assert!(Screens::from_slice(br#"{"story":{"map":{"bounds":{"x":0,"y":0,"width":1280,"height":720},"root":{"type":"hotspot","visible":"open &&","variable":"choice","expression":"1"}}}}"#).is_err());
+    assert!(Screens::from_slice(br#"{"story":{"map":{"bounds":{"x":0,"y":0,"width":1280,"height":720},"root":{"type":"hotspot","visible":"1","variable":"choice","expression":"1"}}}}"#).is_err());
     assert!(Screens::from_slice(br#"{"story":{"map":{"bounds":{"x":0,"y":0,"width":1280,"height":720},"root":{"type":"hotspot","variable":"choice"}}}}"#).is_err());
 }
 

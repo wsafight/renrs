@@ -33,6 +33,9 @@ sha2 = "0.10"
 tempfile = "3.22"
 thiserror = "2"
 velin = "0.3.0"
+velin-check = "0.3.0"
+velin-eval = "0.3.0"
+velin-parse = "0.3.0"
 velin-syntax = "0.3.0"
 
 [workspace.lints.rust]

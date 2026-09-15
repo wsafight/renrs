@@ -25,6 +25,13 @@ Editor integration can be built and tested without the native player or audio st
 Project resource rules are shared by desktop loading, archive creation, watching,
 Web distribution and editor disk indexing.
 
+The expression boundary is shared with Velin 0.3.0: `renrs-syntax` re-exports its value,
+expression, operator, built-in and diagnostic types; `renrs-compiler` uses its bounded parser
+and conservative checker; `renrs-runtime` uses its reference evaluator. A compatibility
+adapter removes expression source spans before storing the AST, preserves literal square
+brackets in RenRS strings, and rejects `random` / `chance`. Story statements, instruction
+IDs, waiting, reload, rollback and persistence remain RenRS-owned.
+
 The VS Code extension source stays in `editors/vscode-renrs/src` and compiles to a
 CommonJS bundle; its Rust LSP is in `crates/editor`. The strict TypeScript browser UI
 stays in `web`; only its WASM interface is Rust. The Launcher uses a separate Vite shell

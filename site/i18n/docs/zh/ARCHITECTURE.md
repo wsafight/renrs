@@ -21,6 +21,12 @@
 运行时 API。编辑器集成可以在没有原生播放器和音频栈的情况下构建和测试。项目资源规则
 由桌面加载、归档创建、监听、Web 发行和编辑器磁盘索引共用。
 
+表达式边界与 Velin 0.3.0 共用：`renrs-syntax` 重导出其值、表达式、运算符、内置函数和
+诊断类型，`renrs-compiler` 使用其有界 parser 与保守检查器，`renrs-runtime` 使用其参考
+evaluator。兼容适配层在保存 AST 前移除表达式源码 span，保留 RenRS 字符串中方括号的
+字面语义，并拒绝 `random` / `chance`。剧情语句、指令 ID、等待、热重载、回滚和持久化
+仍由 RenRS 负责。
+
 VS Code 的 JavaScript 扩展在 `editors/vscode-renrs`；其 Rust LSP 在 `crates/editor`。
 浏览器 UI 在 `web`；只有 WASM 接口是 Rust。根库是播放器和 CLI 使用的公共 facade。
 图形和音频后端留在 `renrs-player`，所以 `renrs-check` 等 CLI 工具不再编译 macroquad

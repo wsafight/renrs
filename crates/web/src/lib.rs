@@ -125,7 +125,7 @@ impl Engine {
     }
 
     pub fn screen_visible(&self, source: &str) -> Result<bool, JsValue> {
-        let expression = renrs_compiler::expression::parse_expression(source, "screens.json", 1, 1)
+        let expression = renrs_compiler::expression::parse_condition(source, "screens.json", 1, 1)
             .map_err(js_error)?;
         match self
             .runtime

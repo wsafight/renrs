@@ -74,7 +74,7 @@ fn parse(source: &ProjectSource, path: &str) -> Result<CompiledLayeredImage, Str
                 .when
                 .as_deref()
                 .map(|condition| {
-                    renrs_compiler::expression::parse_expression(condition, path, 1, 1)
+                    renrs_compiler::expression::parse_condition(condition, path, 1, 1)
                         .map_err(|error| error.to_string())
                 })
                 .transpose()?;
@@ -122,6 +122,12 @@ mod tests {
         assert!(
             compile_layers(r#"{"width":100,"height":100,"layers":[{"path":"missing.png"}]}"#)
                 .is_err()
+        );
+        assert!(
+            compile_layers(
+                r#"{"width":100,"height":100,"layers":[{"path":"body.png","when":"1"}]}"#
+            )
+            .is_err()
         );
 
         let root = tempfile::tempdir().unwrap();

@@ -39,7 +39,7 @@ pub(super) fn validate_story_map(screens: &Screens) -> Result<(), String> {
 
 pub(super) fn validate_visible(source: Option<&str>) -> Result<(), String> {
     source.map_or(Ok(()), |source| {
-        renrs_compiler::expression::parse_expression(source, SCREENS_FILE, 1, 1)
+        renrs_compiler::expression::parse_condition(source, SCREENS_FILE, 1, 1)
             .map(|_| ())
             .map_err(|error| error.to_string())
     })

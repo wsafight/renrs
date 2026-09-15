@@ -257,6 +257,14 @@ impl Validator<'_> {
                 self.expression(left, span);
                 self.expression(right, span);
             }
+            Expr::Spanned { expression, .. } => self.expression(expression, span),
+            Expr::Interpolate { parts } => {
+                for part in parts {
+                    if let renrs_syntax::syntax::StrPart::Hole(expression) = part {
+                        self.expression(expression, span);
+                    }
+                }
+            }
             Expr::Value(_) | Expr::Variable(_) => {}
         }
     }

@@ -156,7 +156,9 @@ set greeting = "Hello, " + player_name
 ```
 
 支持 `+ - * /`、比较、相等、`and`、`or`、`not` 和括号；`+` 可连接两个字符串。
-表达式没有文件、网络、Python 或 Rust 调用能力。
+表达式的 AST、解析、静态检查、求值和值语义由 Velin 0.3.0 提供，RenRS 在其上保留
+受限的剧情配置：没有文件、网络、Python 或 Rust 调用能力，也不开放 `random` / `chance`。
+字符串中的 `[` 和 `]` 仍是普通字符，不启用 Velin 的表达式字符串插值。
 
 ```text
 default bag = list("key")
@@ -170,7 +172,8 @@ set reward = get(quest, "reward")
 `push(list, value)`、`remove(data, key)`、`len(data)` 和 `contains(data, value)`。
 列表索引从 0 开始，记录键为字符串；`contains` 对记录检查键。更新返回新值，必须用 `set` 接住。
 重复键、错误类型、越界访问会报错；`get` 可提供缺失值。内置函数结果与界面变量更新最多 4096 个值、16 层集合与 1 MiB 文本，
-表达式最多 512 个 token、32 层括号。集合与普通变量一样进入存档及回退。
+表达式最多 512 个 token、32 层括号。能静态确定的类型错误会在项目加载时报告，条件若能
+确定为非布尔值也会被拒绝；变量类型未知时仍由运行时检查。集合与普通变量一样进入存档及回退。
 
 ## 条件与菜单
 

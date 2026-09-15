@@ -184,7 +184,7 @@ impl App {
         let Some(runtime) = &self.runtime else {
             return true;
         };
-        let Ok(expr) = expression::parse_expression(source, "screens.json", 1, 1) else {
+        let Ok(expr) = expression::parse_condition(source, "screens.json", 1, 1) else {
             return false;
         };
         runtime

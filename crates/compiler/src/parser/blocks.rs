@@ -1,6 +1,6 @@
 use super::{
     CallArgument, Cursor, Diagnostic, Line, MenuOption, Parser, Position, Span, Statement,
-    StatementKind, TranslationId, parse_expression,
+    StatementKind, TranslationId, parse_condition, parse_expression,
 };
 
 impl Parser {
@@ -214,7 +214,7 @@ impl Parser {
         let source = cursor
             .rest_before_colon()
             .map_err(|message| self.error(line, cursor.column(), message))?;
-        let condition = parse_expression(
+        let condition = parse_condition(
             source,
             &self.source_name,
             line.number,
@@ -239,7 +239,7 @@ impl Parser {
                     .rest_before_colon()
                     .map_err(|message| self.error(&next, branch_cursor.column(), message))?;
                 let condition =
-                    parse_expression(source, &self.source_name, next.number, indent + column)?;
+                    parse_condition(source, &self.source_name, next.number, indent + column)?;
                 self.current += 1;
                 let body = self.parse_block(indent + 4)?;
                 if body.is_empty() {
@@ -304,7 +304,7 @@ impl Parser {
                 let source = cursor
                     .rest_before_colon()
                     .map_err(|message| self.error(&line, cursor.column(), message))?;
-                Some(parse_expression(
+                Some(parse_condition(
                     source,
                     &self.source_name,
                     line.number,
