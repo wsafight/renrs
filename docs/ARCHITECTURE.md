@@ -25,12 +25,38 @@ Editor integration can be built and tested without the native player or audio st
 Project resource rules are shared by desktop loading, archive creation, watching,
 Web distribution and editor disk indexing.
 
-The expression boundary is shared with Velin 0.3.0: `renrs-syntax` re-exports its value,
+The expression boundary is shared with Velin 0.4.0: `renrs-syntax` re-exports its value,
 expression, operator, built-in and diagnostic types; `renrs-compiler` uses its bounded parser
 and conservative checker; `renrs-runtime` uses its reference evaluator. A compatibility
 adapter removes expression source spans before storing the AST, preserves literal square
 brackets in RenRS strings, and rejects `random` / `chance`. Story statements, instruction
 IDs, waiting, reload, rollback and persistence remain RenRS-owned.
+
+## Velin Ownership Boundary
+
+| RenRS crate | Direct Velin dependency | Owned responsibility |
+| --- | --- | --- |
+| `renrs-syntax` | `velin-syntax` | Re-export `Value`, `Expr`, string parts, operators, built-ins and diagnostics |
+| `renrs-compiler` | `velin-parse`, `velin-check` | Parse and conservatively check story, screen and layered-image expressions |
+| `renrs-runtime` | `velin-eval` | Evaluate expressions and immutable list/record built-ins |
+| `renrs-extensions` | `velin` | Compile and execute bounded deterministic `.velin` pure modules |
+
+Only the extension crate depends on Velin's full facade and VM. The other crates
+use the narrowest language sub-crate they need, avoiding an accidental VM
+dependency in syntax, compilation or ordinary story evaluation.
+
+The shared expression path covers `.rns` defaults, label parameter defaults,
+`call` arguments, `return`, `set`, extension inputs, branch/menu conditions,
+`screens.json` visibility and updates, layered-image conditions, project
+validation and debugger evaluation. These consumers all traverse the same Velin
+AST and share the same value semantics.
+
+The boundary stops at pure language and computation. The `.rns` parser and
+visual-novel statements, stable instruction IDs, waits, hot reload, rollback,
+save containers, screen layout, native/Web UI, audio and rendering remain owned
+by RenRS. Moving them into Velin would duplicate the host protocol and obscure
+ownership of persistent and presentation state; they are not migration
+candidates while these boundaries remain distinct.
 
 The VS Code extension source stays in `editors/vscode-renrs/src` and compiles to a
 CommonJS bundle; its Rust LSP is in `crates/editor`. The strict TypeScript browser UI

@@ -21,11 +21,31 @@
 运行时 API。编辑器集成可以在没有原生播放器和音频栈的情况下构建和测试。项目资源规则
 由桌面加载、归档创建、监听、Web 发行和编辑器磁盘索引共用。
 
-表达式边界与 Velin 0.3.0 共用：`renrs-syntax` 重导出其值、表达式、运算符、内置函数和
+表达式边界与 Velin 0.4.0 共用：`renrs-syntax` 重导出其值、表达式、运算符、内置函数和
 诊断类型，`renrs-compiler` 使用其有界 parser 与保守检查器，`renrs-runtime` 使用其参考
 evaluator。兼容适配层在保存 AST 前移除表达式源码 span，保留 RenRS 字符串中方括号的
 字面语义，并拒绝 `random` / `chance`。剧情语句、指令 ID、等待、热重载、回滚和持久化
 仍由 RenRS 负责。
+
+## Velin 所有权边界
+
+| RenRS crate | 直接 Velin 依赖 | 负责内容 |
+| --- | --- | --- |
+| `renrs-syntax` | `velin-syntax` | 重导出 `Value`、`Expr`、字符串片段、运算符、内置函数和诊断 |
+| `renrs-compiler` | `velin-parse`、`velin-check` | 解析并保守检查剧情、界面和分层图像表达式 |
+| `renrs-runtime` | `velin-eval` | 执行表达式以及不可变 list/record 内置函数 |
+| `renrs-extensions` | `velin` | 编译并执行有界、确定性的 `.velin` 纯模块 |
+
+只有扩展 crate 依赖 Velin 的完整 facade 和 VM。其他 crate 只使用所需的最窄语言子 crate，
+避免 syntax、compiler 或普通剧情求值意外引入完整 VM。
+
+共享表达式路径覆盖 `.rns` 的默认值、label 参数默认值、`call` 实参、`return`、`set`、
+扩展输入、分支/menu 条件，`screens.json` 的可见性和更新，分层图像条件、项目校验及调试器
+求值。这些入口遍历同一份 Velin AST，并共享相同的值语义。
+
+边界止于纯语言和纯计算。`.rns` parser 与视觉小说语句、稳定指令 ID、等待、热重载、回滚、
+存档容器、界面布局、原生/Web UI、音频和渲染仍由 RenRS 负责。把它们迁入 Velin 会重复宿主
+协议并模糊持久状态和呈现状态的所有权；只要这些边界仍然独立，它们就不是迁移候选。
 
 VS Code 的 JavaScript 扩展在 `editors/vscode-renrs`；其 Rust LSP 在 `crates/editor`。
 浏览器 UI 在 `web`；只有 WASM 接口是 Rust。根库是播放器和 CLI 使用的公共 facade。

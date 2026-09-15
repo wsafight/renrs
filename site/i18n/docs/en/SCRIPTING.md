@@ -157,7 +157,7 @@ set greeting = "Hello, " + player_name
 ```
 
 Supported operators are `+ - * /`, comparison, equality, `and`, `or`, `not`, and
-parentheses. `+` can concatenate two strings. Velin 0.3.0 provides the expression AST,
+parentheses. `+` can concatenate two strings. Velin 0.4.0 provides the expression AST,
 parser, static checker, evaluator, and value semantics. RenRS applies a restricted story
 profile: expressions cannot call files, network, Python, or Rust, and `random` / `chance`
 remain unavailable. `[` and `]` stay literal inside strings; Velin string interpolation is
@@ -181,6 +181,24 @@ levels, and 1 MiB of text. Expressions are capped at 512 tokens and 32 parenthes
 levels. Provable type errors are reported while loading the project, including conditions
 known to be non-boolean; unknown variable types remain runtime-checked. Collections enter
 saves and rollback like ordinary variables.
+
+### Expression compatibility and determinism
+
+The Velin parser produces nodes with source spans. RenRS recursively removes
+those spans after static checking to preserve the published expression shape in
+compiled-program JSON. Square brackets inside strings are temporarily replaced
+with equal-length characters that do not occur in the input, then restored after
+Velin parsing. This keeps diagnostic columns and the 64 KiB expression limit
+stable.
+
+Static checking uses an empty type environment and rejects only errors provable
+from the expression itself; dynamic story variables are not rejected merely
+because their types are unknown while loading. `random` and `chance` require
+explicit RNG state, which the current save, rollback and hot-reload contracts do
+not contain. Source entry points therefore reject them, and manually constructed
+ASTs also fail through the evaluator without RNG state. They can be enabled only
+after seed, advancement, save, rollback and reload semantics are defined
+together.
 
 ## Conditions and menus
 

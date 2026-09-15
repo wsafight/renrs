@@ -2191,9 +2191,9 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
 name = "velin"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ece62aa656b611b272617d330033c863180769abc3f68bd79cd0211362747921"
+checksum = "9fbadf76da6438ad94852a18bef9e06ecc70c55b04cd903312485ecedd03cabf"
 dependencies = [
  "velin-bytecode",
  "velin-check",
@@ -2207,9 +2207,9 @@ dependencies = [
 
 [[package]]
 name = "velin-bytecode"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "508697d3cf8e5da219aca96de0779de2e7f19fab244a6006017485941b004719"
+checksum = "5d7b6bd00789cb959c6177c76a5149af43b6f290c12b4cc0b87616693ec900b0"
 dependencies = [
  "serde",
  "velin-syntax",
@@ -2217,9 +2217,9 @@ dependencies = [
 
 [[package]]
 name = "velin-check"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce2db99567a21d5820da5a34f04a569e6a0429e1f4ea7b133f6d3c72af7d37d3"
+checksum = "8f6d026037d5e7b157758d5b83de53d7856f3559aac2c41edfc4169edcdefadb"
 dependencies = [
  "velin-bytecode",
  "velin-syntax",
@@ -2227,9 +2227,9 @@ dependencies = [
 
 [[package]]
 name = "velin-compile"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "442bed46e2b3dd1742a970e78cb1eaff581dc6b45261519348dcc2f9249063f5"
+checksum = "79ecfa4811d760f92b722a1c58e692c73429fc69e06fe7616aa0e2e9f24cb0fc"
 dependencies = [
  "velin-bytecode",
  "velin-eval",
@@ -2238,18 +2238,18 @@ dependencies = [
 
 [[package]]
 name = "velin-eval"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "928fefd89b3e8cf405efd99231830e74deff8609f3f51c59af86fb042b41a2b2"
+checksum = "54cb1b285808310a896547aa819083ce7b2e3ff18b6a17d3f9fad39db4ce1114"
 dependencies = [
  "velin-syntax",
 ]
 
 [[package]]
 name = "velin-lang"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce2b73a40b5c83d4640c8079c089c08c5be65cd4b554138d4db081316c9b7082"
+checksum = "0aca757e7e6cc7cd688f7cc12533f4731e6faf64262c3acaddae38b938ced759"
 dependencies = [
  "serde",
  "serde_json",
@@ -2263,27 +2263,27 @@ dependencies = [
 
 [[package]]
 name = "velin-parse"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e76211d6482b4ba8fdeb2f680a310bb34414d7e8e3ff544ab5f2975dbace5b0"
+checksum = "a2b8bb39a302270b85319710d68070c6f2803697924887b7c33d8e8b467e143e"
 dependencies = [
  "velin-syntax",
 ]
 
 [[package]]
 name = "velin-syntax"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad63443906bf35967e1a37094a859eab7ec83d609c0fd319c41434973a35f936"
+checksum = "aed8919dbdfef4ac205908158ca441b5ca81de2978e19fbd501bc753215f454c"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "velin-vm"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bbd7a1a8881c2a3e56e6d6d697dbec43001120f5be8c0e8f8ad520470bc1a34"
+checksum = "7aad63ad3fe3d06985b2a6cefa3165e0c0fc1ee73e964e64e849ec1fda6212a7"
 dependencies = [
  "velin-bytecode",
  "velin-eval",

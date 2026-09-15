@@ -8,6 +8,80 @@ P0-P2 性能审查的实现顺序和验证记录。
 [原生字体后续](FONT_MEMORY.md) 用按需字形和固定 4 MiB 图集替换急切 CJK 轮廓加载，在对比夹具上
 测得原生 RSS 约下降 65%。
 
+## Velin 0.4 扩展边界
+
+测量于 2026-09-16，环境为 Apple M3 Pro、arm64、macOS 26.6.2、`rustc 1.98.0` 和
+Criterion 0.5.1。保存的 Rhai 1.26.0 基线于 2026-09-15 在同一台机器、RenRS
+`fe4b03c` 上采集；Velin 测量使用以 `45af585` 为基础的最终 0.4.0 实现。两边使用
+相同 benchmark 源码、输入、结果断言、release profile、三秒预热和 100 个样本。两次运行
+没有交错执行，因此短时系统负载仍可能令重跑结果小幅波动。
+
+时间为 Criterion 95% 置信区间，中间加粗值为点估计。变化率直接来自 Criterion 保存的
+`rhai` 分布；七项均为 `p < 0.05`。
+
+| Benchmark | Rhai 1.26.0 | Velin 0.4.0 | 耗时变化 | 点估计加速比 |
+| --- | ---: | ---: | ---: | ---: |
+| `extensions/compile/scalar` | 42.699 - **43.028** - 43.571 us | 3.2349 - **3.2584** - 3.2988 us | **-92.449%** `[-92.556%, -92.366%]` | 13.20x |
+| `extensions/compile/suite_4` | 48.993 - **49.274** - 49.674 us | 17.083 - **17.186** - 17.304 us | **-65.568%** `[-66.062%, -65.124%]` | 2.87x |
+| `extensions/invoke/scalar_arithmetic` | 291.16 - **295.63** - 301.12 ns | 98.040 - **98.912** - 100.43 ns | **-66.845%** `[-67.576%, -66.252%]` | 2.99x |
+| `extensions/invoke/list_identity_1024` | 31.949 - **32.299** - 32.757 us | 2.9364 - **2.9518** - 2.9816 us | **-90.857%** `[-90.936%, -90.778%]` | 10.94x |
+| `extensions/invoke/record_identity_512` | 184.46 - **186.07** - 188.31 us | 4.3740 - **4.3840** - 4.3938 us | **-97.657%** `[-97.675%, -97.642%]` | 42.44x |
+| `extensions/invoke/list_append_1024` | 38.876 - **39.112** - 39.465 us | 4.1854 - **4.2086** - 4.2544 us | **-89.270%** `[-89.363%, -89.181%]` | 9.29x |
+| `extensions/invoke/sum_loop_256` | 17.633 - **17.744** - 17.917 us | 16.267 - **16.290** - 16.313 us | **-8.3338%** `[-9.1934%, -7.6869%]` | 1.09x |
+
+identity 用例隔离动态值转换和集合边界。共享 Velin `Value` 表示后不再递归转换
+`rhai::Dynamic`，列表和记录因此收益最大。有界复用的 `MachineInvoker` 池还把短标量
+调用从约 296 ns 降到 99 ns。循环只提升 8.3%，所以纯计算密集脚本不能预期结构化数据边界
+那样的数量级收益。编译只发生在 Runtime 创建或恢复时，不代表帧内吞吐。
+
+从仓库根目录复现：
+
+```sh
+cargo bench -p renrs-extensions --bench extensions -- --save-baseline rhai
+cargo bench -p renrs-extensions --bench extensions -- --baseline rhai
+```
+
+保存的分布位于 `target/criterion/extensions_*/*/rhai/`，会被 `cargo clean` 删除。
+workload 覆盖标量编译、四模块套件、标量调用、1024 项列表透传和追加、512 字段记录透传，
+以及对整数 0 到 255 求和。
+
+升级验证通过完整 workspace/all-target 测试，包括连续调用、失败后复用、常量模块和八路并发
+状态隔离。`renrs-web` 可构建到 `wasm32-unknown-unknown`；受影响库以
+`-D warnings` 通过 Clippy，格式和 diff 检查通过。依赖树只有 Velin 0.4.0 包，不含 Rhai。
+
+## 剧情表达式迁移
+
+2026-09-15 的迁移测量比较了 RenRS 原表达式 parser/evaluator 和共享的 Velin 表达式路径。
+它早于 0.4.0 依赖升级，但这条路径使用的 `velin-parse`、`velin-check` 和
+`velin-eval` 源码在当前版本中没有变化。这里保留的是迁移历史，不把它表述为新做的
+0.4.0 测量。
+
+输入表达式：
+
+```text
+trust + 2 * 3 >= 6 and contains(list("signal", "key"), "key")
+```
+
+| Benchmark | 原 RenRS 实现 | 共享 Velin 表达式路径 | Criterion 变化 |
+| --- | ---: | ---: | ---: |
+| `parse_story_expression` | 1.626 us | 2.172 us | +34.41% |
+| `evaluate_story_expression` | 310.62 ns | 273.46 ns | -6.28% |
+
+当前解析还包含保守静态检查和精确诊断，因此增加约 0.55 us 并不是同功能 parser 对比。
+该成本发生在加载、热重载或提交交互表达式时，不在每个渲染帧发生。
+
+生成的 100 章、每章 100 行场景没有出现统计显著的端到端变化：
+
+| Benchmark | 共享表达式前 | 迁移后 | 点估计变化 | Criterion |
+| --- | ---: | ---: | ---: | --- |
+| `parse_script_chapter` | 124.48 us | 125.87 us | +2.08% | 无显著变化 |
+| `compile_generated_project` | 27.666 ms | 28.013 ms | +1.25% | 无显著变化 |
+| `runtime_play_generated_route` | 29.320 ms | 29.909 ms | +2.01% | 无显著变化 |
+
+因此表达式迁移删除了重复实现并统一语义，但不是端到端性能优化。
+
+## 运行时优化历史
+
 - [x] P0：仅存档用的 240x135 GPU 缩略图；在存储 worker 上编码。
 - [x] P0：紧凑 Web 状态、分页历史、按需调试器/profile 数据。
 - [x] P0：有界 Web 音效通道和确定性媒体清理。

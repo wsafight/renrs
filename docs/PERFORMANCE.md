@@ -11,6 +11,96 @@ The [native font follow-up](FONT_MEMORY.md) replaces eager CJK outline loading
 with on-demand glyphs and a fixed 4 MiB atlas, reducing measured native RSS by
 about 65% in the comparison fixtures.
 
+## Velin 0.4 Extension Boundary
+
+Measured on 2026-09-16 on an Apple M3 Pro, arm64, macOS 26.6.2, with
+`rustc 1.98.0` and Criterion 0.5.1. The stored Rhai 1.26.0 baseline was
+collected on the same machine on 2026-09-15 at RenRS `fe4b03c`; the Velin
+measurement uses the final 0.4.0 implementation based on `45af585`. Both use
+the same benchmark source, inputs, result assertions, release profile,
+three-second warmup and 100 samples. The runs were not interleaved, so transient
+system load can still move a repeat measurement slightly.
+
+Times are Criterion 95% confidence intervals with the point estimate in bold.
+Changes come directly from Criterion's saved `rhai` distribution; all seven
+have `p < 0.05`.
+
+| Benchmark | Rhai 1.26.0 | Velin 0.4.0 | Time change | Point-estimate speedup |
+| --- | ---: | ---: | ---: | ---: |
+| `extensions/compile/scalar` | 42.699 - **43.028** - 43.571 us | 3.2349 - **3.2584** - 3.2988 us | **-92.449%** `[-92.556%, -92.366%]` | 13.20x |
+| `extensions/compile/suite_4` | 48.993 - **49.274** - 49.674 us | 17.083 - **17.186** - 17.304 us | **-65.568%** `[-66.062%, -65.124%]` | 2.87x |
+| `extensions/invoke/scalar_arithmetic` | 291.16 - **295.63** - 301.12 ns | 98.040 - **98.912** - 100.43 ns | **-66.845%** `[-67.576%, -66.252%]` | 2.99x |
+| `extensions/invoke/list_identity_1024` | 31.949 - **32.299** - 32.757 us | 2.9364 - **2.9518** - 2.9816 us | **-90.857%** `[-90.936%, -90.778%]` | 10.94x |
+| `extensions/invoke/record_identity_512` | 184.46 - **186.07** - 188.31 us | 4.3740 - **4.3840** - 4.3938 us | **-97.657%** `[-97.675%, -97.642%]` | 42.44x |
+| `extensions/invoke/list_append_1024` | 38.876 - **39.112** - 39.465 us | 4.1854 - **4.2086** - 4.2544 us | **-89.270%** `[-89.363%, -89.181%]` | 9.29x |
+| `extensions/invoke/sum_loop_256` | 17.633 - **17.744** - 17.917 us | 16.267 - **16.290** - 16.313 us | **-8.3338%** `[-9.1934%, -7.6869%]` | 1.09x |
+
+The identity cases isolate dynamic-value conversion and collection boundaries.
+Sharing Velin's `Value` representation removes the recursive
+`rhai::Dynamic` conversion, producing the largest gains for lists and
+records. A bounded reusable `MachineInvoker` pool also reduces short scalar
+calls from about 296 ns to 99 ns. The loop improves by only 8.3%, so
+compute-heavy scripts should not expect the order-of-magnitude gain seen at
+structured-data boundaries. Compilation happens only while creating or
+restoring a runtime and is not frame-time throughput.
+
+Reproduce from the repository root:
+
+```sh
+cargo bench -p renrs-extensions --bench extensions -- --save-baseline rhai
+cargo bench -p renrs-extensions --bench extensions -- --baseline rhai
+```
+
+The saved distributions live under
+`target/criterion/extensions_*/*/rhai/` and are removed by `cargo clean`.
+The workload covers scalar compilation, a four-module suite, scalar invocation,
+1024-item list identity and append, 512-field record identity, and summing the
+integers 0 through 255.
+
+Upgrade verification passed the full workspace/all-target test suite, including
+repeated invocation, failure reuse, constant modules and eight-way concurrent
+state isolation. The Web crate builds for `wasm32-unknown-unknown`; affected
+libraries pass Clippy with `-D warnings`, and formatting and diff checks pass.
+The dependency tree contains only Velin 0.4.0 packages and no Rhai package.
+
+## Story Expression Migration
+
+The 2026-09-15 migration measurement compared RenRS's former expression parser
+and evaluator with the shared Velin expression path. It predates the dependency
+bump to 0.4.0, but the `velin-parse`, `velin-check` and `velin-eval`
+sources used by this path are unchanged in the current release. These figures
+are retained as migration history, not presented as a fresh 0.4.0 run.
+
+The expression was:
+
+```text
+trust + 2 * 3 >= 6 and contains(list("signal", "key"), "key")
+```
+
+| Benchmark | Former RenRS implementation | Shared Velin expression path | Criterion change |
+| --- | ---: | ---: | ---: |
+| `parse_story_expression` | 1.626 us | 2.172 us | +34.41% |
+| `evaluate_story_expression` | 310.62 ns | 273.46 ns | -6.28% |
+
+Parsing now includes conservative static checking and precise diagnostics, so
+the 0.55 us increase is not an equal-feature parser comparison. The cost occurs
+while loading, hot reloading or submitting an interactive expression, not on
+every rendered frame.
+
+The generated 100-chapter, 100-line-per-chapter scenario showed no statistically
+significant end-to-end change:
+
+| Benchmark | Before shared expressions | After migration | Point change | Criterion |
+| --- | ---: | ---: | ---: | --- |
+| `parse_script_chapter` | 124.48 us | 125.87 us | +2.08% | No significant change |
+| `compile_generated_project` | 27.666 ms | 28.013 ms | +1.25% | No significant change |
+| `runtime_play_generated_route` | 29.320 ms | 29.909 ms | +2.01% | No significant change |
+
+The expression migration therefore removed duplicate implementation and unified
+semantics; it was not an end-to-end performance optimization.
+
+## Runtime Optimization History
+
 - [x] P0: save-only 240x135 GPU thumbnails; encode on the storage worker.
 - [x] P0: compact Web state, paginated history, on-demand debugger/profile data.
 - [x] P0: bounded Web sound channels and deterministic media cleanup.
