@@ -1,6 +1,6 @@
 # 项目扩展
 
-扩展在共享的原生/WASM Rust 运行时中用 Velin 0.4.0 执行。模块是不可变 `input` 的
+扩展在共享的原生/WASM Rust 运行时中用 Velin 0.5.1 执行。模块是不可变 `input` 的
 纯函数，必须以 `perform return(value)` 返回，也可以用 `perform fail(message)` 主动
 失败。每次调用都会重置独立的 VM；空闲 VM workspace 可跨调用复用，并发调用不会共享
 可变状态。编译期会拒绝其他宿主命令以及 `random`/`chance`

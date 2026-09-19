@@ -25,7 +25,7 @@ Editor integration can be built and tested without the native player or audio st
 Project resource rules are shared by desktop loading, archive creation, watching,
 Web distribution and editor disk indexing.
 
-The expression boundary is shared with Velin 0.4.0: `renrs-syntax` re-exports its value,
+The expression boundary is shared with Velin 0.5.1: `renrs-syntax` re-exports its value,
 expression, operator, built-in and diagnostic types; `renrs-compiler` uses its bounded parser
 and conservative checker; `renrs-runtime` uses its reference evaluator. A compatibility
 adapter removes expression source spans before storing the AST, preserves literal square

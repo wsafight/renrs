@@ -47,14 +47,14 @@ workload 覆盖标量编译、四模块套件、标量调用、1024 项列表透
 
 升级验证通过完整 workspace/all-target 测试，包括连续调用、失败后复用、常量模块和八路并发
 状态隔离。`renrs-web` 可构建到 `wasm32-unknown-unknown`；受影响库以
-`-D warnings` 通过 Clippy，格式和 diff 检查通过。依赖树只有 Velin 0.4.0 包，不含 Rhai。
+`-D warnings` 通过 Clippy，格式和 diff 检查通过。该次记录的 benchmark 构建依赖树只有
+Velin 0.4.0 包，不含 Rhai。
 
 ## 剧情表达式迁移
 
 2026-09-15 的迁移测量比较了 RenRS 原表达式 parser/evaluator 和共享的 Velin 表达式路径。
-它早于 0.4.0 依赖升级，但这条路径使用的 `velin-parse`、`velin-check` 和
-`velin-eval` 源码在当前版本中没有变化。这里保留的是迁移历史，不把它表述为新做的
-0.4.0 测量。
+它早于 0.4.0 依赖升级。这里保留的是迁移历史，不把它表述为新做的
+0.4.0 或 0.5.1 测量。
 
 输入表达式：
 

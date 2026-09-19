@@ -157,7 +157,7 @@ set greeting = "Hello, " + player_name
 ```
 
 Supported operators are `+ - * /`, comparison, equality, `and`, `or`, `not`, and
-parentheses. `+` can concatenate two strings. Velin 0.4.0 provides the expression AST,
+parentheses. `+` can concatenate two strings. Velin 0.5.1 provides the expression AST,
 parser, static checker, evaluator, and value semantics. RenRS applies a restricted story
 profile: expressions cannot call files, network, Python, or Rust, and `random` / `chance`
 remain unavailable. `[` and `]` stay literal inside strings; Velin string interpolation is

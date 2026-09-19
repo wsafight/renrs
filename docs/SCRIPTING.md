@@ -156,7 +156,7 @@ set greeting = "Hello, " + player_name
 ```
 
 支持 `+ - * /`、比较、相等、`and`、`or`、`not` 和括号；`+` 可连接两个字符串。
-表达式的 AST、解析、静态检查、求值和值语义由 Velin 0.4.0 提供，RenRS 在其上保留
+表达式的 AST、解析、静态检查、求值和值语义由 Velin 0.5.1 提供，RenRS 在其上保留
 受限的剧情配置：没有文件、网络、Python 或 Rust 调用能力，也不开放 `random` / `chance`。
 字符串中的 `[` 和 `]` 仍是普通字符，不启用 Velin 的表达式字符串插值。
 

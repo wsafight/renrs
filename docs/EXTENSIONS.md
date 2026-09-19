@@ -1,6 +1,6 @@
 # Project Extensions
 
-Extensions run in the shared native/WASM Rust runtime using Velin 0.4.0. A module
+Extensions run in the shared native/WASM Rust runtime using Velin 0.5.1. A module
 is a pure function of immutable `input` and must finish with `perform return(value)`
 or may stop deliberately with `perform fail(message)`. Each call resets an isolated VM;
 idle VM workspaces are reused across calls and concurrent calls never share mutable state.

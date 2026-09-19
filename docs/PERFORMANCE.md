@@ -61,15 +61,14 @@ Upgrade verification passed the full workspace/all-target test suite, including
 repeated invocation, failure reuse, constant modules and eight-way concurrent
 state isolation. The Web crate builds for `wasm32-unknown-unknown`; affected
 libraries pass Clippy with `-D warnings`, and formatting and diff checks pass.
-The dependency tree contains only Velin 0.4.0 packages and no Rhai package.
+The recorded benchmark build's dependency tree contained only Velin 0.4.0 packages and no Rhai package.
 
 ## Story Expression Migration
 
 The 2026-09-15 migration measurement compared RenRS's former expression parser
 and evaluator with the shared Velin expression path. It predates the dependency
-bump to 0.4.0, but the `velin-parse`, `velin-check` and `velin-eval`
-sources used by this path are unchanged in the current release. These figures
-are retained as migration history, not presented as a fresh 0.4.0 run.
+bump to 0.4.0. These figures are retained as migration history, not presented
+as a fresh 0.4.0 or 0.5.1 run.
 
 The expression was:
 
