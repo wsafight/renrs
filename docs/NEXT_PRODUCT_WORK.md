@@ -32,7 +32,20 @@ is an implementation record rather than a required reading sequence.
 - [x] P1: deterministic extension APIs with persistence/rollback semantics.
 - [x] P1: complex text layout, fallback fonts and localization rules.
 - [x] P0: split local acceptance gates, test Launcher/Web protocol boundaries, and add a fixed 30-60 minute first-party reference fixture.
-- [x] P1: shaped-cluster line breaking, Web assistive semantics, common static ATL/master-camera migration, media gates, mobile wrapper validation, and the `0.1.0-rc.1` contract.
+- [x] P1: shaped-cluster line breaking, Web assistive semantics, static ATL/master-camera and bounded standard layer-camera migration, media gates, mobile wrapper validation, and the `0.1.0-rc.1` contract.
+- [x] P1 migration subset: static ATL blocks with terminal `repeat 1..16` are expanded to recompilable RenRS transforms; unbounded, parameterized and dynamic loops remain structured diagnostics.
+- [x] P1 migration subset: existing-resource `show/scene expression "..."`, `Image("...")`, and `im.Image("...")` are converted to ordinary static images; dynamic expressions remain unsupported.
+- [x] P1 migration subset: bounded existing-resource `Transform`/`im.Transform` expressions with static numeric
+  options expand to recompilable RenRS transforms; dynamic displayables and unsupported options remain diagnosed.
+- [x] P1 migration subset: static `Composite`/`im.Composite` expressions with bounded canvas coordinates and
+  existing image resources generate deterministic `.layers.json` compositions; scene composites, dynamic
+  displayables and `LiveComposite` remain diagnosed.
+- [x] P1 migration diagnostics: unknown identifier-led statements receive stable `custom_statement_unsupported`
+  issues with their source fragment; the official `testsuite`/`testcase` baseline remains generic.
+- [x] P1 migration diagnostics: parameterized ATL declarations, image uses and camera uses receive the stable
+  `atl_parameters_unsupported` code instead of a generic statement failure.
+- [x] P1 migration subset: finite numeric positional parameterized ATL calls specialize at static `show` and
+  camera call sites; parameter expressions, defaults, loops and parameterized `scene` remain explicit diagnostics.
 - [x] P2: project launcher, SDK workflow, templates and author documentation; local end-to-end verification passes.
 - [x] P2: v1 machine protocol, read-only project inspection, baseline/candidate impact analysis and Launcher quality reporting.
 - [x] P2: bounded media configuration: localized video audio, relative gain, subtitle cues and shared native/Web fallback.
@@ -51,6 +64,24 @@ debug, acceptance, inspection and impact commands share the versioned v1 envelop
 Theme files support fallback font families. Independent music, sound and voice
 volume defaults now combine with bounded per-track music/sound gain. Video manifests
 support localized WAV audio, relative gain and bounded subtitle cues on native and Web.
+Conditional `.layers.json` layers refresh when story or screen variables change, and validated
+mutually exclusive variant groups select the last matching layer. Static `show/scene ... with`
+clauses migrate to recompilable `transition` statements; dynamic and custom transitions remain
+manual migration work.
+Static ATL `repeat 1..16` blocks are expanded with Ren'Py's total-cycle semantics and verified
+through migration, recompilation and runtime-effect tests; bare `repeat` remains unsupported to
+avoid introducing an unbounded runtime loop.
+Static image expressions are only accepted when a single- or double-quoted path, a no-argument
+`Image`/`im.Image` constructor, or a one-transform `At`/`im.At` wrapper resolves to a project resource;
+`show expression` additionally requires an explicit alias so the resulting RenRS stage identity
+is stable. Dynamic paths, extra constructor arguments, missing resources, and missing aliases have
+separate report codes.
+Dynamic `jump` / `call` targets remain manual migration work, but now use stable
+`jump_target_dynamic`, `call_target_dynamic`, and `call_clause_unsupported` report codes while
+retaining the source target or invocation text.
+Layer cameras use explicit `transform camera onlayer <layer> ...` statements and are sampled in
+parallel animations and rendered by native/Web frontends; arbitrary Ren'Py camera/displayable
+semantics remain outside the supported subset.
 This does not complete arbitrary mixers, long-form/device media validation, graphics,
 or platform-service extensions. Live2D,
 custom shaders and cloud/store services remain unimplemented. Commercial-project

@@ -20,6 +20,8 @@ pub fn sample(from: &StageState, tracks: &[Vec<AnimationStep>], elapsed: f32) ->
             {
                 let transform = if alias == "camera" {
                     Some(&mut stage.camera)
+                } else if let Some(layer) = crate::syntax::camera_layer(alias) {
+                    Some(stage.layer_cameras.entry(layer.to_owned()).or_default())
                 } else {
                     stage
                         .sprites
@@ -53,6 +55,7 @@ pub fn validate(from: &StageState, tracks: &[Vec<AnimationStep>]) -> Result<f32,
     for step in tracks.iter().flatten() {
         if let AnimationStep::Transform { alias, .. } = step
             && alias != "camera"
+            && crate::syntax::camera_layer(alias).is_none()
             && !from.sprites.iter().any(|sprite| &sprite.alias == alias)
         {
             return Err(format!("cannot transform unknown image alias `{alias}`"));

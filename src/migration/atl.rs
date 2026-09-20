@@ -1,12 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
-use super::expressions::valid_identifier;
+use super::atl_parameters::{ParameterizedTransform, TransformCall, parse_transform_header};
 
 #[derive(Debug, Clone)]
 pub(super) struct StaticTransform {
     pub(super) position: Option<&'static str>,
     steps: Vec<TransformStep>,
+    repeat_count: Option<u32>,
     assumed_easing: bool,
     assumed_pause: bool,
 }
@@ -22,6 +23,9 @@ struct TransformStep {
 #[derive(Debug, Default)]
 pub(super) struct TransformCatalog {
     transforms: BTreeMap<String, StaticTransform>,
+    parameterized: BTreeMap<String, ParameterizedTransform>,
+    unsupported: BTreeMap<String, String>,
+    declaration_issues: BTreeMap<usize, String>,
     declaration_lines: BTreeSet<usize>,
 }
 
@@ -34,10 +38,20 @@ impl TransformCatalog {
             let raw = lines[index].trim_start_matches('\u{feff}');
             let indent = indentation(raw);
             let content = raw.trim();
-            let Some(name) = transform_name(content).filter(|_| indent == 0) else {
+            let Some(header) = parse_transform_header(content).filter(|_| indent == 0) else {
                 index += 1;
                 continue;
             };
+            let header = match header {
+                Ok(header) => header,
+                Err(message) => {
+                    catalog.declaration_lines.insert(index + 1);
+                    catalog.declaration_issues.insert(index + 1, message);
+                    index += 1;
+                    continue;
+                }
+            };
+            let name = header.name;
             let start = index;
             index += 1;
             let mut body = Vec::new();
@@ -48,13 +62,30 @@ impl TransformCatalog {
                     break;
                 }
                 if !next_content.is_empty() && !next_content.starts_with('#') {
-                    body.push(next_content);
+                    body.push(next_content.to_owned());
                 }
                 index += 1;
             }
-            if let Some(transform) = parse_body(&body) {
-                catalog.transforms.insert(name.to_owned(), transform);
-                catalog.declaration_lines.insert(start + 1);
+            catalog.declaration_lines.insert(start + 1);
+            match header.parameters {
+                Some(parameters) => match ParameterizedTransform::new(parameters, body) {
+                    Ok(transform) => {
+                        catalog.parameterized.insert(name, transform);
+                    }
+                    Err(message) => {
+                        catalog.unsupported.insert(name.clone(), message.clone());
+                        catalog.declaration_issues.insert(start + 1, message);
+                    }
+                },
+                None => match parse_body(&body.iter().map(String::as_str).collect::<Vec<_>>()) {
+                    Ok(transform) => {
+                        catalog.transforms.insert(name, transform);
+                    }
+                    Err(message) => {
+                        catalog.unsupported.insert(name.clone(), message.clone());
+                        catalog.declaration_issues.insert(start + 1, message);
+                    }
+                },
             }
         }
         catalog
@@ -67,11 +98,32 @@ impl TransformCatalog {
     pub(super) fn get(&self, name: &str) -> Option<&StaticTransform> {
         self.transforms.get(name)
     }
+
+    pub(super) fn specialize(
+        &self,
+        call: &TransformCall,
+    ) -> Result<Option<StaticTransform>, String> {
+        let Some(transform) = self.parameterized.get(&call.name) else {
+            return Ok(None);
+        };
+        let body = transform.specialized_body(&call.arguments)?;
+        let body = body.iter().map(String::as_str).collect::<Vec<_>>();
+        parse_body(&body).map(Some)
+    }
+
+    pub(super) fn unsupported_reason(&self, name: &str) -> Option<&str> {
+        self.unsupported.get(name).map(String::as_str)
+    }
+
+    pub(super) fn declaration_issue(&self, line: usize) -> Option<&str> {
+        self.declaration_issues.get(&line).map(String::as_str)
+    }
 }
 
 impl StaticTransform {
     pub(super) fn statements(&self, alias: &str) -> Vec<String> {
-        self.steps
+        let statements = self
+            .steps
             .iter()
             .filter(|step| step.pause || !step.properties.is_empty())
             .map(|step| {
@@ -88,6 +140,13 @@ impl StaticTransform {
                 }
                 statement
             })
+            .collect::<Vec<_>>();
+        let repeat_count = self.repeat_count.unwrap_or(1) as usize;
+        let cycle_len = statements.len();
+        statements
+            .into_iter()
+            .cycle()
+            .take(cycle_len.saturating_mul(repeat_count))
             .collect()
     }
 
@@ -105,14 +164,14 @@ impl StaticTransform {
         }
     }
 
-    pub(super) fn camera_statements(&self) -> Option<Vec<String>> {
-        self.position.is_none().then(|| self.statements("camera"))
+    pub(super) fn camera_statements(&self, alias: &str) -> Option<Vec<String>> {
+        self.position.is_none().then(|| self.statements(alias))
     }
 }
 
-fn parse_body(lines: &[&str]) -> Option<StaticTransform> {
+fn parse_body(lines: &[&str]) -> Result<StaticTransform, String> {
     if lines.is_empty() {
-        return None;
+        return Err("static ATL transform must contain a supported body".to_owned());
     }
     let mut transform = StaticTransform {
         position: None,
@@ -120,31 +179,77 @@ fn parse_body(lines: &[&str]) -> Option<StaticTransform> {
             easing: "linear",
             ..TransformStep::default()
         }],
+        repeat_count: None,
         assumed_easing: false,
         assumed_pause: false,
     };
-    for line in lines {
+    for (index, line) in lines.iter().enumerate() {
         let tokens = line.split_whitespace().collect::<Vec<_>>();
+        if tokens.first() == Some(&"repeat") {
+            if index + 1 != lines.len() {
+                return Err(
+                    "finite ATL `repeat N` must be the final statement of a static transform"
+                        .to_owned(),
+                );
+            }
+            let Some(count) = tokens.get(1).and_then(|value| value.parse::<u32>().ok()) else {
+                return Err(
+                    "unbounded ATL `repeat` requires manual migration; only static `repeat N` is supported"
+                        .to_owned(),
+                );
+            };
+            if tokens.len() != 2 || !(1..=16).contains(&count) {
+                return Err(
+                    "static ATL `repeat N` must use an integer count from 1 to 16".to_owned(),
+                );
+            }
+            transform.repeat_count = Some(count);
+            continue;
+        }
         if let ["pause", seconds] = tokens.as_slice() {
             transform.assumed_pause = true;
             transform.steps.push(TransformStep {
-                seconds: parse_number(seconds, false)?,
+                seconds: parse_number(seconds, false)
+                    .ok_or_else(|| "static ATL pause must use a finite duration".to_owned())?,
                 pause: true,
                 ..TransformStep::default()
             });
             continue;
         }
         let (offset, seconds, easing) = match tokens.as_slice() {
-            ["linear", seconds, ..] => (2, parse_number(seconds, false)?, "linear"),
-            ["easein", seconds, ..] => (2, parse_number(seconds, false)?, "in"),
-            ["easeout", seconds, ..] => (2, parse_number(seconds, false)?, "out"),
+            ["linear", seconds, ..] => (
+                2,
+                parse_number(seconds, false)
+                    .ok_or_else(|| "static ATL linear duration must be finite".to_owned())?,
+                "linear",
+            ),
+            ["easein", seconds, ..] => (
+                2,
+                parse_number(seconds, false)
+                    .ok_or_else(|| "static ATL easein duration must be finite".to_owned())?,
+                "in",
+            ),
+            ["easeout", seconds, ..] => (
+                2,
+                parse_number(seconds, false)
+                    .ok_or_else(|| "static ATL easeout duration must be finite".to_owned())?,
+                "out",
+            ),
             ["ease", seconds, ..] => {
                 transform.assumed_easing = true;
-                (2, parse_number(seconds, false)?, "in_out")
+                (
+                    2,
+                    parse_number(seconds, false)
+                        .ok_or_else(|| "static ATL ease duration must be finite".to_owned())?,
+                    "in_out",
+                )
             }
             _ => (0, 0.0, "linear"),
         };
-        let properties = parse_properties(&tokens[offset..], &mut transform.position)?;
+        let properties =
+            parse_properties(&tokens[offset..], &mut transform.position).ok_or_else(|| {
+                "static ATL transform uses an unsupported property or value".to_owned()
+            })?;
         if offset == 0 {
             transform.steps[0].properties.extend(properties);
         } else {
@@ -156,7 +261,7 @@ fn parse_body(lines: &[&str]) -> Option<StaticTransform> {
             });
         }
     }
-    Some(transform)
+    Ok(transform)
 }
 
 fn parse_properties(
@@ -199,11 +304,6 @@ fn parse_properties(
 fn parse_number(value: &str, unit: bool) -> Option<f32> {
     let value = value.parse::<f32>().ok()?;
     (value.is_finite() && (!unit || (0.0..=1.0).contains(&value))).then_some(value)
-}
-
-fn transform_name(source: &str) -> Option<&str> {
-    let name = source.strip_prefix("transform ")?.strip_suffix(':')?.trim();
-    valid_identifier(name).then_some(name)
 }
 
 fn indentation(line: &str) -> usize {
@@ -252,6 +352,39 @@ mod tests {
                 "pause 0.4",
                 "transform hero alpha 0 over 0.3 ease out",
             ]
+        );
+    }
+
+    #[test]
+    fn expands_finite_repeat_as_static_cycles() {
+        let catalog = TransformCatalog::parse(
+            "transform pulse:\n    alpha 0\n    linear 0.1 alpha 1\n    repeat 2\n",
+        );
+        assert_eq!(
+            catalog.get("pulse").unwrap().statements("hero"),
+            [
+                "transform hero alpha 0",
+                "transform hero alpha 1 over 0.1 ease linear",
+                "transform hero alpha 0",
+                "transform hero alpha 1 over 0.1 ease linear",
+            ]
+        );
+    }
+
+    #[test]
+    fn diagnoses_unbounded_and_nonterminal_repeats() {
+        let catalog = TransformCatalog::parse("transform loop:\n    alpha 0\n    repeat\n");
+        assert_eq!(
+            catalog.unsupported_reason("loop"),
+            Some(
+                "unbounded ATL `repeat` requires manual migration; only static `repeat N` is supported"
+            )
+        );
+
+        let catalog = TransformCatalog::parse("transform invalid:\n    repeat 2\n    alpha 0\n");
+        assert_eq!(
+            catalog.unsupported_reason("invalid"),
+            Some("finite ATL `repeat N` must be the final statement of a static transform")
         );
     }
 }

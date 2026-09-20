@@ -109,6 +109,11 @@ main {
   position: absolute;
   inset: 0;
 }
+.stage-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 .sprite {
   position: absolute;
   bottom: 0;

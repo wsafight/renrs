@@ -280,6 +280,7 @@ pub struct MenuPrompt {
     pub text: String,
 }
 
+pub use crate::transform::{MASTER_CAMERA_ALIAS, camera_layer, layer_camera_alias};
 pub use velin_syntax::{BinaryOp, Expr, StrPart, UnaryOp, Value};
 
 #[cfg(test)]

@@ -17,6 +17,63 @@
 `references/renpy` 的 `9ed7dd3`（2026-09-04），详细矩阵见
 [Ren'Py 差距分析](RENPY_GAP_ANALYSIS.md)。
 
+## 2026-09 执行路线
+
+后续开发按以下顺序推进；每一阶段必须先满足验收条件，再进入下一阶段。依赖真实作品、设备、
+签名或商店凭据的项目标记为外部门禁，不用本地 fixture 冒充完成。
+
+### 阶段 0：工程门禁（本地已完成）
+
+- [x] 固定 Rust 1.88 工具链；Biome、`cargo fmt`、Clippy（`-D warnings`）和 workspace/all-targets 测试通过。
+- [x] 增加联网与 advisory 缓存两种审计模式；让 `node scripts/verify-local.mjs` core 门禁可在网络或有效缓存条件下重跑。
+- [x] 对 Web、扩展、播放器和 Rust workspace 的失败输出建立可复现的最小回归测试；覆盖存储/媒体/协议错误、扩展失败回滚、资源/设置/热重载错误，以及 CLI 的协议、迁移和发行失败。
+
+验收命令：`node scripts/verify-local.mjs`，以及 `cargo test --offline --workspace --all-targets`。
+
+当前结果：`RENRS_AUDIT_OFFLINE=1 node scripts/verify-local.mjs` 已通过全部 core、fixture 和
+acceptance stages；网络模式的 advisory 刷新仍需在可访问 npm/Cargo endpoint 的环境中单独执行。
+离线缓存通过只证明当前缓存中的 advisory 检查通过，不代表网络可用或外部发行验收已完成。
+
+### 阶段 1：真实作品与发行证据
+
+- [ ] 用一部外部中型作品完成创作、迁移、性能、存档和发行验收。
+- [ ] 在目标桌面系统验收打包播放器；记录资源、帧时间、内存和升级回滚结果。
+- [ ] 在 Android/iOS 真机验收媒体、生命周期、文件导入、系统分享和存档恢复。
+- [ ] 补齐签名、公证、隐私清单、商店素材和审核前检查。
+
+依赖：外部作品、目标设备、发布凭据；对应清单见 [发布契约](RELEASE.md)。
+
+### 阶段 2：静态创作能力补齐
+
+- [ ] 按真实作品阻塞项扩展 Screen/UI 控件、可访问性和文本排版。
+- [ ] 扩展 ATL、完整动态 layered image 与组合转场，同时更新迁移器、LSP 和 Web/native 语义。
+- [x] 受限 layer camera：`transform camera onlayer <layer> ...` 已接入编译器、快照/回滚、parallel
+  采样、native 和 Web 绘制；未声明的自定义 Ren'Py layer 仍由迁移器报告为不支持。
+- [x] 动态 layered image 的条件层在 story/screen 变量变化后自动刷新；完整 Ren'Py 属性组和任意 displayable 仍待实现。
+- [x] `.layers.json` 支持受限互斥变体组：同组最后一个匹配层获胜，未分组条件层继续叠加，并在编译时校验组名。
+- [x] 迁移器支持静态 `show/scene ... with` 内置转场，并将其写成可重新编译的 RenRS `transition` 行。
+- [x] 迁移器支持无参数静态 ATL 块末尾 `repeat 1..16`，按 Ren'Py 总执行次数静态展开，并为裸/动态循环输出稳定 `atl_repeat_unsupported` 诊断。
+- [x] 迁移器支持已有资源路径的静态 `show/scene expression "..."`、`Image("...")` 和 `im.Image("...")`，并要求 `show` 使用显式别名；动态表达式保留为 `unsupported`。
+- [x] 在上述安全子集中支持 `At("已有资源", 静态_transform)` / `im.At(...)` image expression，并复用静态 transform 内联；动态或多参数 displayable 仍需人工迁移。
+- [x] 在上述安全子集中支持已有资源的受限 `Transform` / `im.Transform` image expression，并将静态数值选项展开为可编译 transform；动态 displayable 和未覆盖关键字仍报告不支持。
+- [x] 在上述安全子集中支持静态 `Composite` / `im.Composite` image expression：固定画布、坐标和已有资源生成确定性的 `.layers.json`；`scene`、动态子 displayable 和 `LiveComposite` 仍报告不支持。
+- [x] 动态 `jump` / `call` 仍保持 `unsupported`，但报告现在提供稳定的 `jump_target_dynamic`、`call_target_dynamic` 和 `call_clause_unsupported` code，并保留原始目标/调用片段。
+- [x] 为词法上可识别的未知自定义语句输出 `custom_statement_unsupported`，保留原始片段；官方
+  `testsuite`/`testcase` 基线继续使用 `statement_unsupported`。
+- [x] 参数化 ATL 声明和安全子集之外的调用统一输出 `atl_parameters_unsupported`，保留源码以便人工绑定参数。
+- [x] 参数化 ATL 的有限静态子集：位置数字实参在 `show` 和 camera 调用点绑定并重新生成可编译的 RenRS transform；参数表达式、默认参数、循环和参数化 `scene` 仍结构化报告。
+- [ ] 继续扩展迁移覆盖：复杂 image expression、参数化/无限/动态 ATL 和动态 jump/call 的语义转换。
+
+验收要求：桌面/Web 共享语义、结构化 `unsupported`/`assumption` 诊断、回归 fixture 和路线测试。
+
+### 阶段 3：平台与重后端（按需求启用）
+
+- [ ] 评估 Live2D、粒子、shader、3D 和原生移动渲染的最小后端原型。
+- [ ] 评估云存档、商店 SDK、网络自动更新和最小权限 WASM 插件 API。
+- [ ] 只有真实 profiling 证明执行 IR 或表达式求值是瓶颈时，才引入更紧凑的 opcode/bytecode。
+
+这些项目需要独立的包体、性能、安全和跨平台基准，不作为 `0.1.0` RC 的默认完成条件。
+
 ## P0：可靠创作与发行（已完成）
 
 - [x] 统一 `ProjectSource`：目录项目和 `.renrs` 归档使用相同的脚本、图片、字体、主题、翻译和音频读取边界。
@@ -48,7 +105,8 @@
 - [x] 拆分 core/Web/媒体/编辑器/release 本地门禁，补齐 Launcher 协议与 Web 语义边界测试。
 - [x] 建立 10 章、500 条对白、两条路线的 30–60 分钟第一方参考 fixture；外部作者作品仍待验收。
 - [x] 原生文字换行使用 shaped cluster 边界；Web 提供稳定对话 live status 和场景、选项、控件语义。
-- [x] Ren'Py 迁移覆盖静态 `easein`/`easeout`、ATL pause 与 master camera；动态、循环和 layer camera 明确报告。
+- [x] Ren'Py 迁移覆盖静态 `easein`/`easeout`、ATL pause、master camera 和标准 `transient`/`screens`/`overlay`
+  layer camera；动态、循环、未知自定义层 camera 明确报告。
 - [x] 冻结发布格式矩阵并准备 `0.1.0-rc.1`，本地移动 wrapper 纳入 release 门禁。
 
 ## P2：剩余扩展
@@ -62,14 +120,14 @@
 1. **自定义界面扩展**：已有嵌套 viewport、drag/drop 和 Web 语义；任意 displayable 与原生 OS 辅助技术树仍缺失。
 2. **高级文本排版**：现有 `rustybuzz` shaping、BiDi、字体回退、CJK 换行和 ruby 基础上，补齐
    shaped cluster 感知换行已交付；竖排、彩色 emoji 和原生屏幕阅读器语义仍缺失。
-3. **高级表现**：命名立绘层已交付；完整 ATL、layer camera、任意 displayable、组合转场、shader、粒子和 Live2D 仍缺失。
+3. **高级表现**：命名立绘层、条件层动态刷新、受限互斥变体组和受限 layer camera 已交付；完整 ATL、Ren'Py 属性组、任意 displayable、组合转场、shader、粒子和 Live2D 仍缺失。
 4. **视频**：本地化音轨、相对音量和字幕轨已交付；更多真机和长片的同步验收仍待完成。
 5. **性能**：真实项目样本和字体缓存预算；增量编译已交付。执行层已有线性 `Program` 指令 IR，
    只有 profiling 证明表达式求值或指令分派是瓶颈时，才评估紧凑 opcode 或表达式 bytecode。
 6. **发行平台**：原生 Rust 移动渲染、Capacitor 真机矩阵、签名/公证外部验收、商店 SDK 和网络自动更新客户端。
 7. **高级叙事状态**：固定回滚、更细粒度偏好同步和云存档。
-8. **迁移覆盖**：默认 screen、常用静态 ATL/master camera 和第一方参考基线已交付；复杂 image expression、
-   参数化/循环 ATL、动态 jump/call、自定义语句和更广的真实项目样本库仍缺失。
+8. **迁移覆盖**：默认 screen、常用静态 ATL/master camera、有限静态 ATL repeat、静态 image expression（含受限 Composite）和第一方参考基线已交付；复杂 image expression、
+   参数化/无限/动态 ATL、动态 jump/call、自定义语句和更广的真实项目样本库仍缺失。
 9. **扩展机制**：不嵌入 Python；如确有需求，单独评估最小权限的 WASM 插件 API。
 
 ## 推荐实施顺序

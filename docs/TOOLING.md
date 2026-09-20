@@ -214,6 +214,8 @@ SDK 对应构建机器的平台。签名、公证和商店文件使用 `scripts/
 ```sh
 node scripts/verify-local.mjs
 npm run audit
+# 使用已缓存的 advisory 数据，避免本地审计依赖网络；缓存缺失时仍会失败
+RENRS_AUDIT_OFFLINE=1 node scripts/verify-local.mjs
 
 cargo fmt --all -- --check
 cargo check --offline --workspace --all-targets
@@ -228,6 +230,9 @@ cargo test --offline --workspace --all-targets
 Macroquad soundness 以及无维护的 ttf-parser/rustybuzz，当前均无可直接升级的修复版本。
 豁免不代表风险消失；升级或替换对应渲染、文本依赖时应复核并删除，任何新 advisory
 仍会使门禁失败。
+默认审计模式会刷新 npm/Cargo advisory 数据并需要网络；`RENRS_AUDIT_OFFLINE=1` 或
+`node scripts/audit-local.mjs --offline` 使用本地缓存，适合离线重跑，但不会绕过缓存缺失或
+审计发现的漏洞。
 扩展门禁可以单独或组合执行：
 
 ```sh

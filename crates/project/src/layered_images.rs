@@ -51,6 +51,17 @@ fn parse(source: &ProjectSource, path: &str) -> Result<CompiledLayeredImage, Str
         return Err("layered images need a canvas in 1..8192 and 1..32 layers".to_owned());
     }
     for layer in &definition.layers {
+        if let Some(group) = &layer.group
+            && (group.is_empty()
+                || group.len() > 64
+                || !group
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')))
+        {
+            return Err(
+                "layer group names must be 1..64 ASCII letters, digits, `_`, or `-`".to_owned(),
+            );
+        }
         if !layer.x.is_finite()
             || !layer.y.is_finite()
             || layer.frames.len() > 64
@@ -81,6 +92,7 @@ fn parse(source: &ProjectSource, path: &str) -> Result<CompiledLayeredImage, Str
             Ok(CompiledImageLayer {
                 path: layer.path,
                 condition,
+                group: layer.group,
                 x: layer.x,
                 y: layer.y,
                 frames: layer.frames,

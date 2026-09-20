@@ -14,6 +14,8 @@ pub struct ImageLayer {
     pub path: String,
     #[serde(default)]
     pub when: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
     #[serde(default)]
     pub x: f32,
     #[serde(default)]
@@ -66,6 +68,7 @@ mod tests {
         ImageLayer {
             path: "idle.png".to_owned(),
             when: None,
+            group: None,
             x: 0.0,
             y: 0.0,
             frames: vec![

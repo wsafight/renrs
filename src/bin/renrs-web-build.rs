@@ -9,11 +9,12 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    run_from(std::env::args_os().skip(1).collect())
+    let args: Vec<_> = std::env::args_os().skip(1).collect();
+    run_from(&args)
 }
 
-fn run_from(args: Vec<std::ffi::OsString>) -> Result<(), Box<dyn std::error::Error>> {
-    let (project, destination, shell) = match args.as_slice() {
+fn run_from(args: &[std::ffi::OsString]) -> Result<(), Box<dyn std::error::Error>> {
+    let (project, destination, shell) = match args {
         [project, destination] => (
             PathBuf::from(project),
             PathBuf::from(destination),
@@ -124,11 +125,11 @@ mod tests {
 
     #[test]
     fn rejects_usage_and_existing_output() {
-        assert!(run_from(Vec::new()).is_err());
+        assert!(run_from(&[]).is_err());
         let root = tempfile::tempdir().unwrap();
         let out = root.path().join("dist");
         std::fs::create_dir(&out).unwrap();
-        let error = run_from(vec![root.path().into(), out.into()]).unwrap_err();
+        let error = run_from(&[root.path().into(), out.into()]).unwrap_err();
         assert!(
             error.to_string().contains("already exists") || error.to_string().contains("usage")
         );

@@ -1,15 +1,19 @@
 use super::assets::{
-    AssetCatalog, GeneratedAsset, convert_image_declaration, convert_image_statement, static_target,
+    AssetCatalog, TransitionConversion, convert_image_declaration, convert_image_statement,
+    convert_transition, static_target,
 };
 use super::atl::TransformCatalog;
+use super::atl_parameters::normalize_and_specialize;
 use super::audio::convert_audio;
+use super::control_flow::{convert_call, convert_label};
 use super::expressions::{
     closing_quote, convert_assignment, convert_condition, convert_default, convert_dialogue,
     convert_expression, valid_identifier,
 };
+use super::generated_assets::GeneratedAsset;
 use super::menus::{menu_has_explicit_exit, menu_prompt, statement_has_explicit_exit};
-use super::parameters::{split_top_level, static_invocation, top_level_assignment};
-use super::{MigrationIssue, MigrationIssueKind, issue};
+use super::parameters::static_invocation;
+use super::{MigrationIssue, MigrationIssueKind, coded_issue, issue};
 
 #[derive(Debug)]
 pub(super) struct ConvertedScript {
@@ -26,6 +30,7 @@ pub(super) struct OpenLabel {
     has_explicit_exit: bool,
 }
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn convert_script(source: &str, file: &str, catalog: &AssetCatalog) -> ConvertedScript {
     let mut output = String::new();
     let mut issues = Vec::new();
@@ -67,11 +72,25 @@ pub(super) fn convert_script(source: &str, file: &str, catalog: &AssetCatalog) -
         }
         let indentation = " ".repeat(indent);
         if transforms.recognized_declaration(line) {
-            write_line(
-                &mut output,
-                &indentation,
-                "# Ren'Py static transform is inlined at supported use sites.",
-            );
+            if let Some(message) = transforms.declaration_issue(line) {
+                write_line(
+                    &mut output,
+                    &indentation,
+                    &format!("# TODO migration: {content}"),
+                );
+                issues.push(issue(
+                    file,
+                    line,
+                    MigrationIssueKind::Unsupported,
+                    message.to_owned(),
+                ));
+            } else {
+                write_line(
+                    &mut output,
+                    &indentation,
+                    "# Ren'Py static transform is inlined at supported use sites.",
+                );
+            }
             skipped_block_indent = Some(indent);
             continue;
         }
@@ -88,19 +107,41 @@ pub(super) fn convert_script(source: &str, file: &str, catalog: &AssetCatalog) -
                 write_line(&mut output, &indentation, &value);
                 issues.push(issue(file, line, MigrationIssueKind::Assumption, message));
             }
-            LineConversion::Unsupported { message, block } => {
+            LineConversion::Unsupported {
+                message,
+                block,
+                code,
+            } => {
                 write_line(
                     &mut output,
                     &indentation,
                     &format!("# TODO migration: {content}"),
                 );
-                issues.push(issue(file, line, MigrationIssueKind::Unsupported, message));
+                issues.push(code.map_or_else(
+                    || issue(file, line, MigrationIssueKind::Unsupported, message.clone()),
+                    |code| {
+                        coded_issue(
+                            file,
+                            line,
+                            MigrationIssueKind::Unsupported,
+                            code,
+                            message.clone(),
+                        )
+                    },
+                ));
                 if block {
                     skipped_block_indent = Some(indent);
                 }
             }
-            LineConversion::Generated { value, asset } => {
+            LineConversion::Generated {
+                value,
+                asset,
+                assumption,
+            } => {
                 write_line(&mut output, &indentation, &value);
+                if let Some(message) = assumption {
+                    issues.push(issue(file, line, MigrationIssueKind::Assumption, message));
+                }
                 generated_assets.push(asset);
             }
         }
@@ -147,10 +188,12 @@ pub(super) enum LineConversion {
     Unsupported {
         message: String,
         block: bool,
+        code: Option<&'static str>,
     },
     Generated {
         value: String,
         asset: GeneratedAsset,
+        assumption: Option<String>,
     },
 }
 
@@ -220,18 +263,12 @@ fn convert_line(
         };
     }
     if let Some(rest) = content.strip_prefix("with ") {
-        return match rest.trim() {
-            "fade" | "dissolve" => LineConversion::Assumed {
-                value: "transition fade 0.5".to_owned(),
-                message: format!("mapped Ren'Py `{}` to a 0.5 second fade", rest.trim()),
+        return match convert_transition(rest.trim()) {
+            Ok(TransitionConversion { value, assumption }) => match assumption {
+                Some(message) => LineConversion::Assumed { value, message },
+                None => LineConversion::One(value),
             },
-            "pushleft" => LineConversion::One("transition push left 0.5".to_owned()),
-            "pushright" => LineConversion::One("transition push right 0.5".to_owned()),
-            "wipeleft" => LineConversion::One("transition wipe left 0.5".to_owned()),
-            "wiperight" => LineConversion::One("transition wipe right 0.5".to_owned()),
-            "hpunch" => LineConversion::One("transition punch h 0.25".to_owned()),
-            "vpunch" => LineConversion::One("transition punch v 0.25".to_owned()),
-            _ => unsupported("custom transitions require manual migration", false),
+            Err(message) => unsupported(&message, false),
         };
     }
     if let Some(rest) = content.strip_prefix("jump ") {
@@ -264,33 +301,77 @@ fn convert_line(
             message: "removed a no-op `pass` statement".to_owned(),
         };
     }
-    unsupported(
-        "statement is outside the supported Ren'Py migration subset",
+    unsupported_statement(content)
+}
+
+fn unsupported_statement(content: &str) -> LineConversion {
+    let Some(name) = custom_statement_name(content) else {
+        return unsupported(
+            "statement is outside the supported Ren'Py migration subset",
+            content.ends_with(':'),
+        );
+    };
+    unsupported_with_code(
+        format!(
+            "custom Ren'Py statement `{name}` is outside the supported migration subset; review source `{content}` manually"
+        ),
         content.ends_with(':'),
+        "custom_statement_unsupported",
     )
 }
 
+fn custom_statement_name(content: &str) -> Option<&str> {
+    let name = content.split_whitespace().next()?.trim_end_matches(':');
+    if !valid_identifier(name) || matches!(name, "testsuite" | "testcase") {
+        return None;
+    }
+    Some(name)
+}
+
 fn convert_camera(source: &str, transforms: &TransformCatalog) -> LineConversion {
+    let (source, parameterized_name, specialized_transform) =
+        match normalize_and_specialize(source, |call| transforms.specialize(call)) {
+            Ok(value) => value,
+            Err(message) => {
+                return unsupported_with_code(message, false, "atl_parameters_unsupported");
+            }
+        };
+    if parameterized_name.is_some() && specialized_transform.is_none() {
+        return unsupported_with_code(
+            "ATL transform call is not a known parameterized transform",
+            false,
+            "atl_parameters_unsupported",
+        );
+    }
     let tokens = source.split_whitespace().collect::<Vec<_>>();
-    let transform_name = match tokens.as_slice() {
-        ["at", name] | ["master", "at", name] => *name,
+    let (alias, transform_name) = match tokens.as_slice() {
+        ["at", name] | ["master", "at", name] => ("camera".to_owned(), *name),
+        [layer, "at", name] if matches!(*layer, "transient" | "screens" | "overlay") => {
+            (format!("camera onlayer {layer}"), *name)
+        }
         [layer, "at", _] => {
             return unsupported(
-                &format!(
-                    "layer camera `{layer}` requires manual migration; only master is supported"
-                ),
+                &format!("layer camera `{layer}` is not a standard static display layer"),
                 false,
             );
         }
         _ => return unsupported("camera requires a static `at <transform>` clause", false),
     };
-    let Some(transform) = transforms.get(transform_name) else {
+    let transform = transforms.get(transform_name).or_else(|| {
+        specialized_transform
+            .as_ref()
+            .filter(|_| parameterized_name.as_deref() == Some(transform_name))
+    });
+    let Some(transform) = transform else {
+        if let Some(reason) = transforms.unsupported_reason(transform_name) {
+            return unsupported(reason, false);
+        }
         return unsupported(
             "camera references an unsupported static ATL transform",
             false,
         );
     };
-    let Some(statements) = transform.camera_statements() else {
+    let Some(statements) = transform.camera_statements(&alias) else {
         return unsupported(
             "camera transforms using xalign/yalign require manual migration",
             false,
@@ -308,110 +389,6 @@ fn convert_camera(source: &str, transforms: &TransformCatalog) -> LineConversion
         .map_or(LineConversion::One(value.clone()), |message| {
             LineConversion::Assumed { value, message }
         })
-}
-
-fn convert_label(source: &str) -> LineConversion {
-    let Some(header) = source.strip_suffix(':').map(str::trim) else {
-        return unsupported("label declaration must end with `:`", false);
-    };
-    let (name, arguments) = match static_invocation(header) {
-        Ok(value) => value,
-        Err(message) => return unsupported(message, false),
-    };
-    let Some(arguments) = arguments else {
-        return LineConversion::One(format!("label {name}:"));
-    };
-    let parts = match split_top_level(arguments) {
-        Ok(parts) => parts,
-        Err(message) => return unsupported(message, false),
-    };
-    let mut converted = Vec::with_capacity(parts.len());
-    let mut names = Vec::with_capacity(parts.len());
-    let mut saw_default = false;
-    for part in parts {
-        let (parameter, default) = top_level_assignment(part)
-            .map_or((part.trim(), None), |value| {
-                (value.0.trim(), Some(value.1.trim()))
-            });
-        if !valid_identifier(parameter) {
-            return unsupported(
-                "label parameters must be named, fixed RenRS parameters",
-                false,
-            );
-        }
-        if names.contains(&parameter) {
-            return unsupported("label contains a duplicate parameter", false);
-        }
-        names.push(parameter);
-        if let Some(default) = default {
-            saw_default = true;
-            let default = match convert_expression(default) {
-                Ok(value) => value,
-                Err(message) => return unsupported(&message, false),
-            };
-            converted.push(format!("{parameter}={default}"));
-        } else {
-            if saw_default {
-                return unsupported(
-                    "required label parameters must precede parameters with defaults",
-                    false,
-                );
-            }
-            converted.push(parameter.to_owned());
-        }
-    }
-    if name == "start" && !converted.is_empty() {
-        return unsupported("the RenRS `start` label cannot declare parameters", false);
-    }
-    LineConversion::One(format!("label {name}({}):", converted.join(", ")))
-}
-
-fn convert_call(source: &str) -> LineConversion {
-    let (name, arguments) = match static_invocation(source.trim()) {
-        Ok(value) => value,
-        Err(message) => return unsupported(message, false),
-    };
-    let Some(arguments) = arguments else {
-        return LineConversion::One(format!("call {name}"));
-    };
-    let parts = match split_top_level(arguments) {
-        Ok(parts) => parts,
-        Err(message) => return unsupported(message, false),
-    };
-    let mut converted = Vec::with_capacity(parts.len());
-    let mut names = Vec::new();
-    let mut saw_named = false;
-    for part in parts {
-        if let Some((argument, value)) = top_level_assignment(part) {
-            let argument = argument.trim();
-            if !valid_identifier(argument) {
-                return unsupported("call keyword argument must be a static name", false);
-            }
-            if names.contains(&argument) {
-                return unsupported("call contains a duplicate named argument", false);
-            }
-            names.push(argument);
-            saw_named = true;
-            let value = match convert_expression(value.trim()) {
-                Ok(value) => value,
-                Err(message) => return unsupported(&message, false),
-            };
-            converted.push(format!("{argument}={value}"));
-        } else {
-            if saw_named {
-                return unsupported(
-                    "positional call arguments must precede named arguments",
-                    false,
-                );
-            }
-            let value = match convert_expression(part.trim()) {
-                Ok(value) => value,
-                Err(message) => return unsupported(&message, false),
-            };
-            converted.push(value);
-        }
-    }
-    LineConversion::One(format!("call {name}({})", converted.join(", ")))
 }
 
 fn convert_menu_option(content: &str) -> LineConversion {
@@ -467,6 +444,19 @@ pub(super) fn unsupported(message: &str, block: bool) -> LineConversion {
     LineConversion::Unsupported {
         message: message.to_owned(),
         block,
+        code: None,
+    }
+}
+
+pub(super) fn unsupported_with_code(
+    message: impl Into<String>,
+    block: bool,
+    code: &'static str,
+) -> LineConversion {
+    LineConversion::Unsupported {
+        message: message.into(),
+        block,
+        code: Some(code),
     }
 }
 

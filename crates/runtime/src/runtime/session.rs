@@ -7,6 +7,32 @@ use super::{
 };
 
 impl Runtime {
+    /// Re-evaluates conditional layers after a story or screen variable change.
+    ///
+    /// Layered image conditions are part of the runtime presentation state. The
+    /// current sprite keeps the resolved image for cheap rendering, so changes
+    /// to variables must refresh that cache without changing the sprite's
+    /// stable alias, transform, or ordering.
+    pub(super) fn refresh_layered_images(&mut self, line: usize) -> Result<(), RuntimeError> {
+        let paths = self
+            .stage
+            .sprites
+            .iter()
+            .map(|sprite| sprite.path.clone())
+            .collect::<Vec<_>>();
+        let compositions = paths
+            .iter()
+            .map(|path| self.resolve_image(path, line))
+            .collect::<Result<Vec<_>, _>>()?;
+        let stage = std::sync::Arc::make_mut(&mut self.stage);
+        for (sprite, composition) in stage.sprites.iter_mut().zip(compositions) {
+            if composition.is_some() {
+                sprite.composition = composition;
+            }
+        }
+        Ok(())
+    }
+
     #[must_use]
     pub fn snapshot(&self) -> RuntimeSnapshot {
         let (instruction_id, instruction_is_interaction_anchor) = self.snapshot_position();

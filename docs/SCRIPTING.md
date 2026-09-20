@@ -121,8 +121,9 @@ transform shy:
 - `over seconds`：动画时长；省略时立即应用。
 - `ease linear|in|out|in_out`：插值曲线，默认 `linear`。
 
-transform、位置 tween、fade 和 dissolve 都会进入快照、读档与回滚状态。当前不支持 Ren'Py 的完整
-ATL、layer camera、背景层拆分或任意 displayable。
+transform、位置 tween、fade 和 dissolve 都会进入快照、读档与回滚状态。`transform camera
+onlayer <layer> ...` 为显式 display layer 提供受限 layer camera，并与快照、读档、回滚和
+parallel 采样一致；当前仍不支持 Ren'Py 的完整 ATL、背景层拆分或任意 displayable。
 
 `timeline:` 块可串行组合 transform、move 和 pause；`transition dissolve seconds` 混合前后舞台。
 `video "clips/name/clip.json" over seconds` 支持图片帧清单（v1）和 MP4/WebM 流式清单（v2），时长必须匹配清单。使用 `renrs-video input.mp4 my-project clips/name --stream` 生成流式版本；转换需 FFmpeg 与 FFprobe，原生流式播放需 FFmpeg，Web 使用浏览器视频播放。

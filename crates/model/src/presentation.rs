@@ -16,6 +16,8 @@ pub struct CompiledImageLayer {
     pub path: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub condition: Option<Expr>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
     #[serde(default)]
     pub x: f32,
     #[serde(default)]
@@ -43,6 +45,7 @@ impl CompiledImageLayer {
         ImageLayer {
             path: self.path.clone(),
             when: None,
+            group: None,
             x: self.x,
             y: self.y,
             frames: self.frames.clone(),

@@ -63,9 +63,14 @@ impl Runtime {
             return Err(super::execution(0, "screen variable type mismatch"));
         }
         let previous = self.variables.clone();
+        let previous_stage = self.stage.clone();
         std::sync::Arc::make_mut(&mut self.variables).insert(name.to_owned(), value);
-        if let Err(error) = self.refresh_choice() {
+        if let Err(error) = self
+            .refresh_layered_images(0)
+            .and_then(|()| self.refresh_choice())
+        {
             self.variables = previous;
+            self.stage = previous_stage;
             return Err(error);
         }
         if name.starts_with("persistent_") {

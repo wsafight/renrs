@@ -24,13 +24,27 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 - 静态 label（含固定参数与默认值）、旁白、角色对白、菜单标题和无条件基础菜单。
 - 静态 `scene`、`show ... at left/center/right`、`show ... as alias`、标准 `onlayer`、整数
   `zorder` 和简单 `hide`。
+- `show/scene expression "已有资源路径"`、单引号路径以及无额外参数的 `Image("...")` / `im.Image("...")` 静态图片表达式；`show expression` 必须带显式 `as` 别名。
+- 已有资源的 `At("...", static_transform)` / `im.At(...)` 图片表达式；静态 transform 会按普通 `show ... at` 规则内联。
+- 已有资源的受限 `Transform("...", ...)` / `im.Transform("...", ...)` 图片表达式；只接受静态
+  `zoom`、`rotate`、`alpha`、`xoffset`、`yoffset` 和标准 `xalign`/`yalign`，并展开为普通 transform。
+- 静态 `Composite((width, height), (x, y), "path", ...)` / `im.Composite(...)` 图片表达式；固定画布、
+  坐标和已有资源会生成确定性的 `.layers.json`，再按普通 `show` 使用。`scene` Composite、
+  `LiveComposite`、动态子 displayable 和超过 32 层的组合仍需人工迁移。
 - 简单 `$ variable = expression` 与 `default variable = expression`。
 - `if`、`elif`、`else`、静态 `jump`、带位置/命名参数的静态 `call` 和 `return <expr>`。
 - `play music` / `queue music` 的静态 `loop`、`noloop`、`fadein`、`volume`，`play sound volume`、
   `voice`、`stop music fadeout` 和 `pause`。Ren'Py 音乐默认循环会显式写为 `loop`。
 - 无参数命名 transform 的安全子集可在静态 `show ... at name` 处内联：标准 `xalign`、底部
-  `yalign`、`alpha`、`zoom`、`rotate`、`xoffset`、`yoffset`、`linear` 和 `ease`。
+  `yalign`、`alpha`、`zoom`、`rotate`、`xoffset`、`yoffset`、`linear`、`ease`，以及块末尾
+  `repeat 1..16` 的有限循环（按总播放次数静态展开）。
+- 参数化 transform 的受限静态子集可在 `show ... at name(number, ...)` 和 camera 调用点特化：
+  只接受位置数字字面量，ATL 属性值只能直接引用参数；每个调用点会重新解析为普通 RenRS
+  transform。参数化 `scene` 仍需人工绑定其场景显示对象。
+- 标准 `transient`、`screens`、`overlay` layer 的静态 camera transform 会写为
+  `transform camera onlayer <layer> ...`；动态或未知自定义 layer camera 保留为 `unsupported`。
 - `with fade` / `with dissolve` 按明确记录的假设转换为 `transition fade 0.5`。
+- `show ... with` 和 `scene ... with` 的静态内置转场会拆成可重新编译的独立 `transition` 行；未知或动态转场仍需人工迁移。
 - 对白中的简单 `[variable]` 转为 `{variable}`。
 
 场景和立绘名称会匹配源项目图片文件名。例如 `scene bg room` 可匹配
@@ -42,15 +56,40 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 
 - Python 块、`init python`、普通 `init` 和任意 Python 表达式。
 - 自定义 screen language、style、displayable 和 UI action；默认模板只映射到 RenRS 内置界面。
-- 参数化或循环 ATL、非标准对齐、动态 image expression、自定义 transition。
+- 无限/动态 ATL、参数化 ATL 的默认/命名/非数字实参、非标准对齐、动态或未覆盖的复杂 image
+  expression、自定义 transition；参数化 `scene` 调用以及超出安全子集的参数化 ATL 使用
+  `atl_parameters_unsupported`，有限静态 `repeat 1..16` 已在上面的安全子集中展开。
 - label 的 `*args` / `**kwargs` / 仅命名参数、动态 jump/call，以及超出 RenRS 子集的参数表达式。
 - 条件/动态菜单、复杂 Character、复杂插值。
-- 自定义 layer、`behind`、camera、视频和插件语句；自定义层需手写 `layer name order integer`。
+- 未声明的自定义 layer camera、`behind`、视频和插件语句；标准 `transient`、`screens`、`overlay`
+  layer camera 可迁移为 `transform camera onlayer <layer> ...`，自定义层需先手写
+  `layer name order integer` 并按报告手工处理。
 - Ren'Py label 的隐式 fallthrough；RenRS 在 label 末尾隐式 return/结束。
 
 不支持的源行会保留为 `# TODO migration:` 注释，并在报告中记录 `unsupported`，不会尝试执行或
 静默删除。固定 label 参数采用与 Ren'Py 一致的调用时默认值和返回时动态恢复；`start` 参数与
 可变参数仍会拒绝。RenRS transform 仍需手写。
+
+动态控制流不会被静默改写：动态 `jump` 目标使用 `jump_target_dynamic`，动态 `call` 目标使用
+`call_target_dynamic`，目标静态但调用子句无法证明时使用 `call_clause_unsupported`。这些问题的
+消息会保留原始目标或调用片段，便于批量迁移工具定位人工处理点。
+
+图片表达式同样不会执行 Python：动态路径和未知 displayable 使用 `image_expression_dynamic`，
+带额外构造参数的 `Image` / `im.Image` 使用 `image_expression_constructor_unsupported`；`Transform` /
+`im.Transform` 的动态、非数字或未覆盖关键字使用 `image_expression_transform_unsupported`，资源缺失
+和 `show expression` 缺少别名分别使用 `image_expression_resource_missing` 与
+`image_expression_alias_required`。静态 Composite 的动态尺寸、坐标、子 displayable、`scene` 用法和
+其他未覆盖构造参数使用 `image_expression_composite_unsupported`；成功转换的组合资源会计入
+`generated_resources`。
+
+参数化 ATL 只在上述严格子集内绑定：声明会被保留为迁移注释，安全的 `show`/camera 调用会在调用点
+展开；动态实参、默认或命名参数、参数表达式、循环和参数化 `scene` 仍保留 TODO，并报告
+`atl_parameters_unsupported`。只有无参数或已完成静态特化、属性值和循环边界均为静态有限值的 ATL
+transform 才会内联。
+
+未被对白或已知语句识别、且以合法 Ren'Py 标识符开头的行，会额外报告
+`custom_statement_unsupported`，并在消息中保留原始语句片段，便于定位由项目或插件注册的自定义语句。Ren'Py 测试语言的 `testsuite` 和
+`testcase` 保持通用的 `statement_unsupported` code，以维持官方迁移基线；这类语句仍需人工迁移。
 
 ## 报告与严格模式
 

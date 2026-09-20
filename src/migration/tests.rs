@@ -125,6 +125,67 @@ fn generates_the_builtin_black_scene_resource() {
 }
 
 #[test]
+fn migrates_static_composite_expression_to_a_layered_image_resource() {
+    let temporary = tempfile::tempdir().unwrap();
+    let input = temporary.path().join("input");
+    let output = temporary.path().join("output");
+    fs::create_dir_all(input.join("images")).unwrap();
+    fs::write(input.join("images/bg.png"), []).unwrap();
+    fs::write(input.join("images/hero.png"), []).unwrap();
+    fs::write(
+        input.join("script.rpy"),
+        r#"label start:
+    show expression Composite((640, 360), (0, 0), "images/bg.png", (40, 20), "images/hero.png") as hero at left
+    return
+"#,
+    )
+    .unwrap();
+
+    let report = migrate_project(&input, &output).unwrap();
+    assert!(report.issues.is_empty(), "{:?}", report.issues);
+    assert!(report.post_validation_diagnostics.is_empty());
+    assert_eq!(report.generated_resources, 1);
+    let migrated = fs::read_to_string(output.join("script.rns")).unwrap();
+    let generated = migrated
+        .lines()
+        .find_map(|line| line.strip_prefix("    show "))
+        .and_then(|line| line.split('"').nth(1))
+        .expect("Composite should become a generated layered image show");
+    let definition: serde_json::Value =
+        serde_json::from_slice(&fs::read(output.join(generated)).unwrap()).unwrap();
+    assert_eq!(definition["width"], 640);
+    assert_eq!(definition["layers"].as_array().unwrap().len(), 2);
+    let script = load_project(&output).unwrap();
+    compile(&script).unwrap();
+}
+
+#[test]
+fn diagnoses_composite_expression_boundaries_without_guessing() {
+    let converted = convert_script(
+        r#"label start:
+    scene expression Composite((640, 360), (0, 0), "images/bg.png")
+    show expression Composite((640, 360), (0, 0), image_path) as hero
+    return
+"#,
+        "script.rpy",
+        &AssetCatalog::with_image("bg", "images/bg.png"),
+    );
+    assert!(converted.issues.iter().any(|issue| {
+        issue.code == "image_expression_composite_unsupported"
+            && issue.message.contains("scene Composite")
+    }));
+    assert!(converted.issues.iter().any(|issue| {
+        issue.code == "image_expression_composite_unsupported"
+            && issue.message.contains("quoted static image paths")
+    }));
+    assert!(
+        converted
+            .output
+            .contains("# TODO migration: scene expression Composite")
+    );
+}
+
+#[test]
 fn records_post_validation_diagnostics_in_the_report_file() {
     let temporary = tempfile::tempdir().unwrap();
     let input = temporary.path().join("input");

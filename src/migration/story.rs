@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use super::conversion::{LineConversion, unsupported};
+use super::conversion::{LineConversion, unsupported, unsupported_with_code};
 use super::expressions::{escape_string, named_quoted_argument, quoted_argument, valid_identifier};
 
 pub(super) fn convert_definition(content: &str) -> Option<LineConversion> {
@@ -76,6 +76,13 @@ fn convert_named_transform(rest: &str) -> LineConversion {
     let (name, body) = rest
         .strip_suffix(':')
         .map_or((rest, false), |name| (name.trim(), true));
+    if name.contains('(') {
+        return unsupported_with_code(
+            "parameterized ATL transforms require manual specialization at each call site",
+            body,
+            "atl_parameters_unsupported",
+        );
+    }
     if !valid_identifier(name) || matches!(name, "left" | "center" | "right" | "camera") {
         return unsupported("named transform requires a static identifier", body);
     }

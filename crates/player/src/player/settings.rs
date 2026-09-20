@@ -88,19 +88,21 @@ mod tests {
     fn loads_saves_and_rejects_out_of_range_values() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("settings.json");
-        assert_eq!(Settings::load(&path).text_speed, 42.0);
+        assert!((Settings::load(&path).text_speed - 42.0).abs() < f32::EPSILON);
         let settings = Settings::default();
         settings.save(&path).unwrap();
         assert!((Settings::load(&path).music_volume - 0.6).abs() < f32::EPSILON);
-        let mut invalid = Settings::default();
-        invalid.text_speed = 1.0;
+        let invalid = Settings {
+            text_speed: 1.0,
+            ..Settings::default()
+        };
         assert!(!invalid.is_valid());
         fs::write(
             &path,
             r#"{"text_speed":1,"auto_delay":2,"music_volume":0.6,"sound_volume":0.8}"#,
         )
         .unwrap();
-        assert_eq!(Settings::load(&path).text_speed, 42.0);
+        assert!((Settings::load(&path).text_speed - 42.0).abs() < f32::EPSILON);
     }
 }
 const fn default_wait_voice() -> bool {

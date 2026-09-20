@@ -167,6 +167,7 @@ function validateStage(value: unknown): StageState {
   const stage = record(value, 'runtime stage');
   array(stage.sprites, 'stage sprites');
   record(stage.camera, 'stage camera');
+  if (stage.layer_cameras !== undefined) record(stage.layer_cameras, 'stage layer cameras');
   if (stage.dialogue != null) validateDialogue(stage.dialogue);
   return stage as unknown as StageState;
 }
@@ -422,4 +423,11 @@ export function parseSpriteFrames(text: string): SpriteState[][] {
 
 export function parseCameraFrames(text: string): StageState['camera'][] {
   return array(parseJson(text, 'camera frames'), 'camera frames') as StageState['camera'][];
+}
+
+export function parseLayerCameraFrames(text: string): StageState['camera'][] {
+  return array(
+    parseJson(text, 'layer camera frames'),
+    'layer camera frames',
+  ) as StageState['camera'][];
 }

@@ -18,8 +18,8 @@
 | 对白、菜单、条件、跳转 | 完成 | 支持条件菜单、插值和基础富文本 | 增加更多文本标签与输入 |
 | 标签参数与返回值 | 完成 | 位置/命名/默认参数、调用时默认值、动态参数作用域、`return expr`、`_return` | `*args` / `**kwargs` 和仅命名参数未纳入静态子集 |
 | Python/store 语义 | 未实现 | 整数、布尔、字符串、列表、记录和确定性内置函数 | Python 生态兼容仍为非目标 |
-| 图片声明与舞台 | 部分 | 静态 image、背景、全局 alias、可排序/清空的命名立绘层、camera、受限 layered image | layer camera、任意 displayable、Live2D、粒子仍缺失 |
-| ATL 与 transform | 部分 | transform、easing、串行 timeline、独立 parallel 轨道；迁移器覆盖静态 ATL 和 master camera | 循环/参数化 ATL、layer camera、动态 layeredimage 仍缺失 |
+| 图片声明与舞台 | 部分 | 静态 image、已有资源的静态 image expression（含无参数 `Image`/`im.Image`、单 transform 的 `At`/`im.At`、受限 `Transform`/`im.Transform` 和静态 `Composite`/`im.Composite`）、背景、全局 alias、可排序/清空的命名立绘层、master 与受限 layer camera、受限 layered image 条件层与互斥变体组 | 任意 displayable、动态/未覆盖的复杂 image expression、scene Composite、Live2D、粒子仍缺失 |
+| ATL 与 transform | 部分 | transform、easing、串行 timeline、独立 parallel 轨道；迁移器覆盖静态 ATL、块末尾有限 `repeat 1..16`、master camera 和标准 layer camera；`.layers.json` 条件层会随变量变化刷新，互斥组按最后匹配层选择 | 参数化/无限/动态 ATL、完整 layeredimage 属性组、组合转场仍缺失 |
 | Transition | 部分 | 可序列化 fade、dissolve | 组合转场仍缺失 |
 | Screen/style/UI | 部分 | 桌面/Web 共用 JSON 界面、滚动容器、数据控件、拖放和扩展按钮 | 任意 displayable、完整 screen language 仍缺失 |
 | 音频 | 部分 | music/sound/voice，音乐队列、淡入淡出、静态 music/sound 相对音量 | 任意 mixer、同步、更多格式为 P2 |

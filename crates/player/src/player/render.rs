@@ -188,6 +188,7 @@ impl App {
             })
     }
 
+    #[allow(clippy::too_many_lines)]
     fn draw_stage_on_shifted(
         &self,
         stage: &StageState,
@@ -195,12 +196,14 @@ impl App {
         target: Option<&RenderTarget>,
         offset: Vec2,
     ) {
-        let mut camera = self.camera_transform(stage);
-        camera.x += offset.x;
-        camera.y += offset.y;
-        let opacity = opacity * camera.alpha;
-        let _camera = super::stage_camera::StageCamera::new(camera, target);
-        self.draw_background_tinted(stage.background.as_deref(), opacity);
+        let mut master_camera = self.camera_transform_for(stage, None);
+        master_camera.x += offset.x;
+        master_camera.y += offset.y;
+        let background_opacity = opacity * master_camera.alpha;
+        {
+            let _camera = super::stage_camera::StageCamera::new(master_camera, target);
+            self.draw_background_tinted(stage.background.as_deref(), background_opacity);
+        }
         let tween = self.active_tween();
         let animated_transform = self.active_transform();
         let mut sprites = stage.sprites.iter().enumerate().collect::<Vec<_>>();
@@ -213,6 +216,11 @@ impl App {
             )
         });
         for (_, sprite) in sprites {
+            let mut layer_camera = self.camera_transform_for(stage, Some(&sprite.display_layer));
+            layer_camera.x += offset.x;
+            layer_camera.y += offset.y;
+            let sprite_opacity = opacity * layer_camera.alpha;
+            let _camera = super::stage_camera::StageCamera::new(layer_camera, target);
             let texture = self.assets.textures.get(&sprite.path);
             let Some(dimensions) = sprite
                 .composition
@@ -272,7 +280,7 @@ impl App {
                         position: vec2(x, y),
                         size: vec2(target_width, target_height),
                         pivot: anchor,
-                        opacity,
+                        opacity: sprite_opacity,
                     },
                 );
                 continue;
@@ -281,7 +289,7 @@ impl App {
                 texture.unwrap(),
                 x,
                 y,
-                Color::new(1.0, 1.0, 1.0, transform.alpha * opacity),
+                Color::new(1.0, 1.0, 1.0, transform.alpha * sprite_opacity),
                 DrawTextureParams {
                     dest_size: Some(vec2(target_width, target_height)),
                     source: transform

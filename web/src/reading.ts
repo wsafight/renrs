@@ -1,6 +1,6 @@
 import { richText } from './presentation';
-import { RevealClock } from './reveal';
 import type { RevealCue } from './reveal';
+import { RevealClock } from './reveal';
 import type { Dialogue, PlayerApp, TextRun } from './types';
 
 function revealCues(runs: TextRun[] | undefined) {

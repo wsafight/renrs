@@ -146,7 +146,7 @@ Launcher 和 VS Code 扩展已经提供创作入口，但非程序员创作者�
 
 - Python、任意宿主代码、Ren'Py 插件或 Ren'Py 存档兼容。
 - Ren'Py screen language、完整 style/displayable 系统和完整 ATL；只提供受限 JSON 界面子集。
-- Live2D、复杂粒子、3D、自定义 shader、layer camera 和任意 displayable。
+- Live2D、复杂粒子、3D、自定义 shader、完整组合式 layer camera 语义和任意 displayable。
 - 原生 Rust 移动渲染、云存档、联机和网络自动更新；当前移动输出使用 Capacitor WebView。
 - 自动获取发行凭据或代替发行方完成商店审批；现有签名、公证和移动打包工具需对应 SDK 与账号。
 - 稳定原生插件 ABI；未来若需要扩展，优先评估最小权限 WASM。

@@ -19,6 +19,25 @@ describe('web protocol boundaries', () => {
     expect(state.debug.paused).toBe(true);
   });
 
+  it('accepts optional layer camera state in the shared stage contract', () => {
+    const state = parseRuntimeState(
+      JSON.stringify({
+        stage: {
+          sprites: [],
+          camera: {},
+          layer_cameras: { screens: { x: 12, y: 0, scale: 1, rotation: 0, alpha: 1 } },
+        },
+        waiting: 'Dialogue',
+        debug: { paused: false },
+        profile_revision: 0,
+        history_count: 1,
+        can_rollback: false,
+      }),
+    );
+
+    expect(state.stage.layer_cameras?.screens.x).toBe(12);
+  });
+
   it('reuses the previous stage when the engine omits an unchanged snapshot', () => {
     const previous = parseRuntimeState(
       JSON.stringify({

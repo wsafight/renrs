@@ -63,6 +63,29 @@ fn compatible_restore_checks_layers_held_by_composite_effects() {
 }
 
 #[test]
+fn compatible_restore_rejects_removed_layer_camera() {
+    let original = compile(
+        &parse_script(
+            "layer effects order 50\nlabel start:\n    show \"front.png\" as front onlayer effects\n    transform camera onlayer effects x 10 over 1\n    \"Done\"",
+            "layers.rns",
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let mut edited = original.clone();
+    edited.display_layers.remove("effects");
+    let mut runtime = Runtime::new(original).unwrap();
+    assert!(matches!(
+        runtime.advance().unwrap(),
+        WaitState::Effect { .. }
+    ));
+    assert!(matches!(
+        Runtime::restore_compatible(edited, runtime.snapshot()),
+        Err(RuntimeError::SavedDisplayLayerMissing(ref name)) if name == "effects"
+    ));
+}
+
+#[test]
 fn window_screens_and_if_changed_music_are_serializable() {
     let program = compile(
         &parse_script(

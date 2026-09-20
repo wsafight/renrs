@@ -296,9 +296,19 @@ impl Parser {
                 seconds,
             }
         } else if cursor.keyword("transform") {
-            let alias = cursor
+            let mut alias = cursor
                 .identifier()
                 .ok_or_else(|| self.error(&line, cursor.column(), "expected image alias"))?;
+            if alias == "camera" && cursor.keyword("onlayer") {
+                let layer = cursor.identifier().ok_or_else(|| {
+                    self.error(
+                        &line,
+                        cursor.column(),
+                        "expected display layer after `onlayer`",
+                    )
+                })?;
+                alias = crate::syntax::layer_camera_alias(&layer);
+            }
             let mut properties = TransformProperties::default();
             let mut seconds = 0.0;
             let mut easing = Easing::Linear;
@@ -433,7 +443,7 @@ impl Parser {
                     "transform requires at least one property",
                 ));
             }
-            if alias == "camera"
+            if (alias == "camera" || crate::syntax::camera_layer(&alias).is_some())
                 && (properties.anchor.is_some()
                     || properties.crop.is_some()
                     || properties.xalign.is_some()

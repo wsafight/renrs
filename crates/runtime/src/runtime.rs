@@ -16,6 +16,8 @@ const MAX_ROLLBACK_CHECKPOINTS: usize = 256;
 pub struct StageState {
     #[serde(default)]
     pub camera: TransformState,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub layer_cameras: BTreeMap<String, TransformState>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub nvl: bool,
     #[serde(default, skip_serializing_if = "is_zero")]
@@ -45,6 +47,7 @@ impl Default for StageState {
     fn default() -> Self {
         Self {
             camera: TransformState::identity(),
+            layer_cameras: BTreeMap::new(),
             nvl: false,
             nvl_start: 0,
             background: None,

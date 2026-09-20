@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+const offline = process.argv.includes('--offline') || process.env.RENRS_AUDIT_OFFLINE === '1';
 
 function run(command, args, cwd = root) {
   const result = spawnSync(command, args, {
@@ -22,7 +23,11 @@ function run(command, args, cwd = root) {
 for (const directory of ['.', 'web', 'launcher', 'site', 'editors/vscode-renrs']) {
   const cwd = path.join(root, directory);
   if (existsSync(path.join(cwd, 'package-lock.json'))) {
-    run('npm', ['audit', '--omit=dev', '--audit-level=high'], cwd);
+    run(
+      'npm',
+      ['audit', '--omit=dev', '--audit-level=high', ...(offline ? ['--offline'] : [])],
+      cwd,
+    );
   }
 }
 // No patched release exists for these transitive or renderer advisories. Keep the
@@ -34,8 +39,11 @@ const acceptedRustAdvisories = [
 ];
 run('cargo', [
   'audit',
+  ...(offline ? ['--no-fetch'] : []),
   '--deny',
   'warnings',
   ...acceptedRustAdvisories.flatMap((advisory) => ['--ignore', advisory]),
 ]);
-console.log('Local dependency advisory checks passed.');
+console.log(
+  `Local dependency advisory checks passed (${offline ? 'offline cache' : 'network'} mode).`,
+);

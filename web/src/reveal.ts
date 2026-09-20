@@ -68,8 +68,7 @@ export class RevealClock {
       return true;
     }
     if (this.complete) return false;
-    while (this.cueIndex < this.cues.length && this.cues[this.cueIndex].fast)
-      this.cueIndex += 1;
+    while (this.cueIndex < this.cues.length && this.cues[this.cueIndex].fast) this.cueIndex += 1;
     const cue = this.cues.slice(this.cueIndex).find((candidate) => !candidate.fast);
     if (cue) {
       this.cueIndex = this.cues.indexOf(cue, this.cueIndex);

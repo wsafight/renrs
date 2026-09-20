@@ -1,5 +1,18 @@
 use serde::{Deserialize, Serialize};
 
+pub const MASTER_CAMERA_ALIAS: &str = "camera";
+const LAYER_CAMERA_PREFIX: &str = "camera@";
+
+#[must_use]
+pub fn layer_camera_alias(layer: &str) -> String {
+    format!("{LAYER_CAMERA_PREFIX}{layer}")
+}
+
+#[must_use]
+pub fn camera_layer(alias: &str) -> Option<&str> {
+    alias.strip_prefix(LAYER_CAMERA_PREFIX)
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Position {
     Left,

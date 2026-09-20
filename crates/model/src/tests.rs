@@ -172,6 +172,7 @@ fn compiled_layers_expose_source_paths_and_runtime_layers() {
     let layer = CompiledImageLayer {
         path: "body.png".to_owned(),
         condition: Some(Expr::Value(Value::Boolean(true))),
+        group: Some("face".to_owned()),
         x: 4.0,
         y: 8.0,
         frames: vec![ImageFrame {
@@ -194,6 +195,7 @@ fn compiled_layers_expose_source_paths_and_runtime_layers() {
     let resolved = compiled.resolved(vec![ImageLayer {
         path: "body.png".to_owned(),
         when: None,
+        group: None,
         x: 0.0,
         y: 0.0,
         frames: Vec::new(),

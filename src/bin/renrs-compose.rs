@@ -5,11 +5,12 @@ fn main() {
     }
 }
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    run_from(std::env::args_os().skip(1).collect())
+    let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+    run_from(&arguments)
 }
 
-fn run_from(arguments: Vec<std::ffi::OsString>) -> Result<(), Box<dyn std::error::Error>> {
-    let [project, manifest, destination] = arguments.as_slice() else {
+fn run_from(arguments: &[std::ffi::OsString]) -> Result<(), Box<dyn std::error::Error>> {
+    let [project, manifest, destination] = arguments else {
         return Err("usage: renrs-compose <project> <character.json> <images/variants>".into());
     };
     let count = renrs::composition::compose(
@@ -27,7 +28,7 @@ mod tests {
 
     #[test]
     fn rejects_wrong_argument_counts() {
-        assert!(run_from(Vec::new()).is_err());
-        assert!(run_from(vec!["a".into()]).is_err());
+        assert!(run_from(&[]).is_err());
+        assert!(run_from(&["a".into()]).is_err());
     }
 }

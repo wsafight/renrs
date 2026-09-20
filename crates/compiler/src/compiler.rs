@@ -178,6 +178,19 @@ fn resolve_display_layers(
                 ..
             } => (display_layer, Some(display_order)),
             InstructionKind::ClearLayer { display_layer } => (display_layer, None),
+            InstructionKind::Transform { alias, .. }
+                if renrs_syntax::transform::camera_layer(alias).is_some() =>
+            {
+                let layer = renrs_syntax::transform::camera_layer(alias).expect("checked above");
+                let Some(_) = layers.get(layer) else {
+                    return Err(CompileError::UnknownDisplayLayer {
+                        name: layer.to_owned(),
+                        file: instruction.span.source.clone(),
+                        line: instruction.span.line,
+                    });
+                };
+                continue;
+            }
             _ => continue,
         };
         let Some(resolved) = layers.get(name) else {
@@ -404,7 +417,7 @@ mod tests {
     fn resolves_named_display_layers_and_rejects_unknown_ones() {
         let program = compile(
             &parse_script(
-                "layer effects order 50\nlabel start:\n    show \"hero.png\" onlayer effects zorder 7\n    clear effects",
+                "layer effects order 50\nlabel start:\n    show \"hero.png\" onlayer effects zorder 7\n    transform camera onlayer effects x 10\n    clear effects",
                 "test.rns",
             )
             .unwrap(),
@@ -416,10 +429,24 @@ mod tests {
             InstructionKind::Show { display_layer, display_order: 50, layer: 7, .. }
                 if display_layer == "effects"
         ));
+        assert!(matches!(
+            &program.instructions[1].kind,
+            InstructionKind::Transform { alias, .. } if alias == "camera@effects"
+        ));
 
         let error = compile(
             &parse_script(
                 "label start:\n    show \"hero.png\" onlayer missing",
+                "test.rns",
+            )
+            .unwrap(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, CompileError::UnknownDisplayLayer { .. }));
+
+        let error = compile(
+            &parse_script(
+                "label start:\n    transform camera onlayer missing x 1",
                 "test.rns",
             )
             .unwrap(),

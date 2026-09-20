@@ -162,6 +162,7 @@ impl Runtime {
                     arguments,
                     parameters,
                 } => {
+                    let target = *target;
                     let values = arguments
                         .iter()
                         .map(|argument| evaluate(argument, &self.variables, line))
@@ -175,11 +176,12 @@ impl Runtime {
                     for (parameter, value) in parameters.iter().zip(values) {
                         Arc::make_mut(&mut self.variables).insert(parameter.clone(), value);
                     }
+                    self.refresh_layered_images(line)?;
                     self.call_stack.push(CallFrame {
                         return_address: self.instruction + 1,
                         previous_variables,
                     });
-                    self.instruction = *target;
+                    self.instruction = target;
                 }
                 InstructionKind::Return { value } => {
                     let returned = value
@@ -198,6 +200,7 @@ impl Runtime {
                         if let Some(returned) = returned {
                             variables.insert("_return".to_owned(), returned);
                         }
+                        self.refresh_layered_images(line)?;
                         self.instruction = frame.return_address;
                     } else {
                         if let Some(returned) = returned {
@@ -213,6 +216,7 @@ impl Runtime {
                     let value = evaluate(value, &self.variables, line)?;
                     self.set_persistent_variable(&variable, &value);
                     Arc::make_mut(&mut self.variables).insert(variable, value);
+                    self.refresh_layered_images(line)?;
                     self.instruction += 1;
                 }
                 InstructionKind::Extension {
@@ -229,6 +233,7 @@ impl Runtime {
                         .map_err(|error| execution(line, error))?;
                     self.set_persistent_variable(&variable, &value);
                     Arc::make_mut(&mut self.variables).insert(variable, value);
+                    self.refresh_layered_images(line)?;
                     self.instruction += 1;
                 }
                 InstructionKind::JumpIfFalse { condition, target } => {
@@ -371,6 +376,8 @@ impl Runtime {
                     let stage = Arc::make_mut(&mut self.stage);
                     let transform = if alias == "camera" {
                         &mut stage.camera
+                    } else if let Some(layer) = crate::syntax::camera_layer(alias) {
+                        stage.layer_cameras.entry(layer.to_owned()).or_default()
                     } else {
                         &mut stage
                             .sprites

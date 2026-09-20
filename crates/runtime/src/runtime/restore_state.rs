@@ -27,6 +27,13 @@ pub(super) fn prepare_saved_stage(
         };
         sprite.display_order = *order;
     }
+    if let Some(layer) = stage
+        .layer_cameras
+        .keys()
+        .find(|layer| !program.display_layers.contains_key(*layer))
+    {
+        return Err(RuntimeError::SavedDisplayLayerMissing(layer.clone()));
+    }
     Ok(())
 }
 

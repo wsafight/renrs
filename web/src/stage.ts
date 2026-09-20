@@ -1,4 +1,4 @@
-import { parseCameraFrames, parseSpriteFrames } from './protocol';
+import { parseCameraFrames, parseLayerCameraFrames, parseSpriteFrames } from './protocol';
 import type {
   EffectMap,
   PlayerApp,
@@ -79,6 +79,19 @@ const cameraStyle = (camera?: TransformState | null): Keyframe => ({
   transformOrigin: '640px 360px',
   opacity: camera?.alpha ?? 1,
 });
+function identityTransform(): TransformState {
+  return {
+    x: 0,
+    y: 0,
+    scale: 1,
+    rotation: 0,
+    alpha: 1,
+    anchor_x: 0,
+    anchor_y: 1,
+    crop: null,
+  };
+}
+const layerCameraAlias = (layer: string): string => `camera@${layer}`;
 const spriteOrder = (a: SpriteState, b: SpriteState): number =>
   a.display_order - b.display_order ||
   (a.display_layer < b.display_layer ? -1 : a.display_layer > b.display_layer ? 1 : 0) ||
@@ -89,6 +102,7 @@ function animateCamera(
   effect: EffectMap | null,
   elapsed: number,
   frames: TransformState[] | null,
+  targetAlias = 'camera',
 ): void {
   Object.assign(node.style, cameraStyle(camera));
   let keys: Keyframe[] | undefined;
@@ -97,7 +111,7 @@ function animateCamera(
       ...cameraStyle(frame),
       offset: frames.length > 1 ? index / (frames.length - 1) : 0,
     }));
-  else if (effect?.Transform?.alias === 'camera') {
+  else if (effect?.Transform?.alias === targetAlias) {
     const animation = effect.Transform;
     keys = Array.from({ length: 61 }, (_, index) => ({
       ...cameraStyle(interpolate(animation.from, animation.to, ease(animation.easing, index / 60))),
@@ -234,28 +248,62 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
   const parallel = effect?.Parallel
     ? { frames: parseSpriteFrames(app.engine.animation_frames()), seconds: effect.Parallel.seconds }
     : undefined;
-  sprites.replaceChildren(
-    ...(await Promise.all(
-      [...stage.sprites]
-        .sort(spriteOrder)
-        .map((sprite) =>
-          spriteNode(app, sprite, effect?.Transform || effect?.Tween || null, elapsed, parallel),
-        ),
-    )),
+  const grouped = new Map<string, SpriteState[]>();
+  for (const sprite of [...stage.sprites].sort(spriteOrder)) {
+    const group = grouped.get(sprite.display_layer) || [];
+    group.push(sprite);
+    grouped.set(sprite.display_layer, group);
+  }
+  const layers = await Promise.all(
+    [...grouped].map(async ([name, items]) => {
+      const node = app.element('div', null, { className: 'stage-layer' });
+      const camera = stage.layer_cameras?.[name];
+      const layerFrames =
+        !app.settings.reduced && effect?.Parallel && 'camera_layer_frames' in app.engine
+          ? parseLayerCameraFrames(
+              (
+                app.engine as { camera_layer_frames: (layer: string) => string }
+              ).camera_layer_frames(name),
+            )
+          : null;
+      node.replaceChildren(
+        ...(await Promise.all(
+          items.map((sprite) =>
+            spriteNode(app, sprite, effect?.Transform || effect?.Tween || null, elapsed, parallel),
+          ),
+        )),
+      );
+      animateCamera(
+        node,
+        camera || identityTransform(),
+        app.settings.reduced ? null : (effect ?? null),
+        elapsed,
+        layerFrames,
+        layerCameraAlias(name),
+      );
+      return node;
+    }),
   );
+  sprites.replaceChildren(...layers);
   startLayerClock(app);
   const cameraFrames =
     !app.settings.reduced && effect?.Parallel
       ? parseCameraFrames(app.engine.camera_frames())
       : null;
-  for (const node of [background, sprites])
-    animateCamera(
-      node,
-      stage.camera,
-      app.settings.reduced ? null : (effect ?? null),
-      elapsed,
-      cameraFrames,
-    );
+  animateCamera(
+    background,
+    stage.camera,
+    app.settings.reduced ? null : (effect ?? null),
+    elapsed,
+    cameraFrames,
+  );
+  animateCamera(
+    sprites,
+    stage.camera,
+    app.settings.reduced ? null : (effect ?? null),
+    elapsed,
+    cameraFrames,
+  );
   if (app.settings.reduced) return;
   if (effect?.Fade)
     root.animate([{ opacity: 0 }, { opacity: 1 }], {
@@ -318,11 +366,18 @@ async function oldStageNode(app: PlayerApp, stage: StageState): Promise<HTMLElem
         alt: '',
       }),
     );
-  content.append(
-    ...(await Promise.all(
-      [...stage.sprites].sort(spriteOrder).map((sprite) => spriteNode(app, sprite, null, 0)),
-    )),
-  );
+  const grouped = new Map<string, SpriteState[]>();
+  for (const sprite of [...stage.sprites].sort(spriteOrder)) {
+    const group = grouped.get(sprite.display_layer) || [];
+    group.push(sprite);
+    grouped.set(sprite.display_layer, group);
+  }
+  for (const [name, sprites] of grouped) {
+    const layer = app.element('div', null, { className: 'stage-layer' });
+    Object.assign(layer.style, cameraStyle(stage.layer_cameras?.[name] || identityTransform()));
+    layer.append(...(await Promise.all(sprites.map((sprite) => spriteNode(app, sprite, null, 0)))));
+    content.append(layer);
+  }
   old.append(content);
   return old;
 }

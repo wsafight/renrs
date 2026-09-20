@@ -28,6 +28,27 @@ transactional editor hot reload remain supported.
 - [x] Integrated VS Code project and release workflow.
 - [x] Shaped-cluster native wrapping and stable Web assistive semantics.
 - [x] Common static ATL/master-camera migration with explicit dynamic fallbacks.
+- [x] Bounded layer cameras: explicit display-layer camera transforms persist through snapshots and
+  rollback, sample in parallel timelines, and render in native/Web frontends; standard Ren'Py layer
+  cameras migrate while unknown custom layers remain explicit diagnostics.
+- [x] Finite static ATL repeats: terminal `repeat 1..16` blocks are expanded with Ren'Py total-cycle
+  semantics, while bare, parameterized and dynamic repeats receive stable migration diagnostics.
+- [x] Static image expressions: quoted paths and no-argument `Image`/`im.Image` constructors that
+  resolve to project resources migrate to ordinary `show`/`scene` statements; dynamic paths, extra
+  constructor arguments and alias-less `show expression` remain structured diagnostics.
+- [x] Static `At`/`im.At` image expressions with one existing resource and one named transform reuse the
+  ordinary static transform migration path; dynamic and multi-displayable expressions remain unsupported.
+- [x] Bounded `Transform`/`im.Transform` image expressions with existing resources and static numeric options
+  emit ordinary RenRS transform statements; dynamic children and unsupported options remain explicit diagnostics.
+- [x] Static `Composite`/`im.Composite` image expressions with bounded coordinates and existing resources
+  generate deterministic `.layers.json` assets; scene composites and dynamic displayables remain explicit diagnostics.
+- [x] Custom statement diagnostics: identifier-led unknown statements retain their source fragment and
+  receive `custom_statement_unsupported`; the official `testsuite`/`testcase` migration baseline keeps
+  `statement_unsupported` for compatibility.
+- [x] Parameterized ATL diagnostics: unsupported declarations and out-of-subset `show`/`scene`/camera call
+  sites use the stable `atl_parameters_unsupported` code.
+- [x] Parameterized ATL specialization: finite numeric positional calls are rebound at static `show` and camera
+  sites and emitted as recompilable RenRS transforms; parameterized `scene` remains a manual binding boundary.
 
 ## P2
 
@@ -37,6 +58,8 @@ transactional editor hot reload remain supported.
 - [x] Ordered named sprite layers, layer clearing, save/rollback and transactional reload.
 - [x] Static per-track music/sound gain across native/Web playback, queues, saves and migration.
 - [x] Localized video audio tracks, bounded relative gain, subtitle cues and native/Web fallback.
+- [x] Bounded `.layers.json` conditional layers refresh on variable changes and support validated mutually exclusive variant groups.
+- [x] Static `show/scene ... with` transition clauses migrate to recompilable RenRS transition statements.
 - [ ] Physical-device acceptance, platform services and store publication.
 
 ## External Acceptance
@@ -106,8 +129,10 @@ verification and measured comparison with Ren'Py.
 
 ## Remaining Boundaries
 
-No Python/Ren'Py plugin compatibility, complete ATL, non-master layer cameras, arbitrary displayables,
-dynamic runtime layeredimage, cloud service or store integration has been added.
+No Python/Ren'Py plugin compatibility, complete ATL, arbitrary displayables,
+full Ren'Py layeredimage attribute groups, cloud service or store integration has been added. Bounded
+`.layers.json` conditional layers now refresh when story or screen variables change, and validated
+mutually exclusive variant groups select the last matching layer.
 Desktop pages and Web scroll areas differ;
 save transfer preserves runtime progress, not identical text wrapping. Speech depends on installed
 OS/browser voices. Web exposes structured dialogue, choice, scene and custom-control semantics;

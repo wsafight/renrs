@@ -152,10 +152,31 @@ fn parallel_animation_frames_are_sampled() {
     engine.action("start", 0).unwrap();
     let sprites: serde_json::Value =
         serde_json::from_str(&engine.animation_frame(0.5).unwrap()).unwrap();
-    assert!(sprites.as_array().unwrap().len() >= 1);
+    assert!(!sprites.as_array().unwrap().is_empty());
     engine.camera_frame(0.5).unwrap();
     let frames: serde_json::Value =
         serde_json::from_str(&engine.animation_frames().unwrap()).unwrap();
     assert!(frames.as_array().unwrap().len() > 1);
     engine.camera_frames().unwrap();
+}
+
+#[test]
+fn layer_camera_frames_are_sampled_through_wasm_boundary() {
+    let mut engine = engine(
+        r#"layer effects order 50
+label start:
+    show "front.png" as front onlayer effects
+    parallel:
+        timeline:
+            transform camera onlayer effects x 40 over 1
+        timeline:
+            pause 1
+    "Done"
+"#,
+    );
+    engine.action("start", 0).unwrap();
+    let frames: serde_json::Value =
+        serde_json::from_str(&engine.camera_layer_frames("effects").unwrap()).unwrap();
+    assert!(frames.as_array().unwrap().len() > 1);
+    assert!((frames[6]["x"].as_f64().unwrap() - 20.0).abs() < 0.01);
 }

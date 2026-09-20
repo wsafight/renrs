@@ -12,11 +12,17 @@ use crate::compiler::compile;
 use crate::diagnostic::{Diagnostic, Severity};
 use crate::source::ProjectSource;
 
+mod asset_output;
 mod assets;
 mod atl;
+mod atl_parameters;
 mod audio;
+mod composite_expression;
+mod control_flow;
 mod conversion;
 mod expressions;
+mod generated_assets;
+mod image_expression;
 mod menus;
 mod parameters;
 mod static_values;
@@ -189,7 +195,7 @@ pub fn migrate_project(input: &Path, output: &Path) -> Result<MigrationReport, M
             report.converted_files += 1;
             report.issues.extend(converted.issues);
             for asset in converted.generated_assets {
-                generated_assets.insert(asset.path, asset.rgba);
+                generated_assets.insert(asset.path, asset.kind);
             }
         } else if !matches!(
             path.extension().and_then(|value| value.to_str()),
@@ -201,12 +207,9 @@ pub fn migrate_project(input: &Path, output: &Path) -> Result<MigrationReport, M
         }
     }
 
-    for (path, rgba) in generated_assets {
-        let image = image::RgbaImage::from_pixel(1, 1, image::Rgba(rgba));
-        let mut encoded = std::io::Cursor::new(Vec::new());
-        image::DynamicImage::ImageRgba8(image)
-            .write_to(&mut encoded, image::ImageOutputFormat::Png)?;
-        write_new_file(&output.join(path), encoded.get_ref())?;
+    for (path, kind) in generated_assets {
+        let bytes = kind.into_bytes()?;
+        write_new_file(&output.join(path), &bytes)?;
         report.generated_resources += 1;
     }
 
@@ -320,6 +323,13 @@ fn summarize(issues: &[MigrationIssue]) -> MigrationSummary {
 fn issue_code(kind: MigrationIssueKind, message: &str) -> &'static str {
     if message.contains("fallthrough") {
         "label_fallthrough"
+    } else if message.contains("parameterized ATL")
+        || message.contains("ATL transform call")
+        || message.contains("ATL transform arguments")
+    {
+        "atl_parameters_unsupported"
+    } else if message.contains("ATL `repeat") || message.contains("ATL repeat") {
+        "atl_repeat_unsupported"
     } else if message.contains("`ease` interpolation") {
         "atl_easing_assumed"
     } else if message.starts_with("assumed image path") {
