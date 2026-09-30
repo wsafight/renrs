@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -324,7 +324,7 @@ pub struct Runtime {
     stage: Arc<StageState>,
     waiting: Option<WaitState>,
     history: Arc<Vec<DialogueState>>,
-    pub(crate) rollback: Vec<RollbackCheckpoint>,
+    pub(crate) rollback: VecDeque<RollbackCheckpoint>,
     audio_events: Vec<AudioEvent>,
     localizer: Localizer,
     debug: inspect::DebugControl,

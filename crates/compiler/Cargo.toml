@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+renrs-algorithms.workspace = true
 renrs-model.workspace = true
 renrs-syntax.workspace = true
 indexmap.workspace = true

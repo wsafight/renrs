@@ -2,10 +2,9 @@ use crate::{
     Diagnostic, Program, ProjectSource,
     parser::{ScriptFragment, parse_fragment},
 };
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
-type CachedFragment = (Vec<u8>, Result<ScriptFragment, Vec<Diagnostic>>);
+type CachedFragment = (String, Result<ScriptFragment, Vec<Diagnostic>>);
 
 #[derive(Default)]
 pub struct CompileCache {
@@ -48,7 +47,7 @@ impl CompileCache {
                     continue;
                 }
             };
-            let hash = Sha256::digest(&bytes).to_vec();
+            let hash = renrs_shared::hash::sha256_hex(&bytes);
             if self
                 .fragments
                 .get(&name)

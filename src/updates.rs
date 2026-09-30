@@ -1,9 +1,7 @@
 use crate::archive::{ResourceArchive, pack_project};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::fs;
-use std::io::Read;
 use std::path::Path;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -38,17 +36,7 @@ struct SignedManifest {
 /// # Errors
 /// Returns filesystem errors.
 pub fn file_hash(path: &Path) -> Result<String> {
-    let mut file = fs::File::open(path)?;
-    let mut digest = Sha256::new();
-    let mut buffer = vec![0; 65536];
-    loop {
-        let count = file.read(&mut buffer)?;
-        if count == 0 {
-            break;
-        }
-        digest.update(&buffer[..count]);
-    }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(renrs_shared::hash::sha256_file(path)?)
 }
 
 /// Creates a signed resource delta. Existing destinations are never replaced.
@@ -170,7 +158,7 @@ pub fn apply(old: &Path, patch: &Path, destination: &Path, public: &[u8; 32]) ->
             base.read(&entry.path)?
         };
         if bytes.len() as u64 != entry.length
-            || format!("{:x}", Sha256::digest(&bytes)) != entry.sha256
+            || renrs_shared::hash::sha256_hex(&bytes) != entry.sha256
         {
             return Err(format!("update checksum mismatch: {}", entry.path).into());
         }

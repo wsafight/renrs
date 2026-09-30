@@ -16,6 +16,7 @@ path = "src/main.rs"
 renrs = { path = "../.." }
 renrs-project.workspace = true
 renrs-runtime.workspace = true
+renrs-shared.workspace = true
 image = { version = "0.24", default-features = false, features = ["png", "tga"] }
 macroquad = { version = "0.4.14" }
 ab_glyph = "0.2.32"

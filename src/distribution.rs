@@ -58,9 +58,9 @@ pub fn build_distribution(
     }
     let source = ProjectSource::open(project_path.to_path_buf())
         .map_err(|error| BuildError::InvalidProject(error.to_string()))?;
-    let program = source
-        .compile()
-        .map_err(|diagnostics| BuildError::InvalidProject(format_diagnostics(&diagnostics)))?;
+    let program = source.compile().map_err(|diagnostics| {
+        BuildError::InvalidProject(renrs_shared::diagnostic::join_diagnostics(&diagnostics))
+    })?;
     let parent = destination
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
@@ -92,7 +92,9 @@ pub fn build_distribution(
     ProjectSource::open(&archive_path)
         .map_err(|error| BuildError::InvalidProject(error.to_string()))?
         .compile()
-        .map_err(|errors| BuildError::InvalidProject(format_diagnostics(&errors)))?;
+        .map_err(|errors| {
+            BuildError::InvalidProject(renrs_shared::diagnostic::join_diagnostics(&errors))
+        })?;
     let archive = crate::archive::ResourceArchive::open(&archive_path)?;
     fs::write(
         staging.join("resources.json"),
@@ -126,14 +128,6 @@ pub fn build_distribution(
     )?;
     fs::rename(staging, destination)?;
     Ok(manifest)
-}
-
-fn format_diagnostics(diagnostics: &[crate::Diagnostic]) -> String {
-    diagnostics
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 #[cfg(test)]

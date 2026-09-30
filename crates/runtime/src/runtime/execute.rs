@@ -18,21 +18,22 @@ impl Runtime {
             return Ok(waiting.clone());
         }
 
+        // Holding the program behind a local `Arc` keeps `self` free for mutation,
+        // so the hot loop can borrow instruction IDs instead of cloning them.
+        let program = Arc::clone(&self.program);
         for _ in 0..MAX_IMMEDIATE_STEPS {
-            let Some(instruction) = self.program.instructions.get(self.instruction) else {
+            let Some(instruction) = program.instructions.get(self.instruction) else {
                 self.waiting = Some(WaitState::Finished);
                 return Ok(WaitState::Finished);
             };
             let line = instruction.span.line;
-            let id = instruction.id.clone();
-            let statement_id = instruction.statement_id.clone();
-            self.check_debug_stop(&id)?;
+            self.check_debug_stop(&instruction.id)?;
             self.observe_progress();
             self.last_instruction = self.instruction;
             if let Some(trace) = &mut self.trace {
                 trace.insert(self.instruction);
             }
-            match &self.program.instructions[self.instruction].kind {
+            match &program.instructions[self.instruction].kind {
                 InstructionKind::Nvl { mode } => {
                     if mode == "on" {
                         Arc::make_mut(&mut self.stage).nvl = true;
@@ -80,7 +81,7 @@ impl Runtime {
                         self.apply_say_attributes(speaker, &attributes, line)?;
                     }
                     self.present_dialogue(
-                        &statement_id,
+                        &instruction.statement_id,
                         speaker.as_deref(),
                         &text,
                         &translation_id,
@@ -143,7 +144,7 @@ impl Runtime {
                     let options = options.clone();
                     if let Some(prompt) = &prompt {
                         self.present_dialogue(
-                            &statement_id,
+                            &instruction.statement_id,
                             prompt.speaker.as_deref(),
                             &prompt.text,
                             &prompt.translation_id,

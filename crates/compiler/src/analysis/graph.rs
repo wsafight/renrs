@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::compiler::{InstructionKind, Program};
 use crate::syntax::{Expr, Value};
+use renrs_algorithms::graph::Graph;
 
 pub(super) struct ControlFlowGraph {
     pub(super) successors: Vec<Vec<usize>>,
@@ -52,24 +53,15 @@ impl ControlFlowGraph {
     }
 
     pub(super) fn reachable(&self, start: Option<usize>) -> Vec<bool> {
-        let mut reachable = vec![false; self.successors.len()];
-        let Some(start) = start.filter(|index| *index < reachable.len()) else {
-            return reachable;
-        };
-        let mut pending = vec![start];
-        while let Some(index) = pending.pop() {
-            if reachable[index] {
-                continue;
-            }
-            reachable[index] = true;
-            pending.extend(
-                self.successors[index]
-                    .iter()
-                    .copied()
-                    .filter(|next| !reachable[*next]),
-            );
-        }
-        reachable
+        self.algorithm().reachable(start)
+    }
+
+    pub(super) fn components(&self, reachable: &[bool]) -> Vec<Vec<usize>> {
+        self.algorithm().strongly_connected_components(reachable)
+    }
+
+    pub(super) fn algorithm(&self) -> Graph<'_> {
+        Graph::new(&self.successors)
     }
 }
 
@@ -95,75 +87,4 @@ fn constant_boolean(expression: &Expr) -> Option<bool> {
         Expr::Value(Value::Boolean(value)) => Some(*value),
         _ => None,
     }
-}
-
-pub(super) fn strongly_connected_components(
-    graph: &ControlFlowGraph,
-    reachable: &[bool],
-) -> Vec<Vec<usize>> {
-    struct Tarjan<'a> {
-        graph: &'a ControlFlowGraph,
-        reachable: &'a [bool],
-        next_index: usize,
-        indices: Vec<Option<usize>>,
-        low_links: Vec<usize>,
-        stack: Vec<usize>,
-        on_stack: Vec<bool>,
-        components: Vec<Vec<usize>>,
-    }
-
-    impl Tarjan<'_> {
-        fn visit(&mut self, node: usize) {
-            let index = self.next_index;
-            self.next_index += 1;
-            self.indices[node] = Some(index);
-            self.low_links[node] = index;
-            self.stack.push(node);
-            self.on_stack[node] = true;
-
-            for successor in &self.graph.successors[node] {
-                if !self.reachable[*successor] {
-                    continue;
-                }
-                if self.indices[*successor].is_none() {
-                    self.visit(*successor);
-                    self.low_links[node] = self.low_links[node].min(self.low_links[*successor]);
-                } else if self.on_stack[*successor] {
-                    self.low_links[node] = self.low_links[node]
-                        .min(self.indices[*successor].expect("visited node has an index"));
-                }
-            }
-
-            if self.low_links[node] == index {
-                let mut component = Vec::new();
-                loop {
-                    let member = self.stack.pop().expect("component root is on stack");
-                    self.on_stack[member] = false;
-                    component.push(member);
-                    if member == node {
-                        break;
-                    }
-                }
-                self.components.push(component);
-            }
-        }
-    }
-
-    let length = graph.successors.len();
-    let mut tarjan = Tarjan {
-        graph,
-        reachable,
-        next_index: 0,
-        indices: vec![None; length],
-        low_links: vec![0; length],
-        stack: Vec::new(),
-        on_stack: vec![false; length],
-        components: Vec::new(),
-    };
-    for (node, is_reachable) in reachable.iter().copied().enumerate().take(length) {
-        if is_reachable && tarjan.indices[node].is_none() {
-            tarjan.visit(node);
-        }
-    }
-    tarjan.components
 }

@@ -7,20 +7,20 @@ const MAX_RUST_LINES: usize = 500;
 fn rust_source_files_stay_below_the_cohesion_limit() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut oversized = Vec::new();
-    for directory in [
-        root.join("src"),
-        root.join("tests"),
-        root.join("crates/syntax/src"),
-        root.join("crates/model/src"),
-        root.join("crates/compiler/src"),
-        root.join("crates/runtime/src"),
-        root.join("crates/project/src"),
-        root.join("crates/editor/src"),
-        root.join("crates/web/src"),
-        root.join("crates/extensions/src"),
-        root.join("crates/player/src"),
-    ] {
-        inspect(&directory, &mut oversized);
+    let mut packages = vec![root.to_owned()];
+    packages.extend(
+        fs::read_dir(root.join("crates"))
+            .expect("could not inspect workspace crates")
+            .map(|entry| entry.expect("crate directory entry").path())
+            .filter(|path| path.is_dir()),
+    );
+    for package in packages {
+        for scope in ["src", "tests", "benches", "examples"] {
+            let directory = package.join(scope);
+            if directory.is_dir() {
+                inspect(&directory, &mut oversized);
+            }
+        }
     }
     assert!(
         oversized.is_empty(),

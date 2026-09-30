@@ -46,7 +46,7 @@ pub fn document_symbols(source: &str) -> Vec<DocumentSymbol> {
             }
             if let Some(rest) = trimmed.strip_prefix("label ") {
                 let name = rest.split(['(', ':']).next()?.trim();
-                valid_identifier(name).then(|| DocumentSymbol {
+                renrs_shared::text::is_identifier(name).then(|| DocumentSymbol {
                     name: name.to_owned(),
                     kind: SymbolKind::Label,
                     line,
@@ -54,7 +54,7 @@ pub fn document_symbols(source: &str) -> Vec<DocumentSymbol> {
                 })
             } else if let Some(rest) = trimmed.strip_prefix("define ") {
                 let name = rest.split('=').next()?.trim();
-                valid_identifier(name).then(|| DocumentSymbol {
+                renrs_shared::text::is_identifier(name).then(|| DocumentSymbol {
                     name: name.to_owned(),
                     kind: SymbolKind::Character,
                     line,
@@ -62,7 +62,7 @@ pub fn document_symbols(source: &str) -> Vec<DocumentSymbol> {
                 })
             } else if let Some(rest) = trimmed.strip_prefix("image ") {
                 let name = rest.split('=').next()?.trim();
-                valid_identifier(name).then(|| DocumentSymbol {
+                renrs_shared::text::is_identifier(name).then(|| DocumentSymbol {
                     name: name.to_owned(),
                     kind: SymbolKind::Image,
                     line,
@@ -70,7 +70,7 @@ pub fn document_symbols(source: &str) -> Vec<DocumentSymbol> {
                 })
             } else if let Some(rest) = trimmed.strip_prefix("default ") {
                 let name = rest.split('=').next()?.trim();
-                valid_identifier(name).then(|| DocumentSymbol {
+                renrs_shared::text::is_identifier(name).then(|| DocumentSymbol {
                     name: name.to_owned(),
                     kind: SymbolKind::Variable,
                     line,
@@ -78,7 +78,7 @@ pub fn document_symbols(source: &str) -> Vec<DocumentSymbol> {
                 })
             } else if let Some(rest) = trimmed.strip_prefix("layer ") {
                 let name = rest.split_whitespace().next()?;
-                valid_identifier(name).then(|| DocumentSymbol {
+                renrs_shared::text::is_identifier(name).then(|| DocumentSymbol {
                     name: name.to_owned(),
                     kind: SymbolKind::DisplayLayer,
                     line,
@@ -240,7 +240,8 @@ fn interpolation_variables(raw: &str) -> Vec<(&str, usize)> {
                 }
                 if let Some(end) = raw[index + 1..].find('}') {
                     let value = &raw[index + 1..index + 1 + end];
-                    if valid_identifier(value) && !crate::text::is_text_tag(value) {
+                    if renrs_shared::text::is_identifier(value) && !crate::text::is_text_tag(value)
+                    {
                         values.push((value, index + 1));
                     }
                     index += end + 2;
@@ -264,7 +265,7 @@ pub fn symbol_at(source: &str, line: usize, column: usize) -> Option<SymbolOccur
 
 #[must_use]
 pub fn is_valid_identifier(value: &str) -> bool {
-    valid_identifier(value)
+    renrs_shared::text::is_identifier(value)
 }
 
 fn identifier_tokens(line: &str) -> Vec<(&str, usize)> {
@@ -466,12 +467,4 @@ fn language_keyword(value: &str) -> bool {
             | "wipe"
             | "zorder"
     )
-}
-
-fn valid_identifier(value: &str) -> bool {
-    let mut characters = value.chars();
-    characters
-        .next()
-        .is_some_and(|first| first == '_' || first.is_ascii_alphabetic())
-        && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
 }

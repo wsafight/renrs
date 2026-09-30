@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+renrs-shared.workspace = true
 indexmap.workspace = true
 serde = { workspace = true, features = ["derive", "rc"] }
 serde_json.workspace = true

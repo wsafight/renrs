@@ -1,5 +1,6 @@
 use super::{InstructionKind, Runtime};
-use std::collections::{HashSet, VecDeque};
+use renrs_algorithms::graph::breadth_first;
+use std::ops::ControlFlow;
 
 impl Runtime {
     /// Predicts images on reachable paths without evaluating or executing story code.
@@ -7,7 +8,9 @@ impl Runtime {
     #[must_use]
     pub fn upcoming_images(&self, limit: usize) -> Vec<String> {
         let limit = limit.min(16);
-        let mut images = Vec::new();
+        if limit == 0 {
+            return Vec::new();
+        }
         let stack = self
             .call_stack
             .iter()
@@ -16,38 +19,33 @@ impl Runtime {
             .rev()
             .map(|frame| frame.return_address)
             .collect::<Vec<_>>();
-        let mut queue = VecDeque::from([(self.instruction, stack)]);
-        let mut visited = HashSet::new();
-        while let Some((position, mut stack)) = queue.pop_front() {
-            if images.len() >= limit || visited.len() >= 256 {
-                break;
-            }
-            if !visited.insert((position, stack.clone())) {
-                continue;
-            }
+        let mut images = Vec::new();
+        let _ = breadth_first((self.instruction, stack), 256, |position, stack| {
             let Some(instruction) = self.program.instructions.get(position) else {
-                continue;
+                return ControlFlow::Continue(Vec::new());
             };
+            if let Some(path) = presented_path(&instruction.kind) {
+                let paths = self.program.layered_images.get(path).map_or_else(
+                    || vec![path],
+                    |image| {
+                        image
+                            .layers
+                            .iter()
+                            .flat_map(renrs_model::CompiledImageLayer::paths)
+                            .collect()
+                    },
+                );
+                for path in paths {
+                    if !images.iter().any(|image| image == path) {
+                        images.push(path.to_owned());
+                    }
+                    if images.len() >= limit {
+                        return ControlFlow::Break(());
+                    }
+                }
+            }
             let mut targets = Vec::new();
             match &instruction.kind {
-                InstructionKind::Scene { path } | InstructionKind::Show { path, .. } => {
-                    let paths = self.program.layered_images.get(path).map_or_else(
-                        || vec![path.as_str()],
-                        |image| {
-                            image
-                                .layers
-                                .iter()
-                                .flat_map(renrs_model::CompiledImageLayer::paths)
-                                .collect()
-                        },
-                    );
-                    for path in paths {
-                        if images.len() < limit && !images.iter().any(|image| image == path) {
-                            images.push(path.to_owned());
-                        }
-                    }
-                    targets.push(position + 1);
-                }
                 InstructionKind::Jump { target } => targets.push(*target),
                 InstructionKind::JumpIfFalse { target, .. } => {
                     targets.extend([position + 1, *target]);
@@ -63,14 +61,16 @@ impl Runtime {
                 InstructionKind::Return { .. } => targets.extend(stack.pop()),
                 _ => targets.push(position + 1),
             }
-            for target in targets
-                .into_iter()
-                .take(256_usize.saturating_sub(queue.len()))
-            {
-                queue.push_back((target, stack.clone()));
-            }
-        }
+            ControlFlow::Continue(targets)
+        });
         images
+    }
+}
+
+fn presented_path(kind: &InstructionKind) -> Option<&str> {
+    match kind {
+        InstructionKind::Scene { path } | InstructionKind::Show { path, .. } => Some(path),
+        _ => None,
     }
 }
 

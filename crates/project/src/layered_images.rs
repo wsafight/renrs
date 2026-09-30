@@ -1,7 +1,6 @@
 use crate::{Program, ProjectSource, diagnostic::Diagnostic};
 use renrs_model::{CompiledImageLayer, CompiledLayeredImage};
 use renrs_syntax::presentation::LayeredImage;
-use sha2::{Digest, Sha256};
 
 pub(crate) fn load(source: &ProjectSource, program: &mut Program) -> Result<(), Vec<Diagnostic>> {
     let paths: std::collections::BTreeSet<_> = program
@@ -26,12 +25,9 @@ pub(crate) fn load(source: &ProjectSource, program: &mut Program) -> Result<(), 
         program.layered_images.insert(path, definition);
     }
     if !program.layered_images.is_empty() {
-        let payload = serde_json::to_vec(&program.layered_images)
-            .expect("validated layered images serialize");
-        let mut hash = Sha256::new();
-        hash.update(program.fingerprint.as_bytes());
-        hash.update(payload);
-        program.fingerprint = format!("{:x}", hash.finalize());
+        program.fingerprint =
+            renrs_shared::hash::fold_fingerprint(&program.fingerprint, &program.layered_images)
+                .expect("validated layered images serialize");
     }
     Ok(())
 }

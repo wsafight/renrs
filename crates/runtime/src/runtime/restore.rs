@@ -4,6 +4,7 @@ use super::{
     Localizer, Program, ReloadReport, RollbackCheckpoint, Runtime, RuntimeError, RuntimeSnapshot,
     StageState, Value, WaitState, evaluate, execution, interpolate, parse_text_markup,
 };
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 impl Runtime {
@@ -37,7 +38,7 @@ impl Runtime {
             stage: Arc::new(StageState::default()),
             waiting: None,
             history: std::sync::Arc::default(),
-            rollback: Vec::new(),
+            rollback: VecDeque::new(),
             audio_events: Vec::new(),
             localizer: Localizer::default(),
             debug: super::inspect::DebugControl::default(),
@@ -119,7 +120,7 @@ impl Runtime {
             &snapshot.variables,
             &localizer,
         )?;
-        let mut rollback = Vec::new();
+        let mut rollback = VecDeque::new();
         for checkpoint in snapshot.rollback {
             match restore_checkpoint(
                 &program,
@@ -128,7 +129,7 @@ impl Runtime {
                 &mut report,
                 changed,
             ) {
-                Ok(checkpoint) => rollback.push(checkpoint),
+                Ok(checkpoint) => rollback.push_back(checkpoint),
                 Err(_) if changed => report.dropped_rollback_checkpoints += 1,
                 Err(error) => return Err(error),
             }
@@ -163,7 +164,7 @@ impl Runtime {
             debug: super::inspect::DebugControl::default(),
             previous_stage: None,
         };
-        let latest_matches_current = runtime.rollback.last().is_some_and(|checkpoint| {
+        let latest_matches_current = runtime.rollback.back().is_some_and(|checkpoint| {
             checkpoint.instruction == runtime.instruction
                 && Some(&checkpoint.waiting) == runtime.waiting.as_ref()
         });

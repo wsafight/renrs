@@ -1,6 +1,5 @@
 use crate::{Diagnostic, Program, ProjectSource};
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 #[derive(Deserialize)]
@@ -39,10 +38,9 @@ fn load_inner(source: &ProjectSource, program: &mut Program) -> Result<(), Strin
             );
         }
         renrs_extensions::Extensions::new(&program.extensions)?;
-        let mut hash = Sha256::new();
-        hash.update(program.fingerprint.as_bytes());
-        hash.update(serde_json::to_vec(&program.extensions).map_err(|error| error.to_string())?);
-        program.fingerprint = format!("{:x}", hash.finalize());
+        program.fingerprint =
+            renrs_shared::hash::fold_fingerprint(&program.fingerprint, &program.extensions)
+                .map_err(|error| error.to_string())?;
     }
     for instruction in &program.instructions {
         if let renrs_model::InstructionKind::Extension { name, .. } = &instruction.kind

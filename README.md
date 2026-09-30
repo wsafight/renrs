@@ -107,8 +107,10 @@ preferences are kept.
 ## Layout
 
 ```text
+crates/shared         Paths, hashing, atomic writes, text predicates
 crates/syntax         AST, values, diagnostics, text, localization
 crates/model          Compiled program and project bundle contracts
+crates/algorithms     Graph reachability and strongly connected components
 crates/compiler       Parse, lower, static analysis
 crates/runtime        Execute, snapshot, rollback, debugger
 crates/project        Sources, assets, archives, theme, screens
@@ -120,7 +122,8 @@ src/migration/*       Supported Ren'Py static subset
 src/bin/*             Headless CLI entry points
 ```
 
-Every Rust file in source and tests must stay under 500 lines (`tests/source_size.rs`).
+Every Rust file in source, tests, benches and examples must stay under 500 lines
+(`tests/source_size.rs`).
 Crate boundaries: [architecture](docs/ARCHITECTURE.md).
 
 ## Develop

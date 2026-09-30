@@ -1,6 +1,7 @@
+use renrs_shared::path::safe_relative_path;
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
@@ -394,14 +395,6 @@ fn collect_resource_names(root: &Path) -> Result<Vec<String>, std::io::Error> {
         .iter()
         .map(|path| crate::resources::relative_name(root, path))
         .collect())
-}
-
-fn safe_relative_path(path: &str) -> bool {
-    !path.is_empty()
-        && !Path::new(path).is_absolute()
-        && Path::new(path)
-            .components()
-            .all(|component| matches!(component, Component::Normal(_)))
 }
 
 #[cfg(test)]

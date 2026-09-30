@@ -77,7 +77,7 @@ impl Runtime {
             let value = self.variables[name].clone();
             self.set_persistent_variable(name, &value);
         }
-        if let Some(checkpoint) = self.rollback.last_mut() {
+        if let Some(checkpoint) = self.rollback.back_mut() {
             checkpoint.variables = self.variables.clone();
             checkpoint.stage.clone_from(&self.stage);
             if let Some(waiting) = &self.waiting {

@@ -204,7 +204,7 @@ pub fn parse_text_markup(input: &str) -> Result<StyledText, String> {
             }
             value if value.starts_with("color=") => {
                 let color = &value["color=".len()..];
-                if !valid_color(color) {
+                if !renrs_shared::text::is_hex_color(color) {
                     return Err(format!(
                         "text color `{color}` must use #RRGGBB or #RRGGBBAA"
                     ));
@@ -275,13 +275,6 @@ fn parse_wait_hundredths(source: &str) -> Option<u16> {
         return None;
     }
     Some((seconds * 100.0).round() as u16)
-}
-
-fn valid_color(color: &str) -> bool {
-    let Some(hex) = color.strip_prefix('#') else {
-        return false;
-    };
-    matches!(hex.len(), 6 | 8) && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 #[cfg(test)]

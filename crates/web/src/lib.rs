@@ -176,13 +176,7 @@ impl Engine {
 
     #[must_use]
     pub fn translate_ui(&self, text: &str) -> String {
-        let key = format!(
-            "ui.{}",
-            text.to_ascii_lowercase()
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join("_")
-        );
+        let key = renrs_shared::text::ui_key(text);
         renrs_runtime::TranslationId::new(key).map_or_else(
             |_| text.to_owned(),
             |id| self.runtime.localizer().translate(&id, text).to_owned(),

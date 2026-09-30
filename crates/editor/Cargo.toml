@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 renrs-compiler.workspace = true
 renrs-project.workspace = true
+renrs-shared.workspace = true
 renrs-syntax.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

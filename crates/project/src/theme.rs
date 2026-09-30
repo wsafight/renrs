@@ -1,8 +1,9 @@
+use renrs_shared::path::safe_relative_path;
 #[cfg(test)]
 use std::fs;
+use std::path::Path;
 #[cfg(test)]
 use std::path::PathBuf;
-use std::path::{Component, Path};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -320,14 +321,6 @@ fn valid_color(value: &str) -> bool {
         return false;
     };
     matches!(hex.len(), 6 | 8) && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
-}
-
-fn safe_relative_path(path: &Path) -> bool {
-    !path.as_os_str().is_empty()
-        && !path.is_absolute()
-        && path
-            .components()
-            .all(|component| matches!(component, Component::Normal(_)))
 }
 
 fn validate_rect(name: &str, rect: ThemeRect) -> Result<(), ThemeError> {

@@ -1593,13 +1593,13 @@ dependencies = [
  "getrandom 0.3.4",
  "hound",
  "image",
- "indexmap",
  "lewton 0.9.4",
  "renrs-compiler",
  "renrs-editor",
  "renrs-model",
  "renrs-project",
  "renrs-runtime",
+ "renrs-shared",
  "renrs-syntax",
  "serde",
  "serde_json",
@@ -1609,10 +1609,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "renrs-algorithms"
+version = "0.1.0-rc.1"
+
+[[package]]
 name = "renrs-compiler"
 version = "0.1.0-rc.1"
 dependencies = [
  "indexmap",
+ "renrs-algorithms",
  "renrs-model",
  "renrs-syntax",
  "serde",
@@ -1629,6 +1634,7 @@ version = "0.1.0-rc.1"
 dependencies = [
  "renrs-compiler",
  "renrs-project",
+ "renrs-shared",
  "renrs-syntax",
  "serde",
  "serde_json",
@@ -1672,6 +1678,7 @@ dependencies = [
  "renrs",
  "renrs-project",
  "renrs-runtime",
+ "renrs-shared",
  "rodio",
  "rustybuzz",
  "serde",
@@ -1691,10 +1698,10 @@ dependencies = [
  "renrs-compiler",
  "renrs-extensions",
  "renrs-model",
+ "renrs-shared",
  "renrs-syntax",
  "serde",
  "serde_json",
- "sha2",
  "tempfile",
  "thiserror 2.0.20",
 ]
@@ -1703,6 +1710,7 @@ dependencies = [
 name = "renrs-runtime"
 version = "0.1.0-rc.1"
 dependencies = [
+ "renrs-algorithms",
  "renrs-compiler",
  "renrs-extensions",
  "renrs-model",
@@ -1715,11 +1723,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "renrs-shared"
+version = "0.1.0-rc.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+]
+
+[[package]]
 name = "renrs-syntax"
 version = "0.1.0-rc.1"
 dependencies = [
  "indexmap",
  "intl_pluralrules",
+ "renrs-shared",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -1733,6 +1752,7 @@ version = "0.1.0-rc.1"
 dependencies = [
  "renrs-compiler",
  "renrs-runtime",
+ "renrs-shared",
  "renrs-syntax",
  "serde_json",
  "wasm-bindgen",

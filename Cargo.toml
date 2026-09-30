@@ -9,7 +9,7 @@ repository = "https://github.com/wsafight/renrs"
 homepage = "https://wsafight.github.io/renrs/"
 
 [workspace]
-members = ["crates/syntax", "crates/model", "crates/compiler", "crates/runtime", "crates/project", "crates/editor", "crates/web", "crates/extensions", "crates/player"]
+members = ["crates/shared", "crates/syntax", "crates/model", "crates/algorithms", "crates/compiler", "crates/runtime", "crates/project", "crates/editor", "crates/web", "crates/extensions", "crates/player"]
 resolver = "3"
 
 [workspace.package]
@@ -19,6 +19,8 @@ rust-version = "1.88"
 license = "MIT"
 
 [workspace.dependencies]
+renrs-algorithms = { path = "crates/algorithms" }
+renrs-shared = { path = "crates/shared", default-features = false }
 renrs-compiler = { path = "crates/compiler" }
 renrs-editor = { path = "crates/editor" }
 renrs-extensions = { path = "crates/extensions" }
@@ -51,8 +53,8 @@ renrs-compiler.workspace = true
 renrs-runtime.workspace = true
 renrs-project.workspace = true
 renrs-editor.workspace = true
+renrs-shared = { workspace = true, features = ["hash", "io"] }
 renrs-syntax.workspace = true
-indexmap.workspace = true
 hound = "3.5"
 lewton = "0.9"
 image = { version = "0.24", default-features = false, features = ["png", "tga"] }

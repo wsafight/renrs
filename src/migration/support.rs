@@ -354,7 +354,7 @@ fn map_color(
     mapped: &mut BTreeSet<String>,
 ) {
     if let Some(StaticValue::String(value)) = resolve(values, key)
-        && valid_color(value)
+        && renrs_shared::text::is_hex_color(value)
     {
         target.clone_from(value);
         mapped.insert(key.to_owned());
@@ -417,12 +417,6 @@ fn map_dialogue_layout(
             .map(str::to_owned),
         );
     }
-}
-
-fn valid_color(value: &str) -> bool {
-    value.strip_prefix('#').is_some_and(|hex| {
-        matches!(hex.len(), 6 | 8) && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
-    })
 }
 
 fn safe_project_id(value: &str) -> String {

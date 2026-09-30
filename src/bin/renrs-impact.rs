@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use renrs::impact::analyze_impact;
@@ -137,11 +137,7 @@ fn git_baseline(candidate: &Path, revision: &OsStr) -> Result<tempfile::TempDir,
                 .and_then(|path| path.strip_prefix('/'))
                 .ok_or("Git returned a path outside the candidate project")?
         };
-        if relative.is_empty()
-            || Path::new(relative)
-                .components()
-                .any(|part| !matches!(part, Component::Normal(_)))
-        {
+        if !renrs_shared::path::safe_relative_path(relative) {
             return Err(format!("Git returned an unsafe project path: {relative}"));
         }
         let content = Command::new("git")

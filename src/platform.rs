@@ -1,7 +1,6 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -60,7 +59,7 @@ pub fn normalize_project_id(project_id: &str) -> String {
         .collect::<Vec<_>>()
         .join("-");
     if normalized.is_empty() {
-        let digest = format!("{:x}", Sha256::digest(project_id.as_bytes()));
+        let digest = renrs_shared::hash::sha256_hex(project_id.as_bytes());
         format!("game-{}", &digest[..12])
     } else {
         normalized

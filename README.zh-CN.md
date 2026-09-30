@@ -100,8 +100,10 @@ Web 与移动端见 [命令行工具](https://wsafight.github.io/renrs/reference
 ## 目录
 
 ```text
+crates/shared         路径、哈希、原子写、文本判定
 crates/syntax         AST、值、诊断、文本、本地化
 crates/model          编译产物与项目包契约
+crates/algorithms     图可达性与强连通分量
 crates/compiler       解析、降低、静态分析
 crates/runtime        执行、快照、回滚、调试器
 crates/project        来源、资源、归档、主题、界面
@@ -113,7 +115,7 @@ src/migration/*       支持的 Ren'Py 静态子集
 src/bin/*             无窗口 CLI 入口
 ```
 
-源码和测试中每个 Rust 文件不超过 500 行（`tests/source_size.rs`）。
+源码、测试、基准和示例中每个 Rust 文件不超过 500 行（`tests/source_size.rs`）。
 crate 边界见 [架构](docs/ARCHITECTURE.md)。
 
 ## 开发

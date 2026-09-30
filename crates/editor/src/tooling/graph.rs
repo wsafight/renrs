@@ -13,7 +13,7 @@ pub fn story_graph(script: &Script) -> String {
     let mut output = String::from("digraph renrs_story {\n");
     output.push_str("  rankdir=LR;\n  node [shape=box];\n");
     for label in script.labels.keys() {
-        let escaped = dot_escape(label);
+        let escaped = renrs_shared::text::escape_quoted(label);
         let _ = writeln!(output, "  \"{escaped}\";");
     }
     let mut unique = HashSet::new();
@@ -22,8 +22,8 @@ pub fn story_graph(script: &Script) -> String {
             let _ = writeln!(
                 output,
                 "  \"{}\" -> \"{}\" [label=\"{}\"];",
-                dot_escape(from),
-                dot_escape(to),
+                renrs_shared::text::escape_quoted(from),
+                renrs_shared::text::escape_quoted(to),
                 kind
             );
         }
@@ -59,8 +59,4 @@ fn collect_edges<'a>(
             _ => {}
         }
     }
-}
-
-fn dot_escape(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
 }

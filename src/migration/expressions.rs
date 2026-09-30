@@ -210,22 +210,11 @@ fn unescape_basic(source: &str) -> String {
     source.replace("\\\"", "\"").replace("\\\\", "\\")
 }
 
-pub(super) fn escape_string(source: &str) -> String {
-    source.replace('\\', "\\\\").replace('"', "\\\"")
-}
+pub(super) use renrs_shared::text::escape_quoted as escape_string;
 
-const fn is_identifier_start(character: char) -> bool {
-    character == '_' || character.is_ascii_alphabetic()
-}
+use renrs_shared::text::{is_identifier_continue, is_identifier_start};
 
-const fn is_identifier_continue(character: char) -> bool {
-    is_identifier_start(character) || character.is_ascii_digit()
-}
-
-pub(super) fn valid_identifier(value: &str) -> bool {
-    let mut characters = value.chars();
-    characters.next().is_some_and(is_identifier_start) && characters.all(is_identifier_continue)
-}
+pub(super) use renrs_shared::text::is_identifier as valid_identifier;
 
 #[cfg(test)]
 mod tests {

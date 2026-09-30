@@ -183,7 +183,7 @@ pub fn migrate_project(input: &Path, output: &Path) -> Result<MigrationReport, M
     let mut support = SupportAccumulator::default();
 
     for path in files {
-        let relative = relative_name(root, &path);
+        let relative = renrs_shared::path::relative_name(root, &path);
         if path.extension().and_then(|value| value.to_str()) == Some("rpy") {
             let source = fs::read_to_string(&path)?;
             let converted = support
@@ -388,15 +388,6 @@ fn write_new_file(path: &Path, bytes: &[u8]) -> Result<(), std::io::Error> {
     }
     let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
     file.write_all(bytes)
-}
-
-fn relative_name(root: &Path, path: &Path) -> String {
-    path.strip_prefix(root)
-        .unwrap_or(path)
-        .components()
-        .map(|component| component.as_os_str().to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/")
 }
 
 #[cfg(test)]

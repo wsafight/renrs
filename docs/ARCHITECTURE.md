@@ -6,15 +6,17 @@ and still exposes the `renrs` binary.
 
 | Crate | Responsibility | Direct Internal Dependencies |
 | --- | --- | --- |
-| `renrs-syntax` | AST, values, spans, diagnostics, text markup and localization data | None |
+| `renrs-shared` | Leaf utilities: path safety and normalization, SHA-256 helpers, atomic writes and JSON IO, identifier/color/escape predicates, diagnostic joins | None |
+| `renrs-syntax` | AST, values, spans, diagnostics, text markup and localization data | shared |
 | `renrs-model` | Compiled instructions/IDs and the runtime-facing project bundle | syntax |
-| `renrs-compiler` | Parsing, lowering, static analysis and catalog extraction | syntax, model |
-| `renrs-runtime` | Interpreter, current-format snapshots, hot reload, rollback, profiles, debugger and route exploration | syntax, model, extensions |
-| `renrs-project` | Project assembly, resources, archives, themes, screens and video manifests | syntax, model, compiler, extensions |
-| `renrs-editor` | Symbols, references, formatting, story graphs and LSP server | syntax, compiler, project |
-| `renrs-web` | WASM bindings and expression parsing at the browser boundary | syntax, compiler, runtime |
-| `renrs` (root) | Library facade, save repository, distributions and CLI entry points | syntax, model, compiler, runtime, project, editor |
-| `renrs-player` | Native presentation, audio, fonts and the `renrs` player binary | root `renrs` |
+| `renrs-algorithms` | Generic graph traversal: reachability, iterative Tarjan SCC, bounded BFS over `(node, state)` pairs | None |
+| `renrs-compiler` | Parsing, lowering, static analysis and catalog extraction | syntax, model, algorithms |
+| `renrs-runtime` | Interpreter, current-format snapshots, hot reload, rollback, profiles, debugger and route exploration | syntax, model, extensions, algorithms |
+| `renrs-project` | Project assembly, resources, archives, themes, screens and video manifests | shared, syntax, model, compiler, extensions |
+| `renrs-editor` | Symbols, references, formatting, story graphs and LSP server | shared, syntax, compiler, project |
+| `renrs-web` | WASM bindings and expression parsing at the browser boundary | shared, syntax, compiler, runtime |
+| `renrs` (root) | Library facade, save repository, distributions and CLI entry points | shared, syntax, model, compiler, runtime, project, editor |
+| `renrs-player` | Native presentation, audio, fonts and the `renrs` player binary | shared, root `renrs` |
 
 `CompiledProgram` is the pure script output. `ProjectBundle` adds extensions, compiled
 layered images and progress configuration; `Program` remains its compatibility name.

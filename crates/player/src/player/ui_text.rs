@@ -14,13 +14,7 @@ pub(super) fn set_localizer(localizer: Localizer) {
 pub(super) fn tr(text: &str) -> String {
     LOCALIZER.with(|current| {
         let localizer = current.borrow();
-        let key = format!(
-            "ui.{}",
-            text.to_ascii_lowercase()
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join("_")
-        );
+        let key = renrs_shared::text::ui_key(text);
         if let Ok(id) = TranslationId::new(key) {
             let translated = localizer.translate(&id, text);
             if translated != text {

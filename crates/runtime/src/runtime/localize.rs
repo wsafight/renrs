@@ -72,7 +72,7 @@ impl Runtime {
         if dialogue_changed && let Some(dialogue) = dialogue {
             self.replace_presented_dialogue(dialogue);
         }
-        if let Some(checkpoint) = self.rollback.last_mut()
+        if let Some(checkpoint) = self.rollback.back_mut()
             && let Some(waiting) = &self.waiting
         {
             checkpoint.stage.clone_from(&self.stage);

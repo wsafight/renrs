@@ -11,7 +11,7 @@ use super::conversion::{LineConversion, unsupported, unsupported_with_code};
 use super::expressions::{escape_string, quoted_argument, valid_identifier};
 use super::generated_assets::{GeneratedAsset, GeneratedAssetKind};
 use super::image_expression::{StaticImageExpression, parse_static_image_expression};
-use super::relative_name;
+use renrs_shared::path::relative_name;
 
 #[derive(Debug)]
 pub(super) struct TransitionConversion {

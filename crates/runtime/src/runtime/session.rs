@@ -50,7 +50,7 @@ impl Runtime {
             waiting: self.waiting.clone(),
             language: self.localizer.language().map(ToOwned::to_owned),
             history: self.history.clone(),
-            rollback: self.rollback.clone(),
+            rollback: self.rollback.iter().cloned().collect(),
         }
     }
 
@@ -109,10 +109,10 @@ impl Runtime {
         if self.rollback.len() < 2 {
             return Err(RuntimeError::CannotRollback);
         }
-        self.rollback.pop();
+        self.rollback.pop_back();
         let checkpoint = self
             .rollback
-            .last()
+            .back()
             .cloned()
             .ok_or(RuntimeError::CannotRollback)?;
         self.instruction = checkpoint.instruction;
@@ -326,7 +326,7 @@ impl Runtime {
             return;
         };
         let (instruction_id, instruction_is_interaction_anchor) = self.snapshot_position();
-        self.rollback.push(RollbackCheckpoint {
+        self.rollback.push_back(RollbackCheckpoint {
             instruction: self.instruction,
             call_stack: self.call_stack.clone(),
             instruction_id,
@@ -339,7 +339,7 @@ impl Runtime {
             history_len: self.history.len(),
         });
         if self.rollback.len() > MAX_ROLLBACK_CHECKPOINTS {
-            self.rollback.remove(0);
+            self.rollback.pop_front();
         }
     }
 

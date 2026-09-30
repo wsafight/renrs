@@ -24,7 +24,7 @@ pub fn load_project(game_root: &Path) -> Result<Script, Vec<Diagnostic>> {
     let mut sources = Vec::new();
     let mut diagnostics = Vec::new();
     for path in files {
-        let source_name = relative_source_name(game_root, &path);
+        let source_name = renrs_shared::path::relative_name(game_root, &path);
         match fs::read_to_string(&path) {
             Ok(source) => sources.push((source_name, source)),
             Err(error) => diagnostics.push(Diagnostic::new(
@@ -131,15 +131,6 @@ fn collect_scripts(game_root: &Path) -> Result<Vec<PathBuf>, Vec<Diagnostic>> {
                 error.to_string(),
             )]
         })
-}
-
-fn relative_source_name(game_root: &Path, path: &Path) -> String {
-    path.strip_prefix(game_root)
-        .unwrap_or(path)
-        .components()
-        .map(|component| component.as_os_str().to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/")
 }
 
 #[allow(clippy::too_many_lines)]

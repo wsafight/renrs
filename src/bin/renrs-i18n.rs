@@ -111,10 +111,10 @@ fn load_program(path: &Path) -> Result<renrs::Program, String> {
     let source = ProjectSource::open(path.to_path_buf()).map_err(|error| error.to_string())?;
     let script = source
         .load_script()
-        .map_err(|diagnostics| format_diagnostics(&diagnostics))?;
+        .map_err(|diagnostics| renrs_shared::diagnostic::join_diagnostics(&diagnostics))?;
     let diagnostics = source.validate(&script);
     if !diagnostics.is_empty() {
-        return Err(format_diagnostics(&diagnostics));
+        return Err(renrs_shared::diagnostic::join_diagnostics(&diagnostics));
     }
     let program = compile(&script).map_err(|error| error.to_string())?;
     let analysis = analyze(&program);
@@ -159,34 +159,13 @@ fn write_catalog(path: &Path, catalog: &TranslationCatalog) -> Result<(), String
         .get_ref()
         .sync_all()
         .map_err(|error| error.to_string())?;
-    replace_file(&temporary, path).map_err(|error| error.to_string())
+    renrs_shared::io::replace_file(&temporary, path).map_err(|error| error.to_string())
 }
 
 fn temporary_path(path: &Path) -> PathBuf {
     let mut value = path.as_os_str().to_owned();
     value.push(format!(".{}.tmp", std::process::id()));
     PathBuf::from(value)
-}
-
-fn replace_file(temporary: &Path, destination: &Path) -> std::io::Result<()> {
-    if let Err(error) = fs::rename(temporary, destination) {
-        if destination.exists() {
-            fs::remove_file(destination)?;
-            fs::rename(temporary, destination)
-        } else {
-            Err(error)
-        }
-    } else {
-        Ok(())
-    }
-}
-
-fn format_diagnostics(diagnostics: &[renrs::Diagnostic]) -> String {
-    diagnostics
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 fn usage() -> String {

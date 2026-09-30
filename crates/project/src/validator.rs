@@ -1,5 +1,6 @@
+use renrs_shared::path::safe_relative_path;
 use std::collections::HashSet;
-use std::path::{Component, Path};
+use std::path::Path;
 
 use crate::archive::ResourceArchive;
 use crate::diagnostic::Diagnostic;
@@ -270,12 +271,7 @@ impl Validator<'_> {
     }
 
     fn resource(&mut self, resource: &str, span: &crate::syntax::Span) {
-        let path = Path::new(resource);
-        let is_safe = !resource.is_empty()
-            && !path.is_absolute()
-            && path
-                .components()
-                .all(|component| matches!(component, Component::Normal(_)));
+        let is_safe = safe_relative_path(resource);
         if !is_safe {
             self.push(
                 span,

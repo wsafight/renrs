@@ -1,10 +1,10 @@
+use renrs_shared::path::{relative_name, safe_relative_path};
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 const MAGIC: &[u8; 8] = b"RENRSAR1";
@@ -79,8 +79,11 @@ pub fn pack_project(root: &Path, destination: &Path) -> Result<usize, ArchiveErr
         if !safe_relative_path(&name) {
             return Err(ArchiveError::InvalidPath(name));
         }
-        let (length, sha256) =
-            copy_hashed(&mut File::open(path)?, &mut std::io::sink(), &mut buffer)?;
+        let (length, sha256) = renrs_shared::hash::copy_hashed(
+            &mut File::open(path)?,
+            &mut std::io::sink(),
+            &mut buffer,
+        )?;
         entries.push(ArchiveEntry {
             path: name,
             offset,
@@ -115,7 +118,8 @@ pub fn pack_project(root: &Path, destination: &Path) -> Result<usize, ArchiveErr
     output.write_all(&manifest_length.to_le_bytes())?;
     output.write_all(&manifest)?;
     for (path, entry) in paths.iter().zip(&manifest_data.entries) {
-        let (length, digest) = copy_hashed(&mut File::open(path)?, &mut output, &mut buffer)?;
+        let (length, digest) =
+            renrs_shared::hash::copy_hashed(&mut File::open(path)?, &mut output, &mut buffer)?;
         if length != entry.length || digest != entry.sha256 {
             return Err(ArchiveError::Checksum(entry.path.clone()));
         }
@@ -123,27 +127,8 @@ pub fn pack_project(root: &Path, destination: &Path) -> Result<usize, ArchiveErr
     output.flush()?;
     output.sync_all()?;
     drop(output);
-    replace_file(&temporary, destination)?;
+    renrs_shared::io::replace_file(&temporary, destination)?;
     Ok(entry_count)
-}
-
-fn copy_hashed(
-    input: &mut impl Read,
-    output: &mut impl Write,
-    buffer: &mut [u8],
-) -> Result<(u64, String), std::io::Error> {
-    let mut digest = Sha256::new();
-    let mut length = 0_u64;
-    loop {
-        let count = input.read(buffer)?;
-        if count == 0 {
-            break;
-        }
-        digest.update(&buffer[..count]);
-        output.write_all(&buffer[..count])?;
-        length += count as u64;
-    }
-    Ok((length, format!("{:x}", digest.finalize())))
 }
 
 impl ResourceArchive {
@@ -235,7 +220,7 @@ impl ResourceArchive {
             .map_err(|_| ArchiveError::InvalidBounds(entry.path.clone()))?;
         let mut bytes = vec![0; length];
         file.read_exact(&mut bytes)?;
-        if format!("{:x}", Sha256::digest(&bytes)) != entry.sha256 {
+        if renrs_shared::hash::sha256_hex(&bytes) != entry.sha256 {
             return Err(ArchiveError::Checksum(entry.path.clone()));
         }
         Ok(bytes)
@@ -258,16 +243,7 @@ impl ResourceArchive {
             self.payload_start + entry.offset,
             entry.length,
         )?;
-        let mut digest = Sha256::new();
-        let mut buffer = vec![0; 64 * 1024];
-        loop {
-            let count = reader.read(&mut buffer)?;
-            if count == 0 {
-                break;
-            }
-            digest.update(&buffer[..count]);
-        }
-        if format!("{:x}", digest.finalize()) != entry.sha256 {
+        if renrs_shared::hash::sha256_reader(&mut reader)? != entry.sha256 {
             return Err(ArchiveError::Checksum(path.to_owned()));
         }
         reader.seek(SeekFrom::Start(0))?;
@@ -368,35 +344,6 @@ fn map_create_error(error: std::io::Error, path: &Path) -> ArchiveError {
     } else {
         ArchiveError::Io(error)
     }
-}
-
-fn relative_name(root: &Path, path: &Path) -> String {
-    path.strip_prefix(root)
-        .unwrap_or(path)
-        .components()
-        .map(|component| component.as_os_str().to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/")
-}
-
-fn safe_relative_path(path: &str) -> bool {
-    !path.is_empty()
-        && !Path::new(path).is_absolute()
-        && Path::new(path)
-            .components()
-            .all(|component| matches!(component, Component::Normal(_)))
-}
-
-fn replace_file(temporary: &Path, destination: &Path) -> Result<(), std::io::Error> {
-    if let Err(error) = fs::rename(temporary, destination) {
-        if destination.exists() {
-            fs::remove_file(destination)?;
-            fs::rename(temporary, destination)?;
-        } else {
-            return Err(error);
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]

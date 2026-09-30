@@ -8,7 +8,7 @@ use crate::diagnostic::Diagnostic;
 use crate::syntax::{Expr, Span, StrPart};
 use crate::text::{is_text_tag, validate_text_source};
 
-use graph::{ControlFlowGraph, strongly_connected_components};
+use graph::ControlFlowGraph;
 
 /// Performs whole-program control-flow and definite-assignment analysis.
 #[must_use]
@@ -276,7 +276,7 @@ fn immediate_cycle_diagnostics(
     graph: &ControlFlowGraph,
     reachable: &[bool],
 ) -> Vec<Diagnostic> {
-    let components = strongly_connected_components(graph, reachable);
+    let components = graph.components(reachable);
     components
         .into_iter()
         .filter(|component| {

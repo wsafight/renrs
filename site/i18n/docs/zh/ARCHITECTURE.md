@@ -5,15 +5,17 @@
 
 | Crate | 职责 | 直接内部依赖 |
 | --- | --- | --- |
-| `renrs-syntax` | AST、值、span、诊断、文本标记和本地化数据 | 无 |
+| `renrs-shared` | 叶子工具：路径安全与规范化、SHA-256 辅助、原子写与 JSON IO、标识符/颜色/转义判定、诊断拼接 | 无 |
+| `renrs-syntax` | AST、值、span、诊断、文本标记和本地化数据 | shared |
 | `renrs-model` | 编译后的指令/ID 和面向运行时的项目包 | syntax |
-| `renrs-compiler` | 解析、降低、静态分析和目录提取 | syntax, model |
-| `renrs-runtime` | 解释器、当前格式快照、热重载、回滚、配置、调试器和路线探索 | syntax, model, extensions |
-| `renrs-project` | 项目组装、资源、归档、主题、界面和视频清单 | syntax, model, compiler, extensions |
-| `renrs-editor` | 符号、引用、格式化、剧情图和 LSP 服务 | syntax, compiler, project |
-| `renrs-web` | WASM 绑定及浏览器边界的表达式解析 | syntax, compiler, runtime |
-| `renrs`（根包） | 公共库 facade、存档仓储、发行物和 CLI 入口 | syntax, model, compiler, runtime, project, editor |
-| `renrs-player` | 原生呈现、音频、字体和 `renrs` 播放器二进制 | 根包 `renrs` |
+| `renrs-algorithms` | 通用图遍历：可达性、迭代式 Tarjan 强连通分量、基于 `(node, state)` 对的有界 BFS | 无 |
+| `renrs-compiler` | 解析、降低、静态分析和目录提取 | syntax, model, algorithms |
+| `renrs-runtime` | 解释器、当前格式快照、热重载、回滚、配置、调试器和路线探索 | syntax, model, extensions, algorithms |
+| `renrs-project` | 项目组装、资源、归档、主题、界面和视频清单 | shared, syntax, model, compiler, extensions |
+| `renrs-editor` | 符号、引用、格式化、剧情图和 LSP 服务 | shared, syntax, compiler, project |
+| `renrs-web` | WASM 绑定及浏览器边界的表达式解析 | shared, syntax, compiler, runtime |
+| `renrs`（根包） | 公共库 facade、存档仓储、发行物和 CLI 入口 | shared, syntax, model, compiler, runtime, project, editor |
+| `renrs-player` | 原生呈现、音频、字体和 `renrs` 播放器二进制 | shared, 根包 `renrs` |
 
 `CompiledProgram` 是纯脚本编译产物。`ProjectBundle` 在其上增加扩展、编译后的分层图像
 和进度配置；`Program` 保留为兼容名称。运行时直接依赖该模型；执行时不加载文件、

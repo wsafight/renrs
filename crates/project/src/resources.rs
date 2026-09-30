@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
+
+pub use renrs_shared::path::relative_name;
 
 pub const RESOURCE_RULES_FILE: &str = "resources.json";
 
@@ -51,15 +53,7 @@ impl ResourceRules {
 
 #[must_use]
 pub fn safe_path(path: &str) -> bool {
-    !path.is_empty()
-        && !path.contains(['\\', ':'])
-        && !Path::new(path).is_absolute()
-        && path
-            .split('/')
-            .all(|part| !part.is_empty() && part != "." && part != "..")
-        && Path::new(path)
-            .components()
-            .all(|part| matches!(part, Component::Normal(_)))
+    renrs_shared::path::safe_resource_path(path)
 }
 
 #[must_use]
@@ -106,16 +100,6 @@ pub fn collect_files(root: &Path) -> io::Result<Vec<PathBuf>> {
     }
     files.sort_by_key(|path| relative_name(root, path));
     Ok(files)
-}
-
-#[must_use]
-pub fn relative_name(root: &Path, path: &Path) -> String {
-    path.strip_prefix(root)
-        .unwrap_or(path)
-        .components()
-        .map(|part| part.as_os_str().to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/")
 }
 
 /// Validates a resource's inclusion and canonical filesystem boundary.

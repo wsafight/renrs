@@ -23,10 +23,11 @@ fn run_from(arguments: Vec<PathBuf>) -> Result<(), String> {
     if arguments.next().is_some() {
         return Err("usage: renrs-graph [game-directory] [output.dot]".to_owned());
     }
-    let script = load_project(&game_root).map_err(join_diagnostics)?;
+    let script = load_project(&game_root)
+        .map_err(|diagnostics| renrs_shared::diagnostic::join_diagnostics(&diagnostics))?;
     let diagnostics = validate(&script, &game_root);
     if !diagnostics.is_empty() {
-        return Err(join_diagnostics(diagnostics));
+        return Err(renrs_shared::diagnostic::join_diagnostics(&diagnostics));
     }
     let graph = story_graph(&script);
     if let Some(path) = output {
@@ -37,14 +38,6 @@ fn run_from(arguments: Vec<PathBuf>) -> Result<(), String> {
         print!("{graph}");
     }
     Ok(())
-}
-
-fn join_diagnostics(diagnostics: Vec<renrs::Diagnostic>) -> String {
-    diagnostics
-        .into_iter()
-        .map(|diagnostic| diagnostic.to_string())
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 #[cfg(test)]
@@ -69,7 +62,10 @@ mod tests {
             .is_err()
         );
         assert!(
-            join_diagnostics(vec![renrs::Diagnostic::new("a.rns", 1, 1, "x")]).contains("a.rns")
+            renrs_shared::diagnostic::join_diagnostics(&[renrs::Diagnostic::new(
+                "a.rns", 1, 1, "x"
+            )])
+            .contains("a.rns")
         );
     }
 }
