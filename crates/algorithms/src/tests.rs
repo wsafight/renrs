@@ -90,5 +90,5 @@ fn empty_graph_has_no_nodes() {
     let graph = Graph::default();
     assert!(graph.is_empty());
     assert_eq!(graph.len(), 0);
-    assert!(graph.successors(0).is_empty());
+    assert_eq!(graph.successors(0), []);
 }

@@ -63,7 +63,7 @@ fn copy_hashed_rejects_an_empty_buffer() {
     let mut output = Vec::new();
     let error = hash::copy_hashed(&mut input, &mut output, &mut []).unwrap_err();
     assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
-    assert!(output.is_empty());
+    assert_eq!(output, Vec::<u8>::new());
 }
 
 #[test]

@@ -35,7 +35,7 @@ fn explores_both_endings_and_reports_truncation() {
     let report = explore(&program, ExploreLimits::default()).unwrap();
     assert!(report.complete);
     assert_eq!(report.finished_paths.len(), 2);
-    assert!(report.uncovered_labels.is_empty());
+    assert_eq!(report.uncovered_labels, Vec::<String>::new());
     let report = explore(
         &program,
         ExploreLimits {

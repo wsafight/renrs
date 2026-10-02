@@ -56,5 +56,5 @@ fn layer_camera_survives_animation_sampling_snapshot_and_rollback() {
     restored.continue_story().unwrap();
     assert!((restored.stage().layer_cameras["effects"].scale - 2.0).abs() < f32::EPSILON);
     restored.rollback().unwrap();
-    assert!(restored.stage().layer_cameras.is_empty());
+    assert_eq!(restored.stage().layer_cameras.len(), 0);
 }

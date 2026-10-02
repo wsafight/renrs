@@ -44,7 +44,7 @@ fn stable_hash(domain: &str, parts: &[&str]) -> String {
     for part in parts {
         hash_part(&mut hasher, part.as_bytes());
     }
-    format!("{:x}", hasher.finalize())
+    hex::encode(hasher.finalize())
 }
 
 fn hash_part(hasher: &mut Sha256, bytes: &[u8]) {

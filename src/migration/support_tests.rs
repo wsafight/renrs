@@ -19,7 +19,7 @@ fn maps_options_and_gui_to_project_support_files() {
             &AssetCatalog::empty(),
         )
         .unwrap();
-    assert!(gui.issues.is_empty());
+    assert_eq!(gui.issues, []);
     let generated = support.finish().unwrap();
     let theme: Theme = serde_json::from_slice(&generated.theme.unwrap()).unwrap();
     assert_eq!(theme.accent_color, "#123456");

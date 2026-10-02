@@ -97,7 +97,7 @@ mod tests {
         let mut watcher = ProjectWatcher::new(root.path(), Duration::ZERO).unwrap();
         fs::write(root.path().join("theme.json"), b"{}").unwrap();
         assert_eq!(watcher.poll_changes().unwrap(), ["theme.json"]);
-        assert!(watcher.poll_changes().unwrap().is_empty());
+        assert_eq!(watcher.poll_changes().unwrap(), Vec::<String>::new());
         fs::remove_file(root.path().join("theme.json")).unwrap();
         assert_eq!(watcher.poll_changes().unwrap(), ["theme.json"]);
     }

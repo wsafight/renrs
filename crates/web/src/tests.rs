@@ -121,7 +121,10 @@ label start:
     engine.set_variable("score", "2").unwrap();
     engine.apply_expression("score", "score + 1").unwrap();
     let history: serde_json::Value = serde_json::from_str(&engine.history(0, 10).unwrap()).unwrap();
-    assert!(!history.as_array().unwrap().is_empty());
+    assert_ne!(
+        history.as_array().unwrap().as_slice(),
+        [] as [serde_json::Value; 0]
+    );
     engine.profile().unwrap();
     engine.inspect().unwrap();
     engine.audio_events().unwrap();
@@ -152,7 +155,10 @@ fn parallel_animation_frames_are_sampled() {
     engine.action("start", 0).unwrap();
     let sprites: serde_json::Value =
         serde_json::from_str(&engine.animation_frame(0.5).unwrap()).unwrap();
-    assert!(!sprites.as_array().unwrap().is_empty());
+    assert_ne!(
+        sprites.as_array().unwrap().as_slice(),
+        [] as [serde_json::Value; 0]
+    );
     engine.camera_frame(0.5).unwrap();
     let frames: serde_json::Value =
         serde_json::from_str(&engine.animation_frames().unwrap()).unwrap();

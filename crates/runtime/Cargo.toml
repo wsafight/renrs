@@ -10,6 +10,7 @@ renrs-algorithms.workspace = true
 renrs-extensions.workspace = true
 renrs-model.workspace = true
 renrs-syntax.workspace = true
+hex.workspace = true
 serde = { workspace = true, features = ["derive", "rc"] }
 serde_json.workspace = true
 thiserror.workspace = true

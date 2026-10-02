@@ -82,7 +82,7 @@ function errorMessage(error: unknown): string {
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   registerProjectView(context);
-  const output = vscode.window.createOutputChannel('RenRS');
+  const output = vscode.window.createOutputChannel('RenRS', { log: true });
   const diagnostics = vscode.languages.createDiagnosticCollection('renrs-project');
   const migrationDiagnostics = vscode.languages.createDiagnosticCollection('renrs-migration');
   context.subscriptions.push(output, diagnostics, migrationDiagnostics);

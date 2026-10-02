@@ -102,7 +102,7 @@ pub fn compile(script: &Script) -> Result<Program, CompileError> {
     validate_translation_ids(&compiler.instructions)?;
 
     let encoded = serde_json::to_vec(script).map_err(CompileError::Fingerprint)?;
-    let fingerprint = format!("{:x}", Sha256::digest(encoded));
+    let fingerprint = hex::encode(Sha256::digest(encoded));
     Ok(CompiledProgram {
         title: script.title.clone(),
         project_id: script.project_id.clone(),

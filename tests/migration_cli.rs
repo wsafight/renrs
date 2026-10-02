@@ -59,7 +59,7 @@ fn strict_migration_fails_for_unsupported_source_but_writes_the_report() {
 
     assert!(!result.status.success());
     let report = read_report(&output);
-    assert!(!report.issues.is_empty());
+    assert_ne!(report.issues.as_slice(), []);
     assert!(report.has_strict_failures());
 }
 
@@ -79,8 +79,8 @@ fn strict_migration_fails_for_post_validation_diagnostics_and_writes_the_report(
 
     assert!(!result.status.success());
     let report = read_report(&output);
-    assert!(report.issues.is_empty());
-    assert!(!report.post_validation_diagnostics.is_empty());
+    assert_eq!(report.issues, []);
+    assert_ne!(report.post_validation_diagnostics.as_slice(), []);
     assert!(report.has_strict_failures());
 }
 
@@ -120,7 +120,7 @@ fn official_the_question_sample_matches_the_migration_baseline() {
     for code in baseline["required_codes"].as_array().unwrap() {
         assert!(report.summary.by_code.contains_key(code.as_str().unwrap()));
     }
-    assert!(report.post_validation_diagnostics.is_empty());
+    assert_eq!(report.post_validation_diagnostics, []);
     assert!(output.join("theme.json").is_file());
     assert!(output.join("screens.json").is_file());
     assert!(

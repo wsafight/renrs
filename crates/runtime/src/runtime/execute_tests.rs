@@ -25,7 +25,7 @@ label done:
     assert_eq!(runtime.stage().background.as_deref(), Some("room.png"));
     assert_eq!(runtime.stage().sprites.len(), 1);
     assert_eq!(runtime.continue_story().unwrap(), WaitState::Dialogue);
-    assert!(runtime.stage().sprites.is_empty());
+    assert_eq!(runtime.stage().sprites, []);
     assert_eq!(runtime.stage().dialogue.as_ref().unwrap().text, "Arrived");
 }
 

@@ -26,10 +26,10 @@ impl Runtime {
                     }
                 }
             }
-            if let Some(group) = &layer.group {
-                if let Some(previous) = grouped.insert(group, index) {
-                    selected[previous] = false;
-                }
+            if let Some(group) = &layer.group
+                && let Some(previous) = grouped.insert(group, index)
+            {
+                selected[previous] = false;
             }
             selected[index] = true;
         }

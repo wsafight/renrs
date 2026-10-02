@@ -69,7 +69,7 @@ fn checksum_interned(save: &SaveFile, snapshot: &Snapshot) -> Result<String, ser
         presentation: &save.presentation,
     };
     let bytes = serde_json::to_vec(&payload)?;
-    Ok(format!("{:x}", Sha256::digest(bytes)))
+    Ok(hex::encode(Sha256::digest(bytes)))
 }
 
 #[derive(Serialize)]

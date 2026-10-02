@@ -12,7 +12,7 @@ use std::path::Path;
 /// Hex digest of an in-memory buffer.
 #[must_use]
 pub fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
-    format!("{:x}", Sha256::digest(bytes.as_ref()))
+    hex::encode(Sha256::digest(bytes.as_ref()))
 }
 
 /// Hex digest of a reader, hashed in fixed-size chunks.
@@ -30,7 +30,7 @@ pub fn sha256_reader(mut reader: impl Read) -> io::Result<String> {
         }
         digest.update(&buffer[..count]);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(hex::encode(digest.finalize()))
 }
 
 /// Hex digest of a file without loading it into memory.
@@ -69,7 +69,7 @@ pub fn copy_hashed(
         output.write_all(&buffer[..count])?;
         length += count as u64;
     }
-    Ok((length, format!("{:x}", digest.finalize())))
+    Ok((length, hex::encode(digest.finalize())))
 }
 
 /// Hashes `fingerprint` together with a serialized payload.
@@ -87,5 +87,5 @@ pub fn fold_fingerprint<T: serde::Serialize>(
     let mut hash = Sha256::new();
     hash.update(fingerprint.as_bytes());
     hash.update(serde_json::to_vec(payload)?);
-    Ok(format!("{:x}", hash.finalize()))
+    Ok(hex::encode(hash.finalize()))
 }

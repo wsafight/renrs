@@ -16,7 +16,7 @@ impl SaveThumbnail {
         image::imageops::flip_vertical_in_place(&mut image);
         let mut output = std::io::Cursor::new(Vec::new());
         image::DynamicImage::ImageRgba8(image)
-            .write_to(&mut output, image::ImageOutputFormat::Png)
+            .write_to(&mut output, image::ImageFormat::Png)
             .map_err(|error| error.to_string())?;
         Ok(output.into_inner())
     }

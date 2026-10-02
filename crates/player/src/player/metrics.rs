@@ -37,7 +37,8 @@ impl Default for Metrics {
             loop {
                 system.refresh_processes_specifics(
                     sysinfo::ProcessesToUpdate::Some(&[pid]),
-                    sysinfo::ProcessRefreshKind::new().with_memory(),
+                    true,
+                    sysinfo::ProcessRefreshKind::nothing().with_memory(),
                 );
                 if let Some(process) = system.process(pid)
                     && send.send(process.memory()).is_err()

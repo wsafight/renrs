@@ -197,7 +197,7 @@ mod tests {
         let repository = SaveRepository::new(root.path());
         assert_send_sync(&repository);
         let cloned = repository.clone();
-        assert!(repository.list_cached().unwrap().is_empty());
+        assert_eq!(repository.list_cached().unwrap(), []);
         let mut runtime = Runtime::new(
             compile(&parse_script("label start:\n    \"Hello\"", "test.rns").unwrap()).unwrap(),
         )
@@ -209,7 +209,7 @@ mod tests {
         std::fs::remove_file(root.path().join("slot-1.json")).unwrap();
         assert_eq!(repository.list_cached().unwrap().len(), 1);
         repository.index().scanned_at = None;
-        assert!(repository.list_cached().unwrap().is_empty());
+        assert_eq!(repository.list_cached().unwrap(), []);
     }
 
     #[test]

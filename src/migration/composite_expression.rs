@@ -41,7 +41,7 @@ pub(super) fn parse_composite_expression(
     let width = u32::try_from(width).expect("positive Composite width fits u32");
     let height = u32::try_from(height).expect("positive Composite height fits u32");
     let mut layers = Vec::with_capacity((arguments.len() - 1) / 2);
-    for pair in arguments[1..].chunks_exact(2) {
+    for pair in arguments[1..].as_chunks::<2>().0 {
         let (x, y) = parse_pair(pair[0], "layer position")?;
         let path = parse_quoted_path(pair[1])?;
         layers.push(CompositeLayer { x, y, path });
@@ -84,8 +84,8 @@ impl StaticComposite {
             hasher.update([0]);
         }
         format!(
-            "images/__renrs_composite_{:x}.layers.json",
-            hasher.finalize()
+            "images/__renrs_composite_{}.layers.json",
+            hex::encode(hasher.finalize())
         )
     }
 

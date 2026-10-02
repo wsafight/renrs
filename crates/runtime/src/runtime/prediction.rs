@@ -91,7 +91,7 @@ mod tests {
         let before = serde_json::to_string(&runtime.snapshot()).unwrap();
         assert_eq!(runtime.upcoming_images(4), ["called.png", "returned.png"]);
         assert_eq!(serde_json::to_string(&runtime.snapshot()).unwrap(), before);
-        assert!(runtime.upcoming_images(0).is_empty());
+        assert_eq!(runtime.upcoming_images(0), Vec::<String>::new());
     }
     #[test]
     fn predicts_alternative_choices_and_bounds_recursive_calls() {

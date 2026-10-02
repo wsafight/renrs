@@ -56,7 +56,7 @@ fn rejects_versions_styles_and_widgets_on_the_wrong_screen() {
             .is_err()
     );
     let screens = Screens::from_slice(br#"{"dialogue":{"bounds":{"x":0,"y":0,"width":400,"height":160},"root":{"type":"dialogue"}},"choices":{"bounds":{"x":0,"y":160,"width":400,"height":160},"root":{"type":"choices"}}}"#).unwrap();
-    assert!(screens.images().is_empty());
+    assert_eq!(screens.images(), Vec::<String>::new());
     assert_eq!(screens.images_for(ScreenKind::Dialogue).len(), 0);
 }
 

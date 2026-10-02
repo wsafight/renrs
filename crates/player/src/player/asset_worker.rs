@@ -82,7 +82,7 @@ fn decode(
     let bytes = source
         .read_limited(path, ENCODED_LIMIT)
         .map_err(|error| error.to_string())?;
-    let dimensions = image::io::Reader::new(std::io::Cursor::new(&bytes))
+    let dimensions = image::ImageReader::new(std::io::Cursor::new(&bytes))
         .with_guessed_format()
         .map_err(|error| error.to_string())?
         .into_dimensions()
@@ -94,10 +94,10 @@ fn decode(
         return Err("image exceeds decode byte budget".to_owned());
     }
     let reservation = budget.reserve(required)?;
-    let mut reader = image::io::Reader::new(std::io::Cursor::new(bytes))
+    let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes))
         .with_guessed_format()
         .map_err(|error| error.to_string())?;
-    let mut limits = image::io::Limits::default();
+    let mut limits = image::Limits::default();
     limits.max_image_width = Some(8192);
     limits.max_image_height = Some(8192);
     limits.max_alloc = Some(required as u64 / 3);

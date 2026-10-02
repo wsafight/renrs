@@ -9,6 +9,7 @@ license.workspace = true
 renrs-algorithms.workspace = true
 renrs-model.workspace = true
 renrs-syntax.workspace = true
+hex.workspace = true
 indexmap.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

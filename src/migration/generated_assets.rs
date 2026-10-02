@@ -17,7 +17,7 @@ impl GeneratedAssetKind {
                 let image = image::RgbaImage::from_pixel(1, 1, image::Rgba(rgba));
                 let mut encoded = std::io::Cursor::new(Vec::new());
                 image::DynamicImage::ImageRgba8(image)
-                    .write_to(&mut encoded, image::ImageOutputFormat::Png)?;
+                    .write_to(&mut encoded, image::ImageFormat::Png)?;
                 Ok(encoded.into_inner())
             }
             Self::Bytes(bytes) => Ok(bytes),

@@ -35,7 +35,7 @@ fn music_queue_and_fades_are_serializable_channel_state() {
             .map(|music| music.path.as_str()),
         Some("audio/two.ogg")
     );
-    assert!(restored.stage().music_queue.is_empty());
+    assert_eq!(restored.stage().music_queue, []);
 }
 
 #[test]

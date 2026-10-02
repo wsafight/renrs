@@ -84,13 +84,13 @@ fn strict_restore_rejects_edits_while_explicit_positions_restore_compatibly() {
         Err(RuntimeError::ScriptChanged)
     ));
     let (compatible, report) = Runtime::restore_compatible(edited.clone(), snapshot).unwrap();
-    assert!(report.alias_resolutions.is_empty());
+    assert_eq!(report.alias_resolutions, []);
     assert_eq!(compatible.waiting(), Some(&WaitState::Dialogue));
     assert_eq!(compatible.stage().dialogue.as_ref().unwrap().text, "Before");
     runtime.reload(edited).unwrap();
     assert_eq!(runtime.waiting(), Some(&WaitState::Dialogue));
     assert_eq!(runtime.stage().dialogue.as_ref().unwrap().text, "Before");
-    assert!(runtime.audio_events.is_empty());
+    assert_eq!(runtime.audio_events, []);
 }
 
 #[test]
@@ -136,7 +136,7 @@ fn reload_refreshes_choice_options_without_replaying() {
             options: vec!["New A".to_owned(), "New B".to_owned()]
         })
     );
-    assert!(runtime.audio_events.is_empty());
+    assert_eq!(runtime.audio_events, []);
 }
 
 #[test]

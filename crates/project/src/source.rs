@@ -420,8 +420,8 @@ mod tests {
         let archive = ProjectSource::open(&archive_path).unwrap();
         let directory_script = directory.load_script().unwrap();
         let archive_script = archive.load_script().unwrap();
-        assert!(directory.validate(&directory_script).is_empty());
-        assert!(archive.validate(&archive_script).is_empty());
+        assert_eq!(directory.validate(&directory_script), []);
+        assert_eq!(archive.validate(&archive_script), []);
         assert_eq!(directory.read("images/bg.bin").unwrap(), [1, 2, 3]);
         assert_eq!(archive.read("images/bg.bin").unwrap(), [1, 2, 3]);
         assert_eq!(

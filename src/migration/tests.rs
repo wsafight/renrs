@@ -50,7 +50,7 @@ label ending:
             .all(|issue| !issue.message.contains("fallthrough"))
     );
     let script = load_project(&output).unwrap();
-    assert!(validate(&script, &output).is_empty());
+    assert_eq!(validate(&script, &output), []);
     assert_eq!(script.title, "Migrated Story");
     let migrated = fs::read_to_string(output.join("script.rns")).unwrap();
     assert!(migrated.contains("menu e \"Choose a path.\":"));
@@ -90,7 +90,7 @@ fn converts_static_parameterized_calls() {
     .unwrap();
 
     let report = migrate_project(&input, &output).unwrap();
-    assert!(report.post_validation_diagnostics.is_empty());
+    assert_eq!(report.post_validation_diagnostics, []);
     assert!(report.issues.is_empty(), "{:?}", report.issues);
     let migrated = fs::read_to_string(output.join("script.rns")).unwrap();
     assert!(migrated.contains("call add(base, amount=3)"));
@@ -114,7 +114,7 @@ fn generates_the_builtin_black_scene_resource() {
     let report = migrate_project(&input, &output).unwrap();
     assert_eq!(report.generated_resources, 1);
     assert!(report.issues.is_empty(), "{:?}", report.issues);
-    assert!(report.post_validation_diagnostics.is_empty());
+    assert_eq!(report.post_validation_diagnostics, []);
     let image = image::open(output.join("images/black.png"))
         .unwrap()
         .into_rgba8();
@@ -143,7 +143,7 @@ fn migrates_static_composite_expression_to_a_layered_image_resource() {
 
     let report = migrate_project(&input, &output).unwrap();
     assert!(report.issues.is_empty(), "{:?}", report.issues);
-    assert!(report.post_validation_diagnostics.is_empty());
+    assert_eq!(report.post_validation_diagnostics, []);
     assert_eq!(report.generated_resources, 1);
     let migrated = fs::read_to_string(output.join("script.rns")).unwrap();
     let generated = migrated

@@ -2,7 +2,7 @@
 name = "renrs"
 version = "0.1.0-rc.1"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.99"
 description = "A small visual novel engine inspired by Ren'Py, written in Rust"
 license = "MIT"
 repository = "https://github.com/wsafight/renrs"
@@ -15,7 +15,7 @@ resolver = "3"
 [workspace.package]
 version = "0.1.0-rc.1"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.99"
 license = "MIT"
 
 [workspace.dependencies]
@@ -28,11 +28,12 @@ renrs-model = { path = "crates/model" }
 renrs-project = { path = "crates/project" }
 renrs-runtime = { path = "crates/runtime" }
 renrs-syntax = { path = "crates/syntax" }
-indexmap = { version = "2.11", features = ["serde"] }
+hex = "0.4"
+indexmap = { version = "2.14", features = ["serde"] }
 serde = "1"
 serde_json = "1"
-sha2 = "0.10"
-tempfile = "3.22"
+sha2 = "0.11"
+tempfile = "3.27"
 thiserror = "2"
 velin = "0.5.1"
 velin-check = "0.5.1"
@@ -56,18 +57,19 @@ renrs-editor.workspace = true
 renrs-shared = { workspace = true, features = ["hash", "io"] }
 renrs-syntax.workspace = true
 hound = "3.5"
-lewton = "0.9"
-image = { version = "0.24", default-features = false, features = ["png", "tga"] }
+lewton = "0.10"
+image = { version = "0.25", default-features = false, features = ["png", "tga"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 tempfile.workspace = true
-ed25519-dalek = "2.2"
-getrandom = "0.3"
+ed25519-dalek = "3"
+getrandom = "0.4"
+hex.workspace = true
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 
 [[bench]]
 name = "engine"
