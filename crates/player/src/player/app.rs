@@ -251,7 +251,8 @@ impl App {
     }
 
     pub(super) fn update_timers(&mut self) {
-        let delta = get_frame_time().min(0.25);
+        let elapsed = get_frame_time();
+        let delta = elapsed.min(0.25);
         self.sync_video_audio();
         let mut should_continue = false;
         if self.screen == Screen::Playing
@@ -261,7 +262,7 @@ impl App {
             && !self.storage.loading
             && !self.storage.quit_after_save
         {
-            self.play_time_seconds += f64::from(delta);
+            self.play_time_seconds += f64::from(elapsed.min(1.0));
             if matches!(
                 self.runtime.as_ref().and_then(Runtime::waiting),
                 Some(WaitState::Dialogue)

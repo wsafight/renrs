@@ -44,7 +44,7 @@ pub(super) struct PlayerStorage {
 
 impl PlayerStorage {
     pub(super) fn new(repository: SaveRepository) -> Self {
-        let mut worker = SaveWorker::new(repository);
+        let mut worker = SaveWorker::new_with_notifier(repository, super::wake::request_update);
         let _ = worker.submit(SaveRequest::List);
         Self {
             worker,
@@ -74,6 +74,22 @@ impl PlayerStorage {
 }
 
 impl App {
+    pub(super) fn storage_wake_in(&self) -> Option<Duration> {
+        if self.storage.worker.busy() {
+            return None;
+        }
+        let mut next = Duration::from_secs(1).saturating_sub(self.storage.last_scan.elapsed());
+        if !self.storage.loading && self.storage.progress_dirty {
+            next =
+                next.min(Duration::from_secs(30).saturating_sub(self.storage.last_auto.elapsed()));
+        }
+        if self.read_dirty {
+            next =
+                next.min(Duration::from_secs(5).saturating_sub(self.storage.last_read.elapsed()));
+        }
+        Some(next)
+    }
+
     pub(super) fn update_storage(&mut self) {
         let mut refresh = false;
         while let Some(response) = self.storage.worker.poll() {

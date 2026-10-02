@@ -20,6 +20,21 @@ pub(super) struct ReloadBundle {
     pub(super) font: Option<Vec<Vec<u8>>>,
 }
 
+struct ReloadArtifacts {
+    theme: renrs::theme::Theme,
+    screens: renrs::screens::Screens,
+    localizer: Localizer,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+struct ArtifactRefresh {
+    theme: bool,
+    screens: bool,
+    localizer: bool,
+    font: bool,
+}
+
 type ReloadResult = (u64, Result<ReloadBundle, String>);
 
 pub(super) struct ReloadWorker {
@@ -30,7 +45,13 @@ pub(super) struct ReloadWorker {
 }
 
 impl ReloadWorker {
-    pub(super) fn new(source: ProjectSource) -> Self {
+    pub(super) fn new(
+        source: ProjectSource,
+        theme: renrs::theme::Theme,
+        screens: renrs::screens::Screens,
+        localizer: Localizer,
+        notify: fn(),
+    ) -> Self {
         let latest = Arc::new(Mutex::new(None));
         let output = latest.clone();
         let (stop, stopped) = mpsc::channel();
@@ -61,11 +82,17 @@ impl ReloadWorker {
                 Err(error) => {
                     *output.lock().unwrap() =
                         Some((edits.load(Ordering::Acquire), Err(error.to_string())));
+                    notify();
                     return;
                 }
             };
             let mut cache = renrs_project::compile_cache::CompileCache::default();
             let _ = cache.compile(&source);
+            let mut artifacts = ReloadArtifacts {
+                theme,
+                screens,
+                localizer,
+            };
             let mut pending = BTreeMap::new();
             let mut generation = 0;
             let mut ticks = 0;
@@ -84,6 +111,7 @@ impl ReloadWorker {
                     Ok(paths) => paths,
                     Err(error) => {
                         *output.lock().unwrap() = Some((revision, Err(error.to_string())));
+                        notify();
                         continue;
                     }
                 };
@@ -103,6 +131,7 @@ impl ReloadWorker {
                 let result = prepare(
                     &source,
                     &mut cache,
+                    &mut artifacts,
                     pending.keys().cloned().collect(),
                     generation,
                 );
@@ -113,6 +142,7 @@ impl ReloadWorker {
                 }
                 retry = false;
                 *output.lock().unwrap() = Some((revision, result));
+                notify();
             }
         });
         Self {
@@ -145,6 +175,7 @@ impl Drop for ReloadWorker {
 fn prepare(
     source: &ProjectSource,
     cache: &mut renrs_project::compile_cache::CompileCache,
+    artifacts: &mut ReloadArtifacts,
     paths: Vec<String>,
     generation: u64,
 ) -> Result<ReloadBundle, String> {
@@ -159,16 +190,27 @@ fn prepare(
                     .join("\n")
             })?,
     );
-    let theme = load_theme(source).map_err(|error| error.to_string())?;
-    let screens = super::ui_declarative::load_screens(source)?;
-    let (localizer, notice) = load_localizer(source, None, false);
-    if let Some(notice) = notice {
-        return Err(notice);
-    }
-    let font = if paths
-        .iter()
-        .any(|path| path == "theme.json" || theme.font_paths().any(|font| font == path))
-    {
+    let refresh = artifact_refresh(&paths, &artifacts.theme);
+    let theme = if refresh.theme {
+        load_theme(source).map_err(|error| error.to_string())?
+    } else {
+        artifacts.theme.clone()
+    };
+    let screens = if refresh.screens {
+        super::ui_declarative::load_screens(source)?
+    } else {
+        artifacts.screens.clone()
+    };
+    let localizer = if refresh.localizer {
+        let (localizer, notice) = load_localizer(source, None, false);
+        if let Some(notice) = notice {
+            return Err(notice);
+        }
+        localizer
+    } else {
+        artifacts.localizer.clone()
+    };
+    let font = if refresh.font {
         Some(
             theme
                 .font_paths()
@@ -177,6 +219,11 @@ fn prepare(
         )
     } else {
         None
+    };
+    *artifacts = ReloadArtifacts {
+        theme: theme.clone(),
+        screens: screens.clone(),
+        localizer: localizer.clone(),
     };
     Ok(ReloadBundle {
         generation,
@@ -187,4 +234,74 @@ fn prepare(
         localizer,
         font,
     })
+}
+
+fn artifact_refresh(paths: &[String], theme: &renrs::theme::Theme) -> ArtifactRefresh {
+    let all = paths
+        .iter()
+        .any(|path| path == renrs_project::resources::RESOURCE_RULES_FILE);
+    let theme_changed = all || paths.iter().any(|path| path == renrs::theme::THEME_FILE);
+    ArtifactRefresh {
+        theme: theme_changed,
+        screens: all
+            || paths
+                .iter()
+                .any(|path| path == renrs::screens::SCREENS_FILE),
+        localizer: all
+            || paths.iter().any(|path| {
+                path.starts_with("locales/")
+                    && std::path::Path::new(path)
+                        .extension()
+                        .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
+            }),
+        font: theme_changed
+            || paths
+                .iter()
+                .any(|path| theme.font_paths().any(|font| font == path)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn refreshes_only_artifacts_affected_by_exact_paths() {
+        let theme = renrs::theme::Theme {
+            font_path: Some("fonts/story.ttf".to_owned()),
+            ..renrs::theme::Theme::default()
+        };
+        let refresh = |paths: &[&str]| {
+            artifact_refresh(
+                &paths
+                    .iter()
+                    .map(|path| (*path).to_owned())
+                    .collect::<Vec<_>>(),
+                &theme,
+            )
+        };
+
+        assert_eq!(
+            refresh(&["script.rns"]),
+            ArtifactRefresh {
+                theme: false,
+                screens: false,
+                localizer: false,
+                font: false,
+            }
+        );
+        assert!(refresh(&["fonts/story.ttf"]).font);
+        assert!(refresh(&["locales/zh.json"]).localizer);
+        assert!(refresh(&[renrs::screens::SCREENS_FILE]).screens);
+        assert!(refresh(&[renrs::theme::THEME_FILE]).theme);
+        assert_eq!(
+            refresh(&[renrs_project::resources::RESOURCE_RULES_FILE]),
+            ArtifactRefresh {
+                theme: true,
+                screens: true,
+                localizer: true,
+                font: true,
+            }
+        );
+    }
 }

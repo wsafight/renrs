@@ -24,7 +24,7 @@
 
 ### 阶段 0：工程门禁（本地已完成）
 
-- [x] 固定 Rust 1.88 工具链；Biome、`cargo fmt`、Clippy（`-D warnings`）和 workspace/all-targets 测试通过。
+- [x] 固定 Rust 1.99 工具链；Biome、`cargo fmt`、Clippy（`-D warnings`）和 workspace/all-targets 测试通过。
 - [x] 增加联网与 advisory 缓存两种审计模式；让 `node scripts/verify-local.mjs` core 门禁可在网络或有效缓存条件下重跑。
 - [x] 对 Web、扩展、播放器和 Rust workspace 的失败输出建立可复现的最小回归测试；覆盖存储/媒体/协议错误、扩展失败回滚、资源/设置/热重载错误，以及 CLI 的协议、迁移和发行失败。
 

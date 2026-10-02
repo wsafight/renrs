@@ -67,6 +67,14 @@ pub struct SaveWorker {
 impl SaveWorker {
     #[must_use]
     pub fn new(repository: SaveRepository) -> Self {
+        Self::new_with_notifier(repository, || {})
+    }
+
+    #[must_use]
+    pub fn new_with_notifier(
+        repository: SaveRepository,
+        notify: impl Fn() + Send + 'static,
+    ) -> Self {
         let (requests, incoming) = mpsc::sync_channel(8);
         let (outgoing, responses) = mpsc::channel();
         let thread = thread::spawn(move || {
@@ -75,6 +83,7 @@ impl SaveWorker {
                 if outgoing.send(response).is_err() {
                     break;
                 }
+                notify();
             }
         });
         Self {
@@ -156,18 +165,9 @@ fn execute(repository: &SaveRepository, request: SaveRequest) -> Result<SaveResp
             path,
             slot,
             project_id,
-        } => {
-            let save: SaveFile = serde_json::from_reader(std::io::BufReader::new(
-                std::fs::File::open(&path).map_err(|e| e.to_string())?,
-            ))
-            .map_err(|e| e.to_string())?;
-            if !save.project_id.is_empty() && save.project_id != project_id {
-                return Err("Save belongs to another game".to_owned());
-            }
-            repository
-                .import(&path, &slot)
-                .map(|()| SaveResponse::Completed("Imported".to_owned()))
-        }
+        } => repository
+            .import_for_project(&path, &slot, &project_id)
+            .map(|()| SaveResponse::Completed("Imported".to_owned())),
         SaveRequest::Persist { path, bytes } => {
             return crate::storage::atomic_write(&path, |file| {
                 use std::io::Write;

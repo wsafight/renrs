@@ -17,7 +17,7 @@ but it does not execute Python, run `.rpy`, or load Ren'Py saves.
 
 ## Try the demo
 
-Needs Rust 1.88+. Linux also needs ALSA (`libasound2-dev` on Debian / Ubuntu).
+Needs Rust 1.99+. Linux also needs ALSA (`libasound2-dev` on Debian / Ubuntu).
 
 ```sh
 cargo run --bin renrs-check -- demo

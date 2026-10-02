@@ -102,10 +102,10 @@ test('language toggle defaults to English and persists Chinese', async ({ page }
 test('documentation body follows the language toggle', async ({ page }) => {
   await page.goto(quickstart);
   await expect(page.getByRole('heading', { name: 'Set up the environment' })).toBeVisible();
-  await expect(page.getByText('Install Rust 1.88 or later')).toBeVisible();
+  await expect(page.getByText('Install Rust 1.99 or later')).toBeVisible();
   await page.getByRole('button', { name: 'Switch to Chinese' }).click();
   await expect(page.getByRole('heading', { name: '准备环境' })).toBeVisible();
-  await expect(page.getByText('安装 Rust 1.88 或更高版本')).toBeVisible();
+  await expect(page.getByText('安装 Rust 1.99 或更高版本')).toBeVisible();
 });
 
 test('docs URL lang query opens Chinese', async ({ page }) => {

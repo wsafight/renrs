@@ -74,10 +74,9 @@ impl SaveRepository {
     /// # Errors
     /// Returns invalid-slot or filesystem errors.
     pub fn delete(&self, name: &str) -> Result<(), SaveError> {
-        let mut index = self.index();
         fs::remove_file(self.slot_path(name)?)?;
-        index.invalidate();
         let _ = fs::remove_file(self.root.join(format!(".{name}.summary")));
+        self.index().invalidate();
         Ok(())
     }
 }

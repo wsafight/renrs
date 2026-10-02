@@ -2,25 +2,42 @@ use std::sync::mpsc::{self, Sender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+const FRAME_INTERVAL: Duration = Duration::from_micros(16_667);
+const MAX_TIMER_STEP: Duration = Duration::from_millis(250);
+
+#[derive(Clone, Copy)]
+enum WakeCommand {
+    Schedule(Option<Duration>),
+    Stop,
+}
+
 pub(super) struct WakeTimer {
-    sender: Sender<Option<Duration>>,
+    sender: Sender<WakeCommand>,
     thread: Option<JoinHandle<()>>,
     deadline: Option<Instant>,
-    animated: bool,
+    interval: Option<Duration>,
 }
 
 impl WakeTimer {
     pub(super) fn new() -> Self {
         let (sender, receiver) = mpsc::channel();
         let thread = std::thread::spawn(move || {
-            while let Ok(Some(mut delay)) = receiver.recv() {
+            while let Ok(command) = receiver.recv() {
+                let WakeCommand::Schedule(Some(mut delay)) = command else {
+                    if matches!(command, WakeCommand::Stop) {
+                        return;
+                    }
+                    continue;
+                };
                 loop {
                     match receiver.recv_timeout(delay) {
-                        Ok(Some(next)) => delay = next,
-                        Ok(None) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
+                        Ok(WakeCommand::Schedule(Some(next))) => delay = next,
+                        Ok(WakeCommand::Schedule(None)) => break,
+                        Ok(WakeCommand::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => {
+                            return;
+                        }
                         Err(mpsc::RecvTimeoutError::Timeout) => {
-                            macroquad::miniquad::window::schedule_update();
-                            wake_event_loop();
+                            request_update();
                             break;
                         }
                     }
@@ -31,29 +48,33 @@ impl WakeTimer {
             sender,
             thread: Some(thread),
             deadline: None,
-            animated: false,
+            interval: None,
         }
     }
 
-    pub(super) fn schedule(&mut self, animated: bool, frame_started: Instant) {
+    pub(super) fn schedule(&mut self, interval: Option<Duration>, frame_started: Instant) {
         if !macroquad::miniquad::window::blocking_event_loop() {
             return;
         }
-        let interval = if animated {
-            Duration::from_micros(16_667)
-        } else {
-            Duration::from_millis(100)
-        };
-        if self.animated != animated {
+        if self.interval != interval {
             self.deadline = None;
         }
-        self.animated = animated;
-        let deadline = next_deadline(self.deadline, frame_started, interval);
-        self.deadline = Some(deadline);
-        let _ = self
-            .sender
-            .send(Some(deadline.saturating_duration_since(Instant::now())));
+        self.interval = interval;
+        let delay = interval.map(|interval| {
+            let deadline = next_deadline(self.deadline, frame_started, interval);
+            self.deadline = Some(deadline);
+            deadline.saturating_duration_since(Instant::now())
+        });
+        if interval.is_none() {
+            self.deadline = None;
+        }
+        let _ = self.sender.send(WakeCommand::Schedule(delay));
     }
+}
+
+pub(super) fn request_update() {
+    macroquad::miniquad::window::schedule_update();
+    wake_event_loop();
 }
 
 fn next_deadline(previous: Option<Instant>, started: Instant, interval: Duration) -> Instant {
@@ -84,7 +105,7 @@ fn wake_event_loop() {}
 
 impl Drop for WakeTimer {
     fn drop(&mut self) {
-        let _ = self.sender.send(None);
+        let _ = self.sender.send(WakeCommand::Stop);
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
@@ -92,6 +113,39 @@ impl Drop for WakeTimer {
 }
 
 impl super::app::App {
+    pub(super) fn wake_interval(&self, active: bool) -> Option<Duration> {
+        if active {
+            return Some(FRAME_INTERVAL);
+        }
+        let mut next = self.storage_wake_in();
+        if let Some((_, remaining)) = &self.notice {
+            update_minimum(&mut next, timer_delay(*remaining));
+        }
+        if self.screen == super::app::Screen::Playing && self.overlay.is_none() {
+            use renrs::WaitState;
+            match self.runtime.as_ref().and_then(renrs::Runtime::waiting) {
+                Some(WaitState::Pause { .. }) => {
+                    update_minimum(&mut next, timer_delay(self.pause_remaining));
+                }
+                Some(WaitState::Dialogue) => {
+                    if let Some(remaining) = self.dialogue_cue_remaining {
+                        update_minimum(&mut next, timer_delay(remaining));
+                    } else if (self.playback.auto || self.dialogue_view.no_wait())
+                        && self.visible_characters >= self.dialogue_view.character_count() as f32
+                        && (!self.settings.wait_voice
+                            || self.settings.voice_volume <= f32::EPSILON
+                            || !self.audio.voice_busy()
+                            || self.dialogue_view.no_wait())
+                    {
+                        update_minimum(&mut next, timer_delay(self.auto_remaining));
+                    }
+                }
+                _ => {}
+            }
+        }
+        next
+    }
+
     pub(super) fn animated(&self) -> bool {
         use renrs::WaitState;
         self.overlay.is_none()
@@ -118,6 +172,17 @@ impl super::app::App {
     }
 }
 
+fn timer_delay(seconds: f32) -> Option<Duration> {
+    (seconds.is_finite() && seconds > 0.0)
+        .then(|| Duration::from_secs_f32(seconds).min(MAX_TIMER_STEP))
+}
+
+fn update_minimum(current: &mut Option<Duration>, candidate: Option<Duration>) {
+    if let Some(candidate) = candidate {
+        *current = Some(current.map_or(candidate, |current| current.min(candidate)));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,5 +201,13 @@ mod tests {
             stalled + interval
         );
         assert_eq!(next_deadline(Some(first), start, interval), first);
+    }
+
+    #[test]
+    fn long_story_timers_use_bounded_steps() {
+        assert_eq!(timer_delay(2.0), Some(MAX_TIMER_STEP));
+        assert_eq!(timer_delay(0.05), Some(Duration::from_secs_f32(0.05)));
+        assert_eq!(timer_delay(f32::INFINITY), None);
+        assert_eq!(timer_delay(0.0), None);
     }
 }

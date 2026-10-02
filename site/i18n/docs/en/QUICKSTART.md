@@ -11,7 +11,7 @@ than reading every document up front.
 
 ## Set up the environment
 
-Install Rust 1.88 or later, then enter this repository. The native player needs a
+Install Rust 1.99 or later, then enter this repository. The native player needs a
 working display and audio output. Linux builds also need ALSA development libraries;
 on Debian / Ubuntu install `libasound2-dev`.
 

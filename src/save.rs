@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -14,6 +14,8 @@ mod summary;
 pub mod worker;
 pub use renrs_runtime::save_format::{SaveFile, SavePresentation};
 use renrs_runtime::save_format::{checksum_matches_encoded, encode_save};
+
+const MAX_ENCODED_SAVE_BYTES: u64 = 256 * 1024 * 1024;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SaveMetadata {
@@ -57,6 +59,10 @@ pub enum SaveError {
     Format(#[from] serde_json::Error),
     #[error("save slot `{0}` failed its SHA-256 integrity check")]
     Checksum(String),
+    #[error("save file is too large ({found} bytes; maximum {limit} bytes)")]
+    TooLarge { found: u64, limit: u64 },
+    #[error("save belongs to another game")]
+    ProjectMismatch,
     #[error("unsupported save container version {found}; this engine supports version {current}")]
     UnsupportedContainerVersion { found: u32, current: u32 },
     #[error("rotation count must be between 1 and 99")]
@@ -110,8 +116,6 @@ impl SaveRepository {
         snapshot: RuntimeSnapshot,
         metadata: SaveMetadata,
     ) -> Result<(), SaveError> {
-        let mut index = self.index();
-        index.invalidate();
         let destination = self.slot_path(slot)?;
         fs::create_dir_all(&self.root)?;
         let saved_at_unix = SystemTime::now()
@@ -134,6 +138,7 @@ impl SaveRepository {
         save.checksum_sha256 = hash;
         crate::storage::atomic_write(&destination, |file| file.write_all(&bytes))?;
         let _ = self.write_summary(slot, &save);
+        self.index().invalidate();
         Ok(())
     }
 
@@ -195,20 +200,19 @@ impl SaveRepository {
     /// Returns an error for an unsafe or missing slot, inaccessible storage, or
     /// malformed JSON.
     pub fn load(&self, slot: &str) -> Result<SaveFile, SaveError> {
+        self.load_encoded(slot).map(|(save, _)| save)
+    }
+
+    fn load_encoded(&self, slot: &str) -> Result<(SaveFile, Vec<u8>), SaveError> {
         let path = self.slot_path(slot)?;
-        let bytes = fs::read(&path).map_err(|error| {
-            if error.kind() == std::io::ErrorKind::NotFound {
+        let bytes = read_save_bytes(&path).map_err(|error| match error {
+            SaveError::Io(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 SaveError::Missing(slot.to_owned())
-            } else {
-                SaveError::Io(error)
             }
+            error => error,
         })?;
-        let save: SaveFile = serde_json::from_slice(&bytes)?;
-        validate_container_version(save.container_version)?;
-        if !checksum_matches_encoded(&save, &bytes)? {
-            return Err(SaveError::Checksum(slot.to_owned()));
-        }
-        Ok(save)
+        let save = decode_save(&bytes, slot)?;
+        Ok((save, bytes))
     }
 
     /// Lists slots using persistent summaries, checking changed files on demand.
@@ -245,7 +249,7 @@ impl SaveRepository {
     /// Returns an error for an invalid slot, missing/corrupt source, an
     /// existing destination, or filesystem failure.
     pub fn export(&self, slot: &str, destination: &Path) -> Result<(), SaveError> {
-        self.load(slot)?;
+        let (_, bytes) = self.load_encoded(slot)?;
         if destination.exists() {
             return Err(SaveError::ExportExists(destination.display().to_string()));
         }
@@ -253,7 +257,7 @@ impl SaveRepository {
             .write(true)
             .create_new(true)
             .open(destination)?;
-        std::io::copy(&mut File::open(self.slot_path(slot)?)?, &mut output)?;
+        output.write_all(&bytes)?;
         output.flush()?;
         output.sync_all()?;
         Ok(())
@@ -266,18 +270,40 @@ impl SaveRepository {
     /// Returns an error for malformed input, an invalid slot, or storage
     /// failure. The runtime verifies the script fingerprint before restoring.
     pub fn import(&self, source: &Path, slot: &str) -> Result<(), SaveError> {
-        let mut index = self.index();
-        index.invalidate();
-        let bytes = fs::read(source)?;
-        let save: SaveFile = serde_json::from_slice(&bytes)?;
-        validate_container_version(save.container_version)?;
-        if !checksum_matches_encoded(&save, &bytes)? {
-            return Err(SaveError::Checksum(slot.to_owned()));
+        self.import_checked(source, slot, None)
+    }
+
+    /// Imports a save after verifying that it belongs to the expected project.
+    ///
+    /// # Errors
+    /// Returns the same errors as `import`, plus a project mismatch error.
+    pub fn import_for_project(
+        &self,
+        source: &Path,
+        slot: &str,
+        project_id: &str,
+    ) -> Result<(), SaveError> {
+        self.import_checked(source, slot, Some(project_id))
+    }
+
+    fn import_checked(
+        &self,
+        source: &Path,
+        slot: &str,
+        project_id: Option<&str>,
+    ) -> Result<(), SaveError> {
+        let destination = self.slot_path(slot)?;
+        let bytes = read_save_bytes(source)?;
+        let save = decode_save(&bytes, slot)?;
+        if project_id
+            .is_some_and(|expected| !save.project_id.is_empty() && save.project_id != expected)
+        {
+            return Err(SaveError::ProjectMismatch);
         }
         fs::create_dir_all(&self.root)?;
-        let destination = self.slot_path(slot)?;
         crate::storage::atomic_write(&destination, |file| file.write_all(&bytes))?;
         let _ = self.write_summary(slot, &save);
+        self.index().invalidate();
         Ok(())
     }
 
@@ -286,6 +312,44 @@ impl SaveRepository {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
+}
+
+fn read_save_bytes(path: &Path) -> Result<Vec<u8>, SaveError> {
+    let file = File::open(path)?;
+    let length = file.metadata()?.len();
+    let limit = usize::try_from(MAX_ENCODED_SAVE_BYTES).map_err(|_| SaveError::TooLarge {
+        found: length,
+        limit: MAX_ENCODED_SAVE_BYTES,
+    })?;
+    if length > MAX_ENCODED_SAVE_BYTES {
+        return Err(SaveError::TooLarge {
+            found: length,
+            limit: MAX_ENCODED_SAVE_BYTES,
+        });
+    }
+    let capacity = usize::try_from(length).map_err(|_| SaveError::TooLarge {
+        found: length,
+        limit: MAX_ENCODED_SAVE_BYTES,
+    })?;
+    let mut bytes = Vec::with_capacity(capacity);
+    file.take(MAX_ENCODED_SAVE_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() > limit {
+        return Err(SaveError::TooLarge {
+            found: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
+            limit: MAX_ENCODED_SAVE_BYTES,
+        });
+    }
+    Ok(bytes)
+}
+
+fn decode_save(bytes: &[u8], slot: &str) -> Result<SaveFile, SaveError> {
+    let save: SaveFile = serde_json::from_slice(bytes)?;
+    validate_container_version(save.container_version)?;
+    if !checksum_matches_encoded(&save, bytes)? {
+        return Err(SaveError::Checksum(slot.to_owned()));
+    }
+    Ok(save)
 }
 
 fn validate_container_version(version: u32) -> Result<(), SaveError> {

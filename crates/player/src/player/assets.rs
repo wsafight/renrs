@@ -40,7 +40,7 @@ impl AssetCache {
         self.frame += 1;
         let prefetch = self.resident_bytes() < self.budget;
         self.worker
-            .get_or_insert_with(|| AssetWorker::new(source.clone()));
+            .get_or_insert_with(|| AssetWorker::new(source.clone(), super::wake::request_update));
         while let Some((path, generation, decoded)) = self.worker.as_mut().unwrap().poll() {
             if generation != self.generation {
                 continue;

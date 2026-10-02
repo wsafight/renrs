@@ -2,7 +2,7 @@ use std::fs;
 
 use crate::{Runtime, compile, parse_script};
 
-use super::{SaveError, SaveMetadata, SaveRepository};
+use super::{MAX_ENCODED_SAVE_BYTES, SaveError, SaveMetadata, SaveRepository};
 
 #[test]
 fn round_trips_a_snapshot() {
@@ -146,4 +146,53 @@ fn rejects_unknown_container_versions_on_load_and_import() {
         ));
         assert!(!temporary.path().join("imported.json").exists());
     }
+}
+
+#[test]
+fn rejects_oversized_saves_before_reading_or_parsing_them() {
+    let temporary = tempfile::tempdir().unwrap();
+    let repository = SaveRepository::new(temporary.path());
+    let oversized = temporary.path().join("oversized.json");
+    fs::File::create(&oversized)
+        .unwrap()
+        .set_len(MAX_ENCODED_SAVE_BYTES + 1)
+        .unwrap();
+
+    assert!(matches!(
+        repository.load("oversized"),
+        Err(SaveError::TooLarge { .. })
+    ));
+    assert!(matches!(
+        repository.import(&oversized, "imported"),
+        Err(SaveError::TooLarge { .. })
+    ));
+    assert!(!temporary.path().join("imported.json").exists());
+}
+
+#[test]
+fn project_checked_import_rejects_another_game() {
+    let temporary = tempfile::tempdir().unwrap();
+    let source = SaveRepository::new(temporary.path().join("source"));
+    let destination = SaveRepository::new(temporary.path().join("destination"));
+    let program = compile(&parse_script("label start:\n    return", "test.rns").unwrap()).unwrap();
+    source
+        .save_with_metadata(
+            "slot",
+            &Runtime::new(program).unwrap().snapshot(),
+            SaveMetadata {
+                project_id: "org.example.first".to_owned(),
+                ..SaveMetadata::default()
+            },
+        )
+        .unwrap();
+
+    assert!(matches!(
+        destination.import_for_project(
+            &source.root().join("slot.json"),
+            "imported",
+            "org.example.second"
+        ),
+        Err(SaveError::ProjectMismatch)
+    ));
+    assert!(!destination.root().join("imported.json").exists());
 }

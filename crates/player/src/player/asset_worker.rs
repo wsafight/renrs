@@ -23,7 +23,7 @@ pub(super) struct AssetWorker {
 }
 
 impl AssetWorker {
-    pub(super) fn new(source: ProjectSource) -> Self {
+    pub(super) fn new(source: ProjectSource, notify: fn()) -> Self {
         let (requests, receiver) = sync_channel::<(String, u64)>(16);
         let (sender, responses) = sync_channel(8);
         let budget = ByteBudget::new(DECODE_LIMIT);
@@ -34,6 +34,7 @@ impl AssetWorker {
                 if sender.send((path, generation, decoded)).is_err() {
                     break;
                 }
+                notify();
             }
         });
         Self {

@@ -29,6 +29,19 @@ pub(super) enum Response {
     Error(String),
 }
 
+struct ResponseSender<'a> {
+    sender: &'a mpsc::Sender<Response>,
+    notify: fn(),
+}
+
+impl ResponseSender<'_> {
+    fn send(&self, response: Response) {
+        if self.sender.send(response).is_ok() {
+            (self.notify)();
+        }
+    }
+}
+
 pub(super) struct AudioWorker {
     requests: SyncSender<Command>,
     responses: Receiver<Response>,
@@ -70,7 +83,7 @@ fn mixed_volume(channel: f32, relative: f32) -> f32 {
 }
 
 impl AudioWorker {
-    pub(super) fn new(source: ProjectSource) -> Self {
+    pub(super) fn new_with_notifier(source: ProjectSource, notify: fn()) -> Self {
         let (requests, incoming) = mpsc::sync_channel(64);
         let (outgoing, responses) = mpsc::channel();
         let voice_busy = Arc::new(AtomicBool::new(false));
@@ -84,19 +97,24 @@ impl AudioWorker {
         let video_position = Arc::new(std::sync::atomic::AtomicU32::new(f32::NAN.to_bits()));
         let clock = video_position.clone();
         std::thread::spawn(move || {
+            let responses = ResponseSender {
+                sender: &outgoing,
+                notify,
+            };
             if let Err(error) = run(
                 &source,
                 &incoming,
-                &outgoing,
+                &responses,
                 &busy,
                 &pending,
                 &clock,
                 &video_pending,
             ) {
-                let _ = outgoing.send(Response::Error(error));
+                responses.send(Response::Error(error));
             }
             busy.store(false, Ordering::Release);
             active.store(false, Ordering::Release);
+            notify();
         });
         Self {
             requests,
@@ -189,7 +207,7 @@ fn track(
 fn run(
     source: &ProjectSource,
     incoming: &Receiver<Command>,
-    outgoing: &mpsc::Sender<Response>,
+    responses: &ResponseSender<'_>,
     busy: &AtomicBool,
     pending_voice: &AtomicUsize,
     video_position: &std::sync::atomic::AtomicU32,
@@ -314,12 +332,12 @@ fn run(
             None => Ok(()),
         };
         if let Err(error) = result {
-            let _ = outgoing.send(Response::Error(error));
+            responses.send(Response::Error(error));
             if let Some(path) = requested_music {
-                let _ = outgoing.send(Response::MusicEnded(path));
+                responses.send(Response::MusicEnded(path));
             }
             if let Some(path) = requested_sound {
-                let _ = outgoing.send(Response::SoundEnded(path));
+                responses.send(Response::SoundEnded(path));
             }
         }
         video.update(volumes[1], video_position);
@@ -329,7 +347,7 @@ fn run(
         if let Some(track) = &sound {
             let fade_out = track.apply_volume(volumes[1]);
             if !track.repeat && track.player.empty() && track.fade_out.is_none() {
-                let _ = outgoing.send(Response::SoundEnded(track.path.clone()));
+                responses.send(Response::SoundEnded(track.path.clone()));
                 sound = None;
             } else if fade_out <= 0.0 {
                 sound = None;
@@ -338,7 +356,7 @@ fn run(
         if let Some(track) = &music {
             let fade_out = track.apply_volume(volumes[0]);
             if !track.repeat && track.player.empty() && track.fade_out.is_none() {
-                let _ = outgoing.send(Response::MusicEnded(track.path.clone()));
+                responses.send(Response::MusicEnded(track.path.clone()));
                 music = None;
             } else if fade_out <= 0.0 {
                 music = None;
@@ -349,10 +367,10 @@ fn run(
         {
             voice = None;
         }
-        busy.store(
-            voice.as_ref().is_some_and(|track| !track.player.empty()),
-            Ordering::Release,
-        );
+        let voice_active = voice.as_ref().is_some_and(|track| !track.player.empty());
+        if busy.swap(voice_active, Ordering::AcqRel) != voice_active {
+            (responses.notify)();
+        }
         if requested_voice {
             pending_voice.fetch_sub(1, Ordering::AcqRel);
         }

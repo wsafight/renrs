@@ -14,7 +14,7 @@ RenRS 是用 Rust 独立实现、受 Ren'Py 启发的视觉小说引擎。用 `.
 
 ## 运行示例
 
-需要 Rust 1.88+。Linux 还需要 ALSA（Debian / Ubuntu 安装 `libasound2-dev`）。
+需要 Rust 1.99+。Linux 还需要 ALSA（Debian / Ubuntu 安装 `libasound2-dev`）。
 
 ```sh
 cargo run --bin renrs-check -- demo

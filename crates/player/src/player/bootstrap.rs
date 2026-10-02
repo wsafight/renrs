@@ -24,7 +24,9 @@ pub(crate) fn window_conf() -> macroquad::conf::Conf {
         window_resizable: true,
         ..Default::default()
     };
-    native.platform.blocking_event_loop = true;
+    // Miniquad's request channel does not wake the native Windows or Linux wait.
+    // Keep those platforms responsive until their event loops gain a native waker.
+    native.platform.blocking_event_loop = cfg!(target_os = "macos");
     macroquad::conf::Conf {
         miniquad_conf: native,
         update_on: Some(macroquad::conf::UpdateTrigger {
@@ -167,7 +169,7 @@ async fn run_error_screen(errors: Vec<String>) {
             super::text::shutdown();
             break;
         }
-        wake.schedule(false, frame_started);
+        wake.schedule(None, frame_started);
         next_frame().await;
     }
 }
@@ -232,10 +234,15 @@ async fn run_player(
         app.start_new_game();
         app.visible_characters = f32::MAX;
     }
-    let watcher = app
-        .source
-        .watch_root()
-        .map(|_| super::reload_worker::ReloadWorker::new(app.source.clone()));
+    let watcher = app.source.watch_root().map(|_| {
+        super::reload_worker::ReloadWorker::new(
+            app.source.clone(),
+            app.project_theme.clone(),
+            app.screens.clone(),
+            app.localizer.clone(),
+            super::wake::request_update,
+        )
+    });
     let canvas_target = render_target(CANVAS_WIDTH as u32, CANVAS_HEIGHT as u32);
     canvas_target.texture.set_filter(FilterMode::Linear);
     let mut canvas_camera =
@@ -366,10 +373,8 @@ async fn run_player(
         if let Some(run) = &mut benchmark {
             app.quit = run.after_draw(&app).unwrap_or_else(fail);
         }
-        wake.schedule(
-            app.animated() || app.redraw || smoke.is_some() || profile.is_some(),
-            frame_started,
-        );
+        let active = app.animated() || app.redraw || smoke.is_some() || profile.is_some();
+        wake.schedule(app.wake_interval(active), frame_started);
         next_frame().await;
     }
     if smoke.as_ref().is_some_and(|test| !test.finished()) {

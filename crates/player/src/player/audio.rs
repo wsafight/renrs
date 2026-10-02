@@ -46,8 +46,9 @@ impl AudioManager {
         self.sync_video(None, 0.0, true, 1.0);
     }
     pub(super) fn prepare(&mut self, source: &ProjectSource) {
-        self.worker
-            .get_or_insert_with(|| AudioWorker::new(source.clone()));
+        self.worker.get_or_insert_with(|| {
+            AudioWorker::new_with_notifier(source.clone(), super::wake::request_update)
+        });
     }
 
     fn send(&mut self, command: Command) -> bool {
