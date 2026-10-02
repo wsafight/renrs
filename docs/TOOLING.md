@@ -226,8 +226,9 @@ cargo test --offline --workspace --all-targets
 上述 core 门禁还会检查 Biome、demo、脚手架路线、产品和第一方参考 fixture、Web/Launcher 单测，
 以及 Web、VS Code 与 Launcher 的 strict TypeScript 和生产构建。它也运行各 Node 工作区的
 生产依赖审计和 `cargo audit --deny warnings`，因此本机需安装 `cargo-audit`。当前精确豁免
-`RUSTSEC-2025-0035`、`RUSTSEC-2026-0192` 和 `RUSTSEC-2026-0206`：它们来自
-Macroquad soundness 以及无维护的 ttf-parser/rustybuzz，当前均无可直接升级的修复版本。
+`RUSTSEC-2025-0035` 和 `RUSTSEC-2026-0192`：它们来自 Macroquad soundness 以及经 Macroquad/
+ab_glyph 引入的无维护 ttf-parser，当前均无可直接升级的修复版本。原生 shaping 已迁移到维护中的
+HarfRust，因此不再豁免 rustybuzz advisory。
 豁免不代表风险消失；升级或替换对应渲染、文本依赖时应复核并删除，任何新 advisory
 仍会使门禁失败。
 默认审计模式会刷新 npm/Cargo advisory 数据并需要网络；`RENRS_AUDIT_OFFLINE=1` 或

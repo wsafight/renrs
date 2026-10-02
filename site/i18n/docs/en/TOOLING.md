@@ -249,8 +249,9 @@ The core gate also checks Biome, the demo, scaffold routes, product and first-pa
 fixtures, Web/Launcher unit tests, and strict TypeScript plus production builds for Web, VS Code,
 and Launcher. It also audits production dependencies in each Node workspace and runs
 `cargo audit --deny warnings`, so install `cargo-audit` locally. The exact current exceptions are
-`RUSTSEC-2025-0035`, `RUSTSEC-2026-0192`, and `RUSTSEC-2026-0206`: Macroquad soundness and
-unmaintained ttf-parser/rustybuzz have no direct patched upgrade. An exception does not remove
+`RUSTSEC-2025-0035` and `RUSTSEC-2026-0192`: Macroquad soundness and its unmaintained
+ttf-parser dependency have no direct patched upgrade. Native shaping now uses maintained HarfRust,
+so the rustybuzz advisory is no longer exempted. An exception does not remove
 the risk; reassess and delete it when replacing or updating the renderer or text dependency.
 Every new advisory still fails the gate. Extended gates can be run
 separately or together:

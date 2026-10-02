@@ -25,6 +25,7 @@ mod generated_assets;
 mod image_expression;
 mod menus;
 mod parameters;
+mod scene;
 mod static_values;
 mod story;
 mod support;

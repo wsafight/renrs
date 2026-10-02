@@ -2,8 +2,8 @@
 
 Measured on 2026-09-06. This is the P0-P2 iteration following the Ren'Py
 comparison. Historical results in [PERFORMANCE.md](PERFORMANCE.md) are separate
-measurements. The project is pre-release: current saves require container v2 and
-snapshot v7. The current code writes snapshot v8 and remains compatible with v7.
+measurements. This measurement-era build used container v2 and snapshot v7. The
+current code writes container v3 and snapshot v8, while reading v2/v3 and v7/v8.
 Content updates restore only when active positions resolve through explicit IDs or
 aliases; this does not migrate an older snapshot format.
 

@@ -186,3 +186,27 @@ label start:
     assert!(frames.as_array().unwrap().len() > 1);
     assert!((frames[6]["x"].as_f64().unwrap() - 20.0).abs() < 0.01);
 }
+
+#[test]
+fn background_frames_are_sampled_through_wasm_boundary() {
+    let mut engine = engine(
+        r#"label start:
+    scene "room.png"
+    parallel:
+        timeline:
+            transform background x 40 scale 2 over 1
+        timeline:
+            pause 1
+    "Done"
+"#,
+    );
+    engine.action("start", 0).unwrap();
+    let frames: serde_json::Value =
+        serde_json::from_str(&engine.background_frames().unwrap()).unwrap();
+    assert_eq!(
+        frames.as_array().unwrap().len(),
+        usize::from(PARALLEL_SAMPLES) + 1
+    );
+    assert!((frames[6]["x"].as_f64().unwrap() - 20.0).abs() < 0.01);
+    assert!((frames[6]["scale"].as_f64().unwrap() - 1.5).abs() < 0.01);
+}

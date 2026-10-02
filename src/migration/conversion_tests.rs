@@ -390,20 +390,41 @@ fn reports_dynamic_parameterized_atl_calls_without_guessing() {
 }
 
 #[test]
-fn keeps_parameterized_scene_calls_explicitly_unsupported() {
+fn specializes_static_parameterized_atl_calls_for_scene_backgrounds() {
     let converted = convert_script(
         "transform move_by(distance):\n    xoffset distance\nlabel start:\n    scene room at move_by(20)\n    return\n",
         "script.rpy",
         &AssetCatalog::with_image("room", "images/room.png"),
     );
-    assert!(converted.issues.iter().any(|issue| {
-        issue.kind == MigrationIssueKind::Unsupported && issue.code == "atl_parameters_unsupported"
-    }));
+    assert!(converted.issues.is_empty(), "{:?}", converted.issues);
     assert!(
         converted
             .output
-            .contains("# TODO migration: scene room at move_by(20)")
+            .contains("scene \"images/room.png\"\n    transform background x 20")
     );
+    let parsed = crate::parse_script(&converted.output, "migrated.rns")
+        .expect("specialized scene ATL should parse after migration");
+    crate::compile(&parsed).expect("specialized scene ATL should compile after migration");
+}
+
+#[test]
+fn inlines_static_scene_atl_before_attached_transitions() {
+    let converted = convert_script(
+        "transform drift:\n    xoffset 12\n    yoffset -4\n    zoom 1.1\n    alpha .8\nlabel start:\n    scene room at drift with dissolve\n    return\n",
+        "script.rpy",
+        &AssetCatalog::with_image("room", "images/room.png"),
+    );
+    assert!(matches!(
+        converted.issues.as_slice(),
+        [issue] if issue.kind == MigrationIssueKind::Assumption
+            && issue.message.contains("0.5 second fade")
+    ));
+    assert!(converted.output.contains(
+        "scene \"images/room.png\"\n    transform background x 12 y -4 scale 1.1 alpha 0.8\n    transition fade 0.5"
+    ));
+    let parsed = crate::parse_script(&converted.output, "migrated.rns")
+        .expect("static scene ATL should parse after migration");
+    crate::compile(&parsed).expect("static scene ATL should compile after migration");
 }
 
 #[test]

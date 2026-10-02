@@ -44,8 +44,9 @@ is an implementation record rather than a required reading sequence.
   issues with their source fragment; the official `testsuite`/`testcase` baseline remains generic.
 - [x] P1 migration diagnostics: parameterized ATL declarations, image uses and camera uses receive the stable
   `atl_parameters_unsupported` code instead of a generic statement failure.
-- [x] P1 migration subset: finite numeric positional parameterized ATL calls specialize at static `show` and
-  camera call sites; parameter expressions, defaults, loops and parameterized `scene` remain explicit diagnostics.
+- [x] P1 migration subset: finite numeric positional parameterized ATL calls specialize at static `show`,
+  `scene`, and camera call sites; scene transforms use the shared background transform state, while parameter
+  expressions, defaults, and loops remain explicit diagnostics.
 - [x] P2: project launcher, SDK workflow, templates and author documentation; local end-to-end verification passes.
 - [x] P2: v1 machine protocol, read-only project inspection, baseline/candidate impact analysis and Launcher quality reporting.
 - [x] P2: bounded media configuration: localized video audio, relative gain, subtitle cues and shared native/Web fallback.

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const MASTER_CAMERA_ALIAS: &str = "camera";
+pub const BACKGROUND_ALIAS: &str = "background";
 const LAYER_CAMERA_PREFIX: &str = "camera@";
 
 #[must_use]

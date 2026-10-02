@@ -130,6 +130,7 @@ export interface MusicState {
 
 export interface StageState {
   camera: TransformState;
+  background_transform?: TransformState;
   layer_cameras?: Record<string, TransformState>;
   nvl?: boolean;
   nvl_start?: number;

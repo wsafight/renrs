@@ -61,7 +61,7 @@ acceptance stages；网络模式的 advisory 刷新仍需在可访问 npm/Cargo 
 - [x] 为词法上可识别的未知自定义语句输出 `custom_statement_unsupported`，保留原始片段；官方
   `testsuite`/`testcase` 基线继续使用 `statement_unsupported`。
 - [x] 参数化 ATL 声明和安全子集之外的调用统一输出 `atl_parameters_unsupported`，保留源码以便人工绑定参数。
-- [x] 参数化 ATL 的有限静态子集：位置数字实参在 `show` 和 camera 调用点绑定并重新生成可编译的 RenRS transform；参数表达式、默认参数、循环和参数化 `scene` 仍结构化报告。
+- [x] 参数化 ATL 的有限静态子集：位置数字实参在 `show`、`scene` 和 camera 调用点绑定并重新生成可编译的 RenRS transform；`scene` 通过可持久化的 `transform background` 保持 native/Web 语义，参数表达式、默认参数和循环仍结构化报告。
 - [ ] 继续扩展迁移覆盖：复杂 image expression、参数化/无限/动态 ATL 和动态 jump/call 的语义转换。
 
 验收要求：桌面/Web 共享语义、结构化 `unsupported`/`assumption` 诊断、回归 fixture 和路线测试。
@@ -85,7 +85,7 @@ acceptance stages；网络模式的 advisory 刷新仍需在可访问 npm/Cargo 
 - [x] 实现 JSON 翻译目录、显式及语言标签回退、空翻译回退源文本，并在插值和富文本解析前翻译。
 - [x] 存档写入当前快照格式 v8，兼容读取 v7，并校验当前脚本指纹；开发热重载保留稳定 ID 映射。
 - [x] 存档包含项目 ID、内容指纹、游玩时长和章节，使用 SHA-256 完整性校验；损坏槽位保持可见。
-- [x] 存档容器只读写 v2，强制校验和；归档解包拒绝符号链接穿越和覆盖。
+- [x] 存档容器写入 v3、兼容读取 v2/v3，并按版本强制校验和；归档解包拒绝符号链接穿越和覆盖。
 - [x] 增加 3 份快速存档和 5 份自动存档轮换，以及导入/导出仓储 API。
 - [x] 增加 `renrs-build`，生成播放器、`game.renrs`、构建清单和运行说明组成的发行目录。
 - [x] 增加 `renrs-migrate --strict`，迁移后再次执行解析、校验、编译和控制流分析。
@@ -118,7 +118,7 @@ acceptance stages；网络模式的 advisory 刷新仍需在可访问 npm/Cargo 
 以下是与 Ren'Py 相比仍明显缺失的能力。它们不能在没有真实后端时标记为支持。
 
 1. **自定义界面扩展**：已有嵌套 viewport、drag/drop 和 Web 语义；任意 displayable 与原生 OS 辅助技术树仍缺失。
-2. **高级文本排版**：现有 `rustybuzz` shaping、BiDi、字体回退、CJK 换行和 ruby 基础上，补齐
+2. **高级文本排版**：现有 `harfrust` shaping、BiDi、字体回退、CJK 换行和 ruby 基础上，补齐
    shaped cluster 感知换行已交付；竖排、彩色 emoji 和原生屏幕阅读器语义仍缺失。
 3. **高级表现**：命名立绘层、条件层动态刷新、受限互斥变体组和受限 layer camera 已交付；完整 ATL、Ren'Py 属性组、任意 displayable、组合转场、shader、粒子和 Live2D 仍缺失。
 4. **视频**：本地化音轨、相对音量和字幕轨已交付；更多真机和长片的同步验收仍待完成。
@@ -149,7 +149,7 @@ acceptance stages；网络模式的 advisory 刷新仍需在可访问 npm/Cargo 
 
 - **执行模型**：编译器已经将脚本降低为带稳定 ID 和跳转目标的线性 `Program` 指令；runtime 按
   instruction cursor 执行。当前递归执行的是指令内表达式，不应再将整体描述为 tree-walking。
-- **文本系统**：继续复用现有 `rustybuzz`、BiDi、Unicode segmentation 和字体缓存。引入
+- **文本系统**：继续复用现有 `harfrust`、BiDi、Unicode segmentation 和字体缓存。引入
   `cosmic-text` 等重依赖前，应以复杂文字、ruby、竖排、内存和跨平台渲染基准做隔离比较。
 - **存储边界**：现有存档继续使用临时文件、`fsync`、原子替换、版本和校验和。mini KV、WAL 或
   LSM-tree 适合作为独立系统编程实验；在云同步或大量增量状态出现前不纳入 RenRS 主路径。

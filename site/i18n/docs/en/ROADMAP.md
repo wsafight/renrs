@@ -66,10 +66,10 @@ These are still clearly missing versus Ren'Py. They cannot be marked supported w
 a real backend.
 
 1. **Custom screen extensions**: nested viewports, drag/drop, and Web semantics are shipped; arbitrary displayables and a native OS AT tree remain.
-2. **Advanced text layout**: build on the current `rustybuzz` shaping, BiDi, font fallback,
+2. **Advanced text layout**: build on the current `harfrust` shaping, BiDi, font fallback,
    CJK wrapping, ruby, and shaped-cluster-aware wrapping. Vertical layout, color emoji,
    and native screen-reader semantics remain.
-3. **Advanced presentation**: named sprite layers are shipped; full ATL, layer cameras, arbitrary displayables, composite transitions, shaders, particles, and Live2D remain.
+3. **Advanced presentation**: named sprite layers, constrained layer cameras, and background transforms are shipped; full ATL, arbitrary displayables, composite transitions, shaders, particles, and Live2D remain.
 4. **Video**: localized audio tracks, relative volume, and subtitle tracks are shipped;
    more device and long-form sync acceptance remains.
 5. **Performance**: real project samples and font-cache budgets. Incremental compile is shipped.
@@ -77,9 +77,10 @@ a real backend.
    or expression bytecode when profiling identifies expression evaluation or dispatch as a bottleneck.
 6. **Shipping platforms**: native Rust mobile rendering, Capacitor device matrix, signing/notarization external acceptance, store SDKs, and a network auto-update client.
 7. **Advanced narrative state**: fixed rollback, finer preference sync, and cloud saves.
-8. **Migration coverage**: default screens, common static ATL/master camera, and a first-party
-   reference baseline are shipped. Complex image expressions, parameterized/looping
-   ATL, dynamic jump/call, custom statements, and a broader real-project corpus remain.
+8. **Migration coverage**: default screens, common static ATL/master camera, finite static
+   parameterized `show`/`scene`/camera calls, and a first-party reference baseline are shipped.
+   Complex image expressions, ATL outside that safe subset, dynamic jump/call, custom
+   statements, and a broader real-project corpus remain.
 9. **Extension mechanism**: do not embed Python. If needed, evaluate a least-privilege WASM plugin API separately.
 
 ## Recommended order
@@ -109,7 +110,7 @@ a real backend.
   instructions with stable IDs and jump targets. Runtime advances an instruction cursor;
   only expressions inside instructions are currently evaluated recursively. Do not
   describe the whole runtime as tree-walking.
-- **Text system**: keep the current `rustybuzz`, BiDi, Unicode segmentation, and font
+- **Text system**: keep the current `harfrust`, BiDi, Unicode segmentation, and font
   cache. Before adopting a heavier dependency such as `cosmic-text`, compare complex
   scripts, ruby, vertical text, memory, and cross-platform rendering in an isolated prototype.
 - **Storage boundary**: saves keep temporary-file writes, `fsync`, atomic replacement,

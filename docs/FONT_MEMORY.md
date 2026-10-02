@@ -108,7 +108,7 @@ target/release/examples/text_cache_smoke target/my-text-cache-check
 node scripts/compare-engines.mjs target/engine-comparison-verified target/renpy-sdk/renpy-8.5.3-sdk 3
 ```
 
-The renderer now uses `rustybuzz` shaping with BiDi runs, script segmentation, and
+The renderer now uses maintained `harfrust` shaping with BiDi runs, script segmentation, and
 font fallback, but layout is not yet fully shaped-cluster-aware. Vertical text,
 color-emoji support, and complete assistive-technology semantics remain open. Atlas
 recycling can add rasterization work for screens with many unique large glyphs; the

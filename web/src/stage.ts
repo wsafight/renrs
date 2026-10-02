@@ -236,6 +236,7 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
   root.querySelectorAll('.old-stage').forEach((node) => {
     node.remove();
   });
+  const backgroundCamera = app.$('background-camera');
   const background = app.$('background');
   background.style.objectFit = effect?.Video ? 'contain' : 'cover';
   if (stage.background) {
@@ -290,8 +291,20 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
     !app.settings.reduced && effect?.Parallel
       ? parseCameraFrames(app.engine.camera_frames())
       : null;
+  const backgroundFrames =
+    !app.settings.reduced && effect?.Parallel
+      ? parseCameraFrames(app.engine.background_frames())
+      : null;
   animateCamera(
     background,
+    effect?.Video ? identityTransform() : (stage.background_transform ?? identityTransform()),
+    app.settings.reduced || effect?.Video ? null : (effect ?? null),
+    elapsed,
+    backgroundFrames,
+    'background',
+  );
+  animateCamera(
+    backgroundCamera,
     stage.camera,
     app.settings.reduced ? null : (effect ?? null),
     elapsed,
@@ -358,14 +371,15 @@ async function oldStageNode(app: PlayerApp, stage: StageState): Promise<HTMLElem
   const old = app.element('div', null, { className: 'old-stage' }),
     content = app.element('div', null, { className: 'old-stage-content' });
   Object.assign(content.style, cameraStyle(stage.camera));
-  if (stage.background)
-    content.append(
-      app.element('img', null, {
-        className: 'stage-background',
-        src: app.asset(stage.background),
-        alt: '',
-      }),
-    );
+  if (stage.background) {
+    const background = app.element('img', null, {
+      className: 'stage-background',
+      src: app.asset(stage.background),
+      alt: '',
+    });
+    Object.assign(background.style, cameraStyle(stage.background_transform));
+    content.append(background);
+  }
   const grouped = new Map<string, SpriteState[]>();
   for (const sprite of [...stage.sprites].sort(spriteOrder)) {
     const group = grouped.get(sprite.display_layer) || [];

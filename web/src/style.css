@@ -105,6 +105,10 @@ main {
   position: absolute;
   inset: 0;
 }
+#background-camera {
+  position: absolute;
+  inset: 0;
+}
 #sprites {
   position: absolute;
   inset: 0;
@@ -474,6 +478,7 @@ dialog {
   object-fit: cover;
 }
 #sprites,
+#background-camera,
 .old-stage,
 .old-stage-content {
   position: absolute;

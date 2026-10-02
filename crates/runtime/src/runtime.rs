@@ -16,6 +16,8 @@ const MAX_ROLLBACK_CHECKPOINTS: usize = 256;
 pub struct StageState {
     #[serde(default)]
     pub camera: TransformState,
+    #[serde(default, skip_serializing_if = "is_identity_transform")]
+    pub background_transform: TransformState,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub layer_cameras: BTreeMap<String, TransformState>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -47,6 +49,7 @@ impl Default for StageState {
     fn default() -> Self {
         Self {
             camera: TransformState::identity(),
+            background_transform: TransformState::identity(),
             layer_cameras: BTreeMap::new(),
             nvl: false,
             nvl_start: 0,
@@ -67,6 +70,10 @@ impl Default for StageState {
 #[allow(clippy::trivially_copy_pass_by_ref)] // Required by serde's skip predicate.
 fn is_zero(value: &usize) -> bool {
     *value == 0
+}
+
+fn is_identity_transform(value: &TransformState) -> bool {
+    *value == TransformState::identity()
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -367,6 +374,7 @@ pub enum RuntimeError {
     Localization(String),
 }
 
+mod choice;
 #[path = "runtime/dialogue.rs"]
 mod dialogue;
 #[cfg(test)]

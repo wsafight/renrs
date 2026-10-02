@@ -35,7 +35,6 @@ for (const directory of ['.', 'web', 'launcher', 'site', 'editors/vscode-renrs']
 const acceptedRustAdvisories = [
   'RUSTSEC-2025-0035', // macroquad soundness; replacement requires a renderer migration
   'RUSTSEC-2026-0192', // ttf-parser via macroquad and ab_glyph
-  'RUSTSEC-2026-0206', // rustybuzz; harfrust migration is tracked separately
 ];
 run('cargo', [
   'audit',

@@ -154,8 +154,8 @@ Implementation details and limits:
   copy-on-write sharing. JSON serialization retains checkpoint metadata while
   values and repeated stages are interned.
 - Storage accepts owned snapshots and interns stage state once before hashing and
-  encoding. File replacement and checksums remain validated. Loading accepts only
-  the current container v2 and snapshot v7/v8. A changed compiled-script fingerprint
+  encoding. File replacement and checksums remain validated. Loading accepts current
+  container v3 plus legacy v2, with snapshot v7/v8. A changed compiled-script fingerprint
   is accepted only when active positions resolve through explicit IDs or aliases;
   snapshots older than v7 and save migration are not supported.
 - GPU story textures have a 256 MiB cap. Image workers separately reserve up

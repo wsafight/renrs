@@ -24,6 +24,8 @@
 - [x] 集成的 VS Code 项目和发行工作流。
 - [x] 基于 shaped cluster 的原生换行和稳定 Web 辅助语义。
 - [x] 常用静态 ATL/master camera 迁移，以及动态语法的明确回退报告。
+- [x] 静态数字参数 ATL 调用可在 `show`、`scene` 和 camera 调用点展开；背景 transform 共享
+  native/Web、parallel、存档和回滚语义，动态参数、默认参数、循环及背景对齐仍需人工处理。
 
 ## P2
 

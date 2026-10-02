@@ -21,8 +21,8 @@ migration report must reject it or list it as todo.
 | Dialogue, menus, conditions, jumps | done | Conditional menus, interpolation, basic rich text | More text tags and input |
 | Label parameters and returns | done | Positional/named/default args, call-time defaults, dynamic parameter scope, `return expr`, `_return` | `*args`, `**kwargs`, and keyword-only parameters are outside the static subset |
 | Python/store semantics | not implemented | Integers, booleans, strings, lists, records, deterministic built-ins | Python ecosystem remains a non-goal |
-| Image declarations and stage | partial | Static image, background, global aliases, ordered/clearable named sprite layers, camera, constrained layered image | Layer cameras, arbitrary displayables, Live2D, and particles still missing |
-| ATL and transform | partial | Transform, easing, serial timeline, independent parallel tracks; migrator supports static ATL and master camera | Looping/parameterized ATL, layer camera, and dynamic layeredimage still missing |
+| Image declarations and stage | partial | Static image, background transform, global aliases, ordered/clearable named sprite layers, master/constrained layer cameras, constrained layered image | Arbitrary displayables, Live2D, and particles still missing |
+| ATL and transform | partial | Transform, easing, serial timeline, independent parallel tracks; migrator supports static ATL, finite static numeric parameterized `show`/`scene`/camera calls, and master/standard layer cameras | ATL outside the safe static subset and dynamic layeredimage still missing |
 | Transition | partial | Serializable fade, dissolve | Composite transitions still missing |
 | Screen/style/UI | partial | Shared desktop/web JSON screens, scroll, data controls, drag/drop, extension buttons | Arbitrary displayables and full screen language still missing |
 | Audio | partial | music/sound/voice, music queue, fades, static music/sound relative gain | Arbitrary mixers, sync, and more formats are P2 |

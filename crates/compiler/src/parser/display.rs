@@ -67,6 +67,9 @@ impl Parser {
                 ));
             }
         }
+        if alias == crate::syntax::BACKGROUND_ALIAS {
+            return Err(self.error(line, 1, "`background` is reserved for scene transforms"));
+        }
         self.current += 1;
         Ok(StatementKind::Show {
             path,

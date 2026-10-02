@@ -116,9 +116,15 @@ transactionally rejects deleting a custom layer that is still visible.
 - `over seconds`: animation duration; omitted means apply immediately.
 - `ease linear|in|out|in_out`: interpolation, default `linear`.
 
+`transform background x 20 scale 1.1 over 0.5` transforms the current scene background.
+Background transforms support x/y, scale, rotation, and alpha. A new `scene` resets this
+transform; transforming a missing background is an error. `background` is reserved and
+cannot be used by `show ... as background`.
+
 Transforms, position tweens, fade, and dissolve enter snapshots, load, and rollback.
-Full Ren'Py ATL, per-layer cameras, split background layers, and arbitrary displayables
-are not supported.
+Constrained layer cameras and background transforms also share parallel sampling across
+native and Web. Full Ren'Py ATL, split background layers, and arbitrary displayables are
+not supported.
 
 A `timeline:` block can serialize transform, move, and pause. `transition dissolve seconds`
 blends the previous and next stage. `video "clips/name/clip.json" over seconds` accepts

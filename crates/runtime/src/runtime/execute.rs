@@ -1,7 +1,7 @@
 use super::{
     AudioEvent, CallFrame, InstructionKind, MAX_IMMEDIATE_STEPS, MusicState, Runtime, RuntimeError,
     SpriteState, TransformState, Value, VisualEffect, WaitState, evaluate, execution,
-    visible_choice_labels, visible_choices,
+    visible_choice_labels,
 };
 use std::sync::Arc;
 
@@ -94,6 +94,7 @@ impl Runtime {
                     self.previous_stage = Some(self.stage.as_ref().clone());
                     let stage = Arc::make_mut(&mut self.stage);
                     stage.background = Some(path.clone());
+                    stage.background_transform = TransformState::identity();
                     stage.sprites.clear();
                     self.instruction += 1;
                 }
@@ -377,6 +378,11 @@ impl Runtime {
                     let stage = Arc::make_mut(&mut self.stage);
                     let transform = if alias == "camera" {
                         &mut stage.camera
+                    } else if alias == crate::syntax::BACKGROUND_ALIAS {
+                        if stage.background.is_none() {
+                            return Err(execution(line, "cannot transform a missing background"));
+                        }
+                        &mut stage.background_transform
                     } else if let Some(layer) = crate::syntax::camera_layer(alias) {
                         stage.layer_cameras.entry(layer.to_owned()).or_default()
                     } else {
@@ -455,42 +461,5 @@ impl Runtime {
             Some(WaitState::Choice { .. }) => Err(RuntimeError::NotChoosing),
             None => self.advance(),
         }
-    }
-
-    /// Selects one option from the currently active choice.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if there is no active choice, the choice index is out
-    /// of bounds, or executing the selected branch fails.
-    pub fn choose(&mut self, index: usize) -> Result<WaitState, RuntimeError> {
-        let Some(WaitState::Choice { options: labels }) = &self.waiting else {
-            return Err(RuntimeError::NotChoosing);
-        };
-        let instruction = self
-            .program
-            .instructions
-            .get(self.instruction)
-            .ok_or(RuntimeError::InvalidInstruction(self.instruction))?;
-        let InstructionKind::Choice { prompt, options } = &instruction.kind else {
-            return Err(RuntimeError::NotChoosing);
-        };
-        let has_prompt = prompt.is_some();
-        let line = instruction.span.line;
-        let visible = visible_choices(options, &self.variables, line)?;
-        let Some(target) = visible.get(index).map(|option| option.target) else {
-            return Err(RuntimeError::InvalidChoice {
-                index,
-                count: labels.len(),
-            });
-        };
-        if has_prompt && self.stage.voice.is_some() {
-            Arc::make_mut(&mut self.stage).voice = None;
-            self.audio_events
-                .push(AudioEvent::StopVoice { fade_out: 0.0 });
-        }
-        self.instruction = target;
-        self.waiting = None;
-        self.advance()
     }
 }

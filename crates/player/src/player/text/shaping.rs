@@ -1,5 +1,5 @@
 use super::Face;
-use rustybuzz::{Direction, UnicodeBuffer};
+use harfrust::{Direction, FontRef, ShapeOptions, ShaperData, UnicodeBuffer};
 use unicode_bidi::BidiInfo;
 use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
@@ -61,8 +61,9 @@ pub(super) fn shape(faces: &[Face], text: &str) -> Vec<Glyph> {
                 spans.reverse();
             }
             for (index, _, span_start, span) in spans {
-                let face =
-                    rustybuzz::Face::from_slice(faces[index].data(), 0).expect("validated font");
+                let face = FontRef::new(faces[index].data()).expect("validated font");
+                let shaper_data = ShaperData::new(&face);
+                let shaper = shaper_data.shaper(&face).build();
                 let mut buffer = UnicodeBuffer::new();
                 buffer.push_str(&span);
                 buffer.set_direction(if rtl {
@@ -71,9 +72,13 @@ pub(super) fn shape(faces: &[Face], text: &str) -> Vec<Glyph> {
                     Direction::LeftToRight
                 });
                 buffer.guess_segment_properties();
-                let shaped = rustybuzz::shape(&face, &[], buffer);
-                let scale = 1.0 / face.units_per_em() as f32;
-                for (info, position) in shaped.glyph_infos().iter().zip(shaped.glyph_positions()) {
+                let glyph_buffer = shaper.shape(buffer, ShapeOptions::default());
+                let scale = 1.0 / shaper.units_per_em() as f32;
+                for (info, position) in glyph_buffer
+                    .glyph_infos()
+                    .iter()
+                    .zip(glyph_buffer.glyph_positions())
+                {
                     output.push(Glyph {
                         face: index,
                         id: ab_glyph::GlyphId(info.glyph_id as u16),

@@ -167,6 +167,12 @@ impl StaticTransform {
     pub(super) fn camera_statements(&self, alias: &str) -> Option<Vec<String>> {
         self.position.is_none().then(|| self.statements(alias))
     }
+
+    pub(super) fn background_statements(&self) -> Option<Vec<String>> {
+        self.position
+            .is_none()
+            .then(|| self.statements(crate::syntax::BACKGROUND_ALIAS))
+    }
 }
 
 fn parse_body(lines: &[&str]) -> Result<StaticTransform, String> {

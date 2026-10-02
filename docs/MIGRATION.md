@@ -38,9 +38,11 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 - 无参数命名 transform 的安全子集可在静态 `show ... at name` 处内联：标准 `xalign`、底部
   `yalign`、`alpha`、`zoom`、`rotate`、`xoffset`、`yoffset`、`linear`、`ease`，以及块末尾
   `repeat 1..16` 的有限循环（按总播放次数静态展开）。
-- 参数化 transform 的受限静态子集可在 `show ... at name(number, ...)` 和 camera 调用点特化：
+- 参数化 transform 的受限静态子集可在 `show ... at name(number, ...)`、`scene ... at
+  name(number, ...)` 和 camera 调用点特化：
   只接受位置数字字面量，ATL 属性值只能直接引用参数；每个调用点会重新解析为普通 RenRS
-  transform。参数化 `scene` 仍需人工绑定其场景显示对象。
+  transform。`scene` 的结果写为 `transform background ...`，只支持 `x`、`y`、`scale`、
+  `rotate` 和 `alpha`，不猜测 `xalign` / `yalign` 的背景布局语义。
 - 标准 `transient`、`screens`、`overlay` layer 的静态 camera transform 会写为
   `transform camera onlayer <layer> ...`；动态或未知自定义 layer camera 保留为 `unsupported`。
 - `with fade` / `with dissolve` 按明确记录的假设转换为 `transition fade 0.5`。
@@ -57,7 +59,7 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 - Python 块、`init python`、普通 `init` 和任意 Python 表达式。
 - 自定义 screen language、style、displayable 和 UI action；默认模板只映射到 RenRS 内置界面。
 - 无限/动态 ATL、参数化 ATL 的默认/命名/非数字实参、非标准对齐、动态或未覆盖的复杂 image
-  expression、自定义 transition；参数化 `scene` 调用以及超出安全子集的参数化 ATL 使用
+  expression、自定义 transition；超出安全子集的参数化 `show` / `scene` / camera 调用使用
   `atl_parameters_unsupported`，有限静态 `repeat 1..16` 已在上面的安全子集中展开。
 - label 的 `*args` / `**kwargs` / 仅命名参数、动态 jump/call，以及超出 RenRS 子集的参数表达式。
 - 条件/动态菜单、复杂 Character、复杂插值。
@@ -82,8 +84,8 @@ cargo run --bin renrs-migrate -- --strict path/to/renpy/game migrated-game
 其他未覆盖构造参数使用 `image_expression_composite_unsupported`；成功转换的组合资源会计入
 `generated_resources`。
 
-参数化 ATL 只在上述严格子集内绑定：声明会被保留为迁移注释，安全的 `show`/camera 调用会在调用点
-展开；动态实参、默认或命名参数、参数表达式、循环和参数化 `scene` 仍保留 TODO，并报告
+参数化 ATL 只在上述严格子集内绑定：声明会被保留为迁移注释，安全的 `show` / `scene` / camera
+调用会在调用点展开；动态实参、默认或命名参数、参数表达式和循环仍保留 TODO，并报告
 `atl_parameters_unsupported`。只有无参数或已完成静态特化、属性值和循环边界均为静态有限值的 ATL
 transform 才会内联。
 

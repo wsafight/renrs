@@ -20,6 +20,11 @@ pub fn sample(from: &StageState, tracks: &[Vec<AnimationStep>], elapsed: f32) ->
             {
                 let transform = if alias == "camera" {
                     Some(&mut stage.camera)
+                } else if alias == crate::syntax::BACKGROUND_ALIAS {
+                    stage
+                        .background
+                        .as_ref()
+                        .map(|_| &mut stage.background_transform)
                 } else if let Some(layer) = crate::syntax::camera_layer(alias) {
                     Some(stage.layer_cameras.entry(layer.to_owned()).or_default())
                 } else {
@@ -55,10 +60,17 @@ pub fn validate(from: &StageState, tracks: &[Vec<AnimationStep>]) -> Result<f32,
     for step in tracks.iter().flatten() {
         if let AnimationStep::Transform { alias, .. } = step
             && alias != "camera"
+            && alias != crate::syntax::BACKGROUND_ALIAS
             && crate::syntax::camera_layer(alias).is_none()
             && !from.sprites.iter().any(|sprite| &sprite.alias == alias)
         {
             return Err(format!("cannot transform unknown image alias `{alias}`"));
+        }
+        if let AnimationStep::Transform { alias, .. } = step
+            && alias == crate::syntax::BACKGROUND_ALIAS
+            && from.background.is_none()
+        {
+            return Err("cannot transform a missing background".to_owned());
         }
     }
     Ok(duration)
@@ -69,7 +81,7 @@ mod tests {
     use crate::{Runtime, WaitState, compile, parse_script, runtime::VisualEffect};
     #[test]
     fn independent_tracks_sample_and_restore_at_the_same_time() {
-        let script = "label start:\n    show \"a.png\" as a\n    show \"b.png\" as b\n    parallel:\n        timeline:\n            transform a x 100 over 2\n        timeline:\n            pause 1\n            transform b alpha 0 over 1\n    \"Done\"\n";
+        let script = "label start:\n    scene \"room.png\"\n    show \"a.png\" as a\n    show \"b.png\" as b\n    parallel:\n        timeline:\n            transform a x 100 over 2\n        timeline:\n            pause 1\n            transform b alpha 0 over 1\n        timeline:\n            transform background x 40 over 2\n    \"Done\"\n";
         let program = compile(&parse_script(script, "parallel.rns").unwrap()).unwrap();
         let mut runtime = Runtime::new(program.clone()).unwrap();
         let WaitState::Effect {
@@ -87,6 +99,7 @@ mod tests {
         let midway = super::sample(&from, &tracks, 1.5);
         assert!((midway.sprites[0].transform.x - 75.0).abs() < 0.001);
         assert!((midway.sprites[1].transform.alpha - 0.5).abs() < 0.001);
+        assert!((midway.background_transform.x - 30.0).abs() < 0.001);
         let restored = Runtime::restore(program, runtime.snapshot()).unwrap();
         assert_eq!(restored.waiting(), runtime.waiting());
         assert!(

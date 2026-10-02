@@ -443,13 +443,18 @@ impl Parser {
                     "transform requires at least one property",
                 ));
             }
-            if (alias == "camera" || crate::syntax::camera_layer(&alias).is_some())
+            if (matches!(alias.as_str(), "camera" | crate::syntax::BACKGROUND_ALIAS)
+                || crate::syntax::camera_layer(&alias).is_some())
                 && (properties.anchor.is_some()
                     || properties.crop.is_some()
                     || properties.xalign.is_some()
                     || properties.yalign.is_some())
             {
-                return Err(self.error(&line, 1, "camera supports x, y, scale, rotate and alpha"));
+                return Err(self.error(
+                    &line,
+                    1,
+                    "camera supports x, y, scale, rotate and alpha; background supports the same properties",
+                ));
             }
             self.current += 1;
             StatementKind::Transform {

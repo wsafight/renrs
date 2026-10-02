@@ -17,7 +17,7 @@ P1/P2 完成状态。
 | `screens.json` | `1` | 拒绝未知版本和字段 | 提高文件 `version` |
 | `.renrs` 资源归档 | `1` | 校验 magic、版本、边界和 SHA-256 | 提高归档版本或提供显式重打包工具 |
 | Runtime snapshot | `8` | 写入 v8；兼容读取 v7 和 v8，其他版本拒绝 | 提高版本并同步兼容范围与升级说明 |
-| 桌面/Web 存档容器 | `2` | 只接受当前版本并验证校验和 | 提高版本并同步两端解析器 |
+| 桌面/Web 存档容器 | `3` | 写入 v3；兼容读取 v2 和 v3，并验证对应校验和方案 | 提高版本并同步两端解析器 |
 | extension/composition | `1` | 拒绝未知版本 | 提高对应 manifest 版本 |
 | 帧视频/流式视频 | `1` / `2` | 严格校验形态、版本及可选的本地化音轨/字幕轨 | 提高对应视频 manifest 版本 |
 
@@ -40,6 +40,10 @@ core 包含 Rust fmt/Clippy/测试、Biome、strict TypeScript、协议单测、
 30–60 分钟第一方参考 fixture 和路线验收。`--web` 不依赖 FFmpeg；`--media` 单独生成并验证
 并行动画、帧视频和流式视频；`--release` 验证 release 二进制、原生 smoke、SDK 和 Capacitor
 工程结构。每个平台的发布产物仍须在该平台重新执行 release 门禁。
+
+CI 的 `native-platforms` 矩阵在 Linux、macOS 和 Windows 分别构建 release 工具及播放器，执行
+直接和发行目录播放器的真实渲染、界面截图与存读档 smoke，并上传 `summary.json` 和截图证据。
+Linux 通过 Xvfb 提供显示服务；物理设备、真实 GPU/音频和发行方签名仍属于外部门禁。
 
 ## 外部发布门禁
 

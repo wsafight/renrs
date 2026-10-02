@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 
-use super::asset_output::{
-    converted_image_with_assumption, generated_or_assumed, unsupported_scene_transform,
-};
+use super::asset_output::{generated_or_assumed, unsupported_scene_transform};
 use super::atl::TransformCatalog;
 use super::atl_parameters::normalize_and_specialize;
 use super::conversion::{LineConversion, unsupported, unsupported_with_code};
@@ -171,55 +169,23 @@ pub(super) fn convert_image_statement(
         let (path, assumed) = catalog.resolve(image_tokens);
         (path, assumed)
     };
-    let scene_transform = expression
+    let expression_scene_transform = expression
         .as_ref()
         .is_some_and(StaticImageExpression::has_transform);
-    if kind == "scene" && scene_transform {
+    if kind == "scene" && expression_scene_transform {
         return unsupported_scene_transform();
     }
-    if kind == "scene" && parameterized_name.is_some() {
-        return unsupported_with_code(
-            "parameterized ATL scene calls require a manual scene transform binding",
-            false,
-            "atl_parameters_unsupported",
-        );
-    }
     if kind == "scene" {
-        let transition = match tokens.get(modifier..) {
-            None | Some([]) => None,
-            Some(["with", transition]) => match convert_transition(transition) {
-                Ok(value) => Some(value),
-                Err(message) => return unsupported(&message, false),
-            },
-            Some(_) => {
-                return unsupported(
-                    "scene modifiers (`at`, `as`, `with`, `onlayer`, `zorder`, or `behind`) require manual migration",
-                    false,
-                );
-            }
-        };
-        if assumed && image_tokens == ["black"] {
-            let mut value = format!("scene \"{path}\"");
-            if let Some(transition) = &transition {
-                value.push('\n');
-                value.push_str(&transition.value);
-            }
-            return LineConversion::Generated {
-                value,
-                asset: GeneratedAsset {
-                    path,
-                    kind: GeneratedAssetKind::Png([0, 0, 0, 255]),
-                },
-                assumption: transition.and_then(|value| value.assumption),
-            };
-        }
-        let mut value = format!("scene \"{path}\"");
-        let assumption = transition.map(|transition| {
-            value.push('\n');
-            value.push_str(&transition.value);
-            transition.assumption
-        });
-        return converted_image_with_assumption(value, &path, assumed, assumption.flatten());
+        return super::scene::convert_scene_statement(
+            &tokens,
+            modifier,
+            image_tokens,
+            &path,
+            assumed,
+            transforms,
+            parameterized_name.as_deref(),
+            specialized_transform.as_ref(),
+        );
     }
     let mut alias = image_tokens.first().copied().unwrap_or("expression");
     let mut position = expression

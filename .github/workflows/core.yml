@@ -43,15 +43,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.99.0
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev xvfb
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check -p renrs-player --all-targets
+      - run: cargo test -p renrs-player --all-targets
+      - name: Verify native release
+        run: node scripts/verify-native-release.mjs target/native-release-evidence
+        env:
+          RENRS_SMOKE_WRAPPER: ${{ runner.os == 'Linux' && 'xvfb-run' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-release-${{ runner.os }}
+          path: target/native-release-evidence
+          if-no-files-found: ignore
 
   repository:
     runs-on: ubuntu-latest

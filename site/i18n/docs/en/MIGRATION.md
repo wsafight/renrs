@@ -38,7 +38,12 @@ can reopen the original `.rpy` location.
   music loop is emitted explicitly.
 - A safe, parameter-free named transform subset is inlined at static `show ... at name`
   sites: standard `xalign`, bottom `yalign`, `alpha`, `zoom`, `rotate`, `xoffset`,
-  `yoffset`, `linear`, and `ease`.
+  `yoffset`, `linear`, `ease`, and terminal finite `repeat 1..16` blocks.
+- Finite numeric positional calls to parameterized transforms specialize at static
+  `show`, `scene`, and camera sites. Scene calls emit `transform background` for x/y,
+  scale, rotation, and alpha; background x/y alignment remains a manual boundary.
+- Static `show ... with` and `scene ... with` built-in transitions become separate,
+  recompilable `transition` statements.
 - `with fade` / `with dissolve` become `transition fade 0.5` under documented assumptions.
 - Simple `[variable]` in dialogue becomes `{variable}`.
 
@@ -54,8 +59,9 @@ without recording an assumption.
 - Python blocks, `init python`, ordinary `init`, and arbitrary Python expressions.
 - Custom screen language, styles, displayables, and UI actions. Only the default
   template maps to the built-in UI.
-- Parameterized or looping ATL, nonstandard alignment, dynamic image expressions, and
-  custom transitions.
+- Unbounded or dynamic ATL, parameter defaults/named/non-numeric arguments, nonstandard
+  alignment, dynamic image expressions, and custom transitions. Parameterized calls
+  outside the finite static subset receive `atl_parameters_unsupported`.
 - Label `*args`, `**kwargs`, keyword-only parameters, dynamic jump/call, and parameter
   expressions outside the RenRS subset.
 - Conditional/dynamic menus, complex Character, complex interpolation.
@@ -66,8 +72,8 @@ without recording an assumption.
 Unsupported source lines are kept as `# TODO migration:` comments and recorded as
 `unsupported` in the report. They are not executed or silently dropped. Fixed label
 parameters use Ren'Py-compatible call-time defaults and dynamic restoration on return.
-Parameters on `start` and variadic parameters are still rejected. RenRS transforms
-still need manual conversion.
+Parameters on `start` and variadic parameters are still rejected. Only the documented
+static transform subset is converted automatically.
 
 ## Report and strict mode
 

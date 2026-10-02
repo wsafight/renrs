@@ -58,3 +58,40 @@ fn layer_camera_survives_animation_sampling_snapshot_and_rollback() {
     restored.rollback().unwrap();
     assert_eq!(restored.stage().layer_cameras.len(), 0);
 }
+
+#[test]
+fn background_transform_survives_snapshot_scene_reset_and_rollback() {
+    let source = "label start:\n    scene \"one.png\"\n    \"Before\"\n    transform background scale 2 x 100 over 2\n    \"After\"\n    scene \"two.png\"\n    \"Reset\"";
+    let program = compile(&parse_script(source, "background.rns").unwrap()).unwrap();
+    let mut runtime = Runtime::new(program.clone()).unwrap();
+    assert_eq!(runtime.advance().unwrap(), WaitState::Dialogue);
+    assert_eq!(runtime.stage().background.as_deref(), Some("one.png"));
+    assert_eq!(
+        runtime.stage().background_transform,
+        crate::syntax::TransformState::identity()
+    );
+    assert!(matches!(
+        runtime.continue_story().unwrap(),
+        WaitState::Effect {
+            effect: VisualEffect::Transform { ref alias, .. }
+        } if alias == crate::syntax::BACKGROUND_ALIAS
+    ));
+
+    let snapshot: RuntimeSnapshot =
+        serde_json::from_slice(&serde_json::to_vec(&runtime.snapshot()).unwrap()).unwrap();
+    let mut restored = Runtime::restore(program, snapshot).unwrap();
+    assert_eq!(restored.continue_story().unwrap(), WaitState::Dialogue);
+    assert!((restored.stage().background_transform.scale - 2.0).abs() < f32::EPSILON);
+    assert!((restored.stage().background_transform.x - 100.0).abs() < f32::EPSILON);
+
+    assert_eq!(restored.continue_story().unwrap(), WaitState::Dialogue);
+    assert_eq!(restored.stage().background.as_deref(), Some("two.png"));
+    assert_eq!(
+        restored.stage().background_transform,
+        crate::syntax::TransformState::identity()
+    );
+    restored.rollback().unwrap();
+    assert_eq!(restored.stage().background.as_deref(), Some("one.png"));
+    assert!((restored.stage().background_transform.scale - 2.0).abs() < f32::EPSILON);
+    assert!((restored.stage().background_transform.x - 100.0).abs() < f32::EPSILON);
+}

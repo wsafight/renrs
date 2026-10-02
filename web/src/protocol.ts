@@ -167,6 +167,8 @@ function validateStage(value: unknown): StageState {
   const stage = record(value, 'runtime stage');
   array(stage.sprites, 'stage sprites');
   record(stage.camera, 'stage camera');
+  if (stage.background_transform !== undefined)
+    record(stage.background_transform, 'stage background transform');
   if (stage.layer_cameras !== undefined) record(stage.layer_cameras, 'stage layer cameras');
   if (stage.dialogue != null) validateDialogue(stage.dialogue);
   return stage as unknown as StageState;

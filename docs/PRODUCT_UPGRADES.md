@@ -47,8 +47,9 @@ transactional editor hot reload remain supported.
   `statement_unsupported` for compatibility.
 - [x] Parameterized ATL diagnostics: unsupported declarations and out-of-subset `show`/`scene`/camera call
   sites use the stable `atl_parameters_unsupported` code.
-- [x] Parameterized ATL specialization: finite numeric positional calls are rebound at static `show` and camera
-  sites and emitted as recompilable RenRS transforms; parameterized `scene` remains a manual binding boundary.
+- [x] Parameterized ATL specialization: finite numeric positional calls are rebound at static `show`, `scene`,
+  and camera sites and emitted as recompilable RenRS transforms. Scene calls target a serializable background
+  transform shared by native and Web; dynamic arguments, defaults, loops, and background alignment remain manual.
 
 ## P2
 

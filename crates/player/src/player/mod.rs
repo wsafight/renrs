@@ -3,6 +3,7 @@ mod asset_worker;
 mod assets;
 mod audio;
 mod audio_worker;
+mod background;
 mod benchmark;
 mod bootstrap;
 mod byte_budget;

@@ -21,7 +21,7 @@ image = { version = "0.25", default-features = false, features = ["png", "tga"] 
 macroquad = { version = "0.4.14" }
 ab_glyph = "0.2.32"
 etagere = "0.3"
-rustybuzz = "0.20"
+harfrust = "0.13.3"
 unicode-bidi = "0.3"
 unicode-segmentation = "1.12"
 unicode-script = "0.5"

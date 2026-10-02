@@ -200,12 +200,28 @@ impl App {
         master_camera.x += offset.x;
         master_camera.y += offset.y;
         let background_opacity = opacity * master_camera.alpha;
+        let animated_transform = self.active_transform();
+        let background_transform = animated_transform.map_or(stage.background_transform, |value| {
+            let (alias, from, to, seconds, easing) = value;
+            if alias != renrs::syntax::BACKGROUND_ALIAS {
+                return stage.background_transform;
+            }
+            let progress = if seconds <= f32::EPSILON {
+                1.0
+            } else {
+                1.0 - (self.effect_remaining / seconds).clamp(0.0, 1.0)
+            };
+            from.interpolate(to, easing.sample(progress))
+        });
         {
             let _camera = super::stage_camera::StageCamera::new(master_camera, target);
-            self.draw_background_tinted(stage.background.as_deref(), background_opacity);
+            self.draw_background_tinted(
+                stage.background.as_deref(),
+                background_opacity,
+                background_transform,
+            );
         }
         let tween = self.active_tween();
-        let animated_transform = self.active_transform();
         let mut sprites = stage.sprites.iter().enumerate().collect::<Vec<_>>();
         sprites.sort_by_key(|(index, sprite)| {
             (
@@ -297,37 +313,6 @@ impl App {
                         .map(|crop| Rect::new(crop.x, crop.y, crop.width, crop.height)),
                     rotation: transform.rotation.to_radians(),
                     pivot: Some(anchor),
-                    ..Default::default()
-                },
-            );
-        }
-    }
-
-    pub(super) fn draw_background(&self, path: Option<&str>) {
-        self.draw_background_tinted(path, 1.0);
-    }
-
-    fn draw_background_tinted(&self, path: Option<&str>, opacity: f32) {
-        if path.is_none() || opacity >= 1.0 {
-            draw_rectangle(
-                0.0,
-                0.0,
-                CANVAS_WIDTH,
-                CANVAS_HEIGHT,
-                color_alpha(&self.theme.background_color, opacity),
-            );
-        }
-        if let Some(texture) = path.and_then(|path| self.assets.textures.get(path)) {
-            let scale = (CANVAS_WIDTH / texture.width()).max(CANVAS_HEIGHT / texture.height());
-            let width = texture.width() * scale;
-            let height = texture.height() * scale;
-            draw_texture_ex(
-                texture,
-                (CANVAS_WIDTH - width) / 2.0,
-                (CANVAS_HEIGHT - height) / 2.0,
-                Color::new(1.0, 1.0, 1.0, opacity),
-                DrawTextureParams {
-                    dest_size: Some(vec2(width, height)),
                     ..Default::default()
                 },
             );

@@ -401,6 +401,33 @@ fn parses_parallel_tracks_and_rejects_alias_conflicts() {
 }
 
 #[test]
+fn reserves_background_alias_and_limits_background_transform_properties() {
+    let errors = parse_script(
+        "label start:\n    show \"room.png\" as background\n",
+        "bad.rns",
+    )
+    .unwrap_err();
+    assert!(errors[0].message.contains("reserved for scene transforms"));
+
+    for property in [
+        "anchor 0.5 0.5",
+        "crop 0 0 100 100",
+        "xalign 0.5",
+        "yalign 0.5",
+    ] {
+        let errors = parse_script(
+            &format!("label start:\n    transform background {property}\n"),
+            "bad.rns",
+        )
+        .unwrap_err();
+        assert!(
+            errors[0].message.contains("background supports"),
+            "{property}: {errors:?}",
+        );
+    }
+}
+
+#[test]
 fn rejects_empty_if_branches_and_invalid_nvl_modes() {
     let empty_if = parse_script("label start:\n    if true:\n    return", "bad.rns").unwrap_err();
     assert!(empty_if[0].message.contains("if branch cannot be empty"));

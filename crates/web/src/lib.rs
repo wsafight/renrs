@@ -98,6 +98,10 @@ impl Engine {
         self.parallel_camera_frames()
     }
 
+    pub fn background_frames(&self) -> Result<String, JsValue> {
+        self.parallel_background_frames()
+    }
+
     pub fn camera_layer_frames(&self, layer: &str) -> Result<String, JsValue> {
         self.parallel_layer_camera_frames(layer)
     }
@@ -312,6 +316,31 @@ impl Engine {
                     f32::from(index) * seconds / f32::from(PARALLEL_SAMPLES),
                 )
                 .camera
+            })
+            .collect();
+        serde_json::to_string(&frames).map_err(js_error)
+    }
+
+    fn parallel_background_frames(&self) -> Result<String, JsValue> {
+        let Some(renrs_runtime::WaitState::Effect {
+            effect:
+                renrs_runtime::runtime::VisualEffect::Parallel {
+                    from,
+                    tracks,
+                    seconds,
+                },
+        }) = self.runtime.waiting()
+        else {
+            return Ok("[]".to_owned());
+        };
+        let frames: Vec<_> = (0..=PARALLEL_SAMPLES)
+            .map(|index| {
+                renrs_runtime::animation::sample(
+                    from,
+                    tracks,
+                    f32::from(index) * seconds / f32::from(PARALLEL_SAMPLES),
+                )
+                .background_transform
             })
             .collect();
         serde_json::to_string(&frames).map_err(js_error)
