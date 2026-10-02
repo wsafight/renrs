@@ -1,12 +1,12 @@
 use super::{Engine, js_error};
-use renrs_runtime::save_format::{SaveFile, SavePresentation, checksum};
+use renrs_runtime::save_format::{SaveFile, SavePresentation, encode_save};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 impl Engine {
     pub fn import_save(&self, text: &str) -> Result<String, JsValue> {
         let save: SaveFile = serde_json::from_str(text).map_err(js_error)?;
-        save.validate(&self.runtime.shared_program().project_id)
+        save.validate_encoded(&self.runtime.shared_program().project_id, text.as_bytes())
             .map_err(js_error)?;
         let snapshot = serde_json::to_string(&save.snapshot).map_err(js_error)?;
         // Validate current-build state before the browser writes imported progress.
@@ -29,7 +29,7 @@ impl Engine {
 
     pub fn export_save(&self, snapshot: &str, metadata: &str) -> Result<String, JsValue> {
         let metadata: serde_json::Value = serde_json::from_str(metadata).map_err(js_error)?;
-        let mut save = SaveFile {
+        let save = SaveFile {
             container_version: SaveFile::CONTAINER_VERSION,
             engine_version: env!("CARGO_PKG_VERSION").to_owned(),
             saved_at_unix: metadata["time"].as_u64().unwrap_or_default() / 1000,
@@ -61,8 +61,8 @@ impl Engine {
         };
         renrs_runtime::Runtime::restore(self.runtime.shared_program(), save.snapshot.clone())
             .map_err(js_error)?;
-        save.checksum_sha256 = checksum(&save).map_err(js_error)?;
-        serde_json::to_string(&save).map_err(js_error)
+        let (_, encoded) = encode_save(&save).map_err(js_error)?;
+        String::from_utf8(encoded).map_err(js_error)
     }
 }
 

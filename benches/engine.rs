@@ -10,7 +10,7 @@ use std::sync::{Arc, LazyLock};
 use criterion::{Criterion, criterion_group, criterion_main};
 use renrs::expression;
 use renrs::runtime::RuntimeSnapshot;
-use renrs::save_format::{SaveFile, checksum};
+use renrs::save_format::{SaveFile, checksum, checksum_matches_encoded, encode_save};
 use renrs::syntax::Script;
 use renrs::text::parse_text_markup;
 use renrs::{Program, Runtime, WaitState, compile, load_project, parse_script};
@@ -100,6 +100,43 @@ fn parse_and_compile(criterion: &mut Criterion) {
     });
 }
 
+fn incremental_compile(criterion: &mut Criterion) {
+    let root = tempfile::tempdir().expect("bench fixture directory");
+    let game = root.path().join("game");
+    renrs::benchmark::generate(&game, 100, 100).expect("generate renrs-bench workload");
+    let source = renrs::ProjectSource::open(&game).expect("open generated project");
+    let mut cache = renrs_project::compile_cache::CompileCache::default();
+    cache.compile(&source).expect("prime compile cache");
+
+    criterion.bench_function("compile_cache_full_rescan", |bencher| {
+        bencher.iter(|| {
+            cache
+                .compile(black_box(&source))
+                .expect("cached compile should pass")
+        });
+    });
+    criterion.bench_function("compile_cache_no_script_changes", |bencher| {
+        bencher.iter(|| {
+            cache
+                .compile_changed(black_box(&source), std::iter::empty())
+                .expect("cached compile should pass")
+        });
+    });
+    criterion.bench_function("compile_cache_one_unchanged_script", |bencher| {
+        bencher.iter(|| {
+            cache
+                .compile_changed(black_box(&source), ["chapters/000.rns"])
+                .expect("cached compile should pass")
+        });
+    });
+}
+
+fn whole_program_analysis(criterion: &mut Criterion) {
+    criterion.bench_function("analyze_generated_project", |bencher| {
+        bencher.iter(|| renrs::analyze(black_box(&FIXTURE.program)));
+    });
+}
+
 fn play_route(criterion: &mut Criterion) {
     let program = Arc::clone(&FIXTURE.program);
     criterion.bench_function("runtime_play_generated_route", |bencher| {
@@ -151,6 +188,17 @@ fn persist(criterion: &mut Criterion) {
     criterion.bench_function("save_checksum", |bencher| {
         bencher.iter(|| checksum(black_box(&fixture.save)).expect("save should checksum"));
     });
+    criterion.bench_function("save_encode", |bencher| {
+        bencher.iter(|| encode_save(black_box(&fixture.save)).expect("save should encode"));
+    });
+    let (_, encoded) = encode_save(&fixture.save).expect("save should encode");
+    criterion.bench_function("save_decode_and_verify", |bencher| {
+        bencher.iter(|| {
+            let save: SaveFile = serde_json::from_slice(black_box(&encoded)).expect("valid save");
+            assert!(checksum_matches_encoded(&save, &encoded).expect("save should checksum"));
+            save
+        });
+    });
 }
 
 fn markup(criterion: &mut Criterion) {
@@ -163,6 +211,8 @@ fn markup(criterion: &mut Criterion) {
 criterion_group!(
     benches,
     parse_and_compile,
+    incremental_compile,
+    whole_program_analysis,
     play_route,
     expressions,
     persist,

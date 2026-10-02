@@ -148,13 +148,17 @@ fn prepare(
     paths: Vec<String>,
     generation: u64,
 ) -> Result<ReloadBundle, String> {
-    let program = Arc::new(cache.compile(source).map_err(|errors| {
-        errors
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("\n")
-    })?);
+    let program = Arc::new(
+        cache
+            .compile_changed(source, paths.iter().map(String::as_str))
+            .map_err(|errors| {
+                errors
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })?,
+    );
     let theme = load_theme(source).map_err(|error| error.to_string())?;
     let screens = super::ui_declarative::load_screens(source)?;
     let (localizer, notice) = load_localizer(source, None, false);

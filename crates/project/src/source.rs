@@ -67,8 +67,17 @@ impl ProjectSource {
         &self,
         script: &Script,
     ) -> Result<crate::Program, Vec<Diagnostic>> {
+        let support_diagnostics = self.validate_support_files();
+        self.compile_script_with_support(script, support_diagnostics)
+    }
+
+    pub(crate) fn compile_script_with_support(
+        &self,
+        script: &Script,
+        support_diagnostics: Vec<Diagnostic>,
+    ) -> Result<crate::Program, Vec<Diagnostic>> {
         let mut diagnostics = self.validate(script);
-        diagnostics.extend(self.validate_support_files());
+        diagnostics.extend(support_diagnostics);
         if !diagnostics.is_empty() {
             return Err(diagnostics);
         }

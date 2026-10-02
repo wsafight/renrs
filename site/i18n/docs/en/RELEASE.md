@@ -19,7 +19,7 @@ do not block completion of the current repository-contained P1/P2 scope.
 | `screens.json` | `1` | Reject unknown versions and fields | Raise file `version` |
 | `.renrs` resource archive | `1` | Check magic, version, bounds, and SHA-256 | Raise archive version or provide an explicit repack tool |
 | Runtime snapshot | `8` | Write v8; read v7 and v8, reject other versions | Raise version and update the compatibility range and upgrade notes |
-| Desktop/Web save container | `2` | Accept only the current version and verify checksum | Raise version and update both parsers |
+| Desktop/Web save container | `3` | Write v3; read v2 and v3, and verify the matching checksum scheme | Raise version and update both parsers |
 | extension/composition | `1` | Reject unknown versions | Raise the matching manifest version |
 | Frame/stream video | `1` / `2` | Strictly validate shape, version, and optional localized audio/subtitle tracks | Raise the matching video manifest version |
 

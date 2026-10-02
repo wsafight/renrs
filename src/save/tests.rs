@@ -134,14 +134,14 @@ fn rejects_unknown_container_versions_on_load_and_import() {
             repository.load("future"),
             Err(SaveError::UnsupportedContainerVersion {
                 found,
-                current: 2
+                current: 3
             }) if found == version
         ));
         assert!(matches!(
             repository.import(&path, "imported"),
             Err(SaveError::UnsupportedContainerVersion {
                 found,
-                current: 2
+                current: 3
             }) if found == version
         ));
         assert!(!temporary.path().join("imported.json").exists());

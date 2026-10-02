@@ -4,12 +4,14 @@ use crate::compiler::{InstructionKind, Program};
 use crate::syntax::{Expr, Value};
 use renrs_algorithms::graph::Graph;
 
+use super::context::ContainingLabel;
+
 pub(super) struct ControlFlowGraph {
     pub(super) successors: Vec<Vec<usize>>,
 }
 
 impl ControlFlowGraph {
-    pub(super) fn new(program: &Program) -> Self {
+    pub(super) fn new(program: &Program, labels: &[Option<ContainingLabel<'_>>]) -> Self {
         let length = program.instructions.len();
         let mut return_targets = HashMap::<usize, Vec<usize>>::new();
         for (index, instruction) in program.instructions.iter().enumerate() {
@@ -41,7 +43,8 @@ impl ControlFlowGraph {
                         .map(|option| option.target)
                         .filter(|target| *target < length)
                         .collect(),
-                    InstructionKind::Return { .. } => containing_label_start(program, index)
+                    InstructionKind::Return { .. } => labels[index]
+                        .map(|label| label.start)
                         .and_then(|label| return_targets.get(&label))
                         .cloned()
                         .unwrap_or_default(),
@@ -63,15 +66,6 @@ impl ControlFlowGraph {
     pub(super) fn algorithm(&self) -> Graph<'_> {
         Graph::new(&self.successors)
     }
-}
-
-fn containing_label_start(program: &Program, instruction: usize) -> Option<usize> {
-    program
-        .labels
-        .values()
-        .copied()
-        .take_while(|start| *start <= instruction)
-        .last()
 }
 
 fn valid_targets<const N: usize>(targets: [Option<usize>; N], length: usize) -> Vec<usize> {

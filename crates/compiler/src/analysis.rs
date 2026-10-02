@@ -1,22 +1,29 @@
+#[path = "analysis/context.rs"]
+mod context;
 #[path = "analysis/graph.rs"]
 mod graph;
 
 use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::sync::Arc;
 
 use crate::compiler::{InstructionKind, Program, StatementId};
 use crate::diagnostic::Diagnostic;
 use crate::syntax::{Expr, Span, StrPart};
 use crate::text::{is_text_tag, validate_text_source};
 
+use context::{AssignmentSet, ContainingLabel, VariableIndex, containing_labels};
 use graph::ControlFlowGraph;
 
 /// Performs whole-program control-flow and definite-assignment analysis.
 #[must_use]
 pub fn analyze(program: &Program) -> Vec<Diagnostic> {
-    let graph = ControlFlowGraph::new(program);
+    let labels = containing_labels(program);
+    let graph = ControlFlowGraph::new(program, &labels);
     let reachable = graph.reachable(program.labels.get("start").copied());
-    let mut diagnostics = unreachable_diagnostics(program, &reachable);
-    diagnostics.extend(definite_assignment_diagnostics(program, &graph, &reachable));
+    let mut diagnostics = unreachable_diagnostics(program, &reachable, &labels);
+    diagnostics.extend(definite_assignment_diagnostics(
+        program, &graph, &reachable, &labels,
+    ));
     diagnostics.extend(immediate_cycle_diagnostics(program, &graph, &reachable));
     diagnostics
 }
@@ -24,7 +31,8 @@ pub fn analyze(program: &Program) -> Vec<Diagnostic> {
 /// Returns labels whose entry instruction is reachable from `start`.
 #[must_use]
 pub fn reachable_labels(program: &Program) -> BTreeSet<String> {
-    let graph = ControlFlowGraph::new(program);
+    let labels = containing_labels(program);
+    let graph = ControlFlowGraph::new(program, &labels);
     let reachable = graph.reachable(program.labels.get("start").copied());
     program
         .labels
@@ -34,7 +42,11 @@ pub fn reachable_labels(program: &Program) -> BTreeSet<String> {
         .collect()
 }
 
-fn unreachable_diagnostics(program: &Program, reachable: &[bool]) -> Vec<Diagnostic> {
+fn unreachable_diagnostics(
+    program: &Program,
+    reachable: &[bool],
+    labels: &[Option<ContainingLabel<'_>>],
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut reachable_labels = HashSet::new();
     for (name, index) in &program.labels {
@@ -53,10 +65,12 @@ fn unreachable_diagnostics(program: &Program, reachable: &[bool]) -> Vec<Diagnos
         if reachable[index] || instruction.role != "main" {
             continue;
         }
-        let Some(label) = containing_label(program, index) else {
+        let Some(label) = labels[index] else {
             continue;
         };
-        if reachable_labels.contains(label) && reported.insert(instruction.statement_id.clone()) {
+        if reachable_labels.contains(label.name)
+            && reported.insert(instruction.statement_id.clone())
+        {
             diagnostics.push(warning_at(
                 &instruction.span,
                 "statement is unreachable because control flow cannot reach it",
@@ -66,56 +80,51 @@ fn unreachable_diagnostics(program: &Program, reachable: &[bool]) -> Vec<Diagnos
     diagnostics
 }
 
-fn containing_label(program: &Program, instruction: usize) -> Option<&str> {
-    program
-        .labels
-        .iter()
-        .take_while(|(_, start)| **start <= instruction)
-        .last()
-        .map(|(name, _)| name.as_str())
-}
-
 #[allow(clippy::too_many_lines)]
 fn definite_assignment_diagnostics(
     program: &Program,
     graph: &ControlFlowGraph,
     reachable: &[bool],
+    labels: &[Option<ContainingLabel<'_>>],
 ) -> Vec<Diagnostic> {
     let Some(start) = program.labels.get("start").copied() else {
         return Vec::new();
     };
-    let mut inputs = vec![None::<HashSet<String>>; program.instructions.len()];
-    inputs[start] = Some(program.defaults.keys().cloned().collect());
+    let variables = VariableIndex::new(program);
+    let mut inputs = vec![None::<Arc<AssignmentSet>>; program.instructions.len()];
+    inputs[start] = Some(Arc::new(variables.defaults(program)));
     let mut pending = VecDeque::from([start]);
     while let Some(index) = pending.pop_front() {
-        let mut output = inputs[index].clone().unwrap_or_default();
-        match &program.instructions[index].kind {
+        let input = Arc::clone(inputs[index].as_ref().expect("queued input exists"));
+        let assignment = match &program.instructions[index].kind {
             InstructionKind::Set { variable, .. } | InstructionKind::Extension { variable, .. } => {
-                if !is_label_parameter(program, index, variable) {
-                    output.insert(variable.clone());
-                }
+                (!is_label_parameter(program, labels[index], variable))
+                    .then(|| variables.bit(variable))
+                    .flatten()
             }
-            InstructionKind::Return { value: Some(_) } => {
-                output.insert("_return".to_owned());
+            InstructionKind::Return { value: Some(_) } => variables.bit("_return"),
+            _ => None,
+        };
+        let output = assignment.map_or(input.clone(), |variable| {
+            if input.contains(variable) {
+                input.clone()
+            } else {
+                let mut output = (*input).clone();
+                output.insert(variable);
+                Arc::new(output)
             }
-            _ => {}
-        }
+        });
         for successor in &graph.successors[index] {
             if !reachable[*successor] {
                 continue;
             }
             let changed = match &mut inputs[*successor] {
-                Some(existing) => {
-                    let intersection = existing.intersection(&output).cloned().collect();
-                    if *existing == intersection {
-                        false
-                    } else {
-                        *existing = intersection;
-                        true
-                    }
-                }
+                Some(existing) => existing
+                    .intersection_if_changed(&output)
+                    .map(|intersection| *existing = Arc::new(intersection))
+                    .is_some(),
                 slot @ None => {
-                    *slot = Some(output.clone());
+                    *slot = Some(Arc::clone(&output));
                     true
                 }
             };
@@ -131,12 +140,11 @@ fn definite_assignment_diagnostics(
         if !reachable[index] {
             continue;
         }
-        let mut assigned = inputs[index].clone().unwrap_or_default();
-        if let Some(label) = containing_label(program, index)
-            && let Some(parameters) = program.label_parameters.get(label)
-        {
-            assigned.extend(parameters.iter().cloned());
-        }
+        let assigned = inputs[index].as_deref();
+        let parameters = labels[index]
+            .and_then(|label| program.label_parameters.get(label.name))
+            .map(Vec::as_slice)
+            .unwrap_or_default();
         let mut used = HashSet::new();
         match &instruction.kind {
             InstructionKind::Set { value, .. }
@@ -186,8 +194,15 @@ fn definite_assignment_diagnostics(
             }
             _ => {}
         }
-        for variable in used.difference(&assigned) {
-            if reported.insert((instruction.id.clone(), variable.clone())) {
+        for variable in used {
+            let assigned_on_path = variables
+                .bit(&variable)
+                .is_some_and(|variable| assigned.is_some_and(|set| set.contains(variable)));
+            let assigned_as_parameter = parameters.iter().any(|parameter| parameter == &variable);
+            if !assigned_on_path
+                && !assigned_as_parameter
+                && reported.insert((instruction.id.clone(), variable.clone()))
+            {
                 diagnostics.push(error_at(
                     &instruction.span,
                     format!("variable `{variable}` may be unassigned on this path"),
@@ -198,9 +213,13 @@ fn definite_assignment_diagnostics(
     diagnostics
 }
 
-fn is_label_parameter(program: &Program, instruction: usize, variable: &str) -> bool {
-    containing_label(program, instruction)
-        .and_then(|label| program.label_parameters.get(label))
+fn is_label_parameter(
+    program: &Program,
+    label: Option<ContainingLabel<'_>>,
+    variable: &str,
+) -> bool {
+    label
+        .and_then(|label| program.label_parameters.get(label.name))
         .is_some_and(|parameters| parameters.iter().any(|parameter| parameter == variable))
 }
 

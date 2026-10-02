@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::io::{BufReader, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -13,7 +13,7 @@ mod index;
 mod summary;
 pub mod worker;
 pub use renrs_runtime::save_format::{SaveFile, SavePresentation};
-use renrs_runtime::save_format::{checksum, encode_save};
+use renrs_runtime::save_format::{checksum_matches_encoded, encode_save};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SaveMetadata {
@@ -196,16 +196,16 @@ impl SaveRepository {
     /// malformed JSON.
     pub fn load(&self, slot: &str) -> Result<SaveFile, SaveError> {
         let path = self.slot_path(slot)?;
-        let file = File::open(&path).map_err(|error| {
+        let bytes = fs::read(&path).map_err(|error| {
             if error.kind() == std::io::ErrorKind::NotFound {
                 SaveError::Missing(slot.to_owned())
             } else {
                 SaveError::Io(error)
             }
         })?;
-        let save: SaveFile = serde_json::from_reader(BufReader::new(file))?;
+        let save: SaveFile = serde_json::from_slice(&bytes)?;
         validate_container_version(save.container_version)?;
-        if checksum(&save)? != save.checksum_sha256 {
+        if !checksum_matches_encoded(&save, &bytes)? {
             return Err(SaveError::Checksum(slot.to_owned()));
         }
         Ok(save)
@@ -268,11 +268,10 @@ impl SaveRepository {
     pub fn import(&self, source: &Path, slot: &str) -> Result<(), SaveError> {
         let mut index = self.index();
         index.invalidate();
-        let file = File::open(source)?;
-        let save: SaveFile = serde_json::from_reader(BufReader::new(file))?;
+        let bytes = fs::read(source)?;
+        let save: SaveFile = serde_json::from_slice(&bytes)?;
         validate_container_version(save.container_version)?;
-        let (hash, bytes) = encode_save(&save)?;
-        if hash != save.checksum_sha256 {
+        if !checksum_matches_encoded(&save, &bytes)? {
             return Err(SaveError::Checksum(slot.to_owned()));
         }
         fs::create_dir_all(&self.root)?;
@@ -290,7 +289,7 @@ impl SaveRepository {
 }
 
 fn validate_container_version(version: u32) -> Result<(), SaveError> {
-    if version == SaveFile::CONTAINER_VERSION {
+    if matches!(version, 2 | SaveFile::CONTAINER_VERSION) {
         Ok(())
     } else {
         Err(SaveError::UnsupportedContainerVersion {

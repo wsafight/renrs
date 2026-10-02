@@ -95,7 +95,8 @@ signing and store gates are tracked in [the release contract](RELEASE.md).
 
 Snapshot v8 interns scalar/collection nodes and repeated stage states, restores shared
 collections, and preserves dynamic label-parameter scopes.
-The save container remains v2, writing v8 and accepting v7/v8 snapshots. Native summaries
+The save container is v3, while v2 containers remain readable; both accept v7/v8 snapshots.
+Version 3 validates the encoded payload without reserializing it. Native summaries
 are used by both listing APIs and copied during rotation; Web IndexedDB summaries
 are separate from payloads and indexed by project. Loading still checks payloads.
 
