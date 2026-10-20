@@ -14,7 +14,8 @@ renrs-compiler.workspace = true
 renrs-runtime.workspace = true
 renrs-shared.workspace = true
 renrs-syntax.workspace = true
-serde_json.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 wasm-bindgen = "=0.2.129"
 
 [lints]

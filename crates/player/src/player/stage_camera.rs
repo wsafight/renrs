@@ -1,7 +1,7 @@
 use super::app::App;
 use macroquad::prelude::*;
 use renrs::runtime::{StageState, VisualEffect};
-use renrs::syntax::{TransformState, camera_layer, layer_camera_alias};
+use renrs::syntax::{TransformState, camera_layer};
 
 pub(super) struct StageCamera;
 impl StageCamera {
@@ -27,7 +27,6 @@ impl App {
         stage: &StageState,
         layer: Option<&str>,
     ) -> TransformState {
-        let target_alias = layer.map_or_else(|| "camera".to_owned(), layer_camera_alias);
         let base = stage.camera;
         let layer_camera = layer
             .and_then(|name| stage.layer_cameras.get(name))
@@ -43,7 +42,8 @@ impl App {
                     easing,
                 },
         }) = self.runtime.as_ref().and_then(renrs::Runtime::waiting)
-            && (active_alias == "camera" || effect_alias_matches(&target_alias, active_alias))
+            && (active_alias == "camera"
+                || layer.is_some_and(|name| camera_layer(active_alias) == Some(name)))
         {
             let progress = if self.theme.reduced_motion || *seconds <= f32::EPSILON {
                 1.0
@@ -68,13 +68,5 @@ fn compose(master: TransformState, layer: TransformState) -> TransformState {
         rotation: master.rotation + layer.rotation,
         alpha: master.alpha * layer.alpha,
         ..layer
-    }
-}
-
-fn effect_alias_matches(expected: &str, actual: &str) -> bool {
-    if expected == "camera" {
-        actual == "camera"
-    } else {
-        camera_layer(actual) == camera_layer(expected)
     }
 }

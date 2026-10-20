@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::Arc;
 
@@ -325,6 +326,7 @@ pub struct Runtime {
     pub(crate) profile: crate::progress::Profile,
     pub(crate) profile_revision: u64,
     last_instruction: usize,
+    current_label_cache: Cell<Option<(usize, Option<usize>)>>,
     trace: Option<BTreeSet<usize>>,
     call_stack: Vec<CallFrame>,
     pub(crate) variables: Arc<BTreeMap<String, Value>>,
@@ -344,6 +346,10 @@ pub enum RuntimeError {
     DebugPaused,
     #[error("program does not define a `start` label")]
     MissingStart,
+    #[error("program does not define label `{0}`")]
+    MissingLabel(String),
+    #[error("label `{0}` takes parameters and can only be entered through `call`")]
+    ParameterizedLabel(String),
     #[error("cannot restore save format {found}; this engine supports format {supported}")]
     SaveVersion { found: u32, supported: u32 },
     #[error("save belongs to a different script version; start a new game")]
@@ -413,13 +419,25 @@ mod value;
 #[path = "runtime/tests.rs"]
 mod tests;
 
+/// Variable lookup for [`format_text`], letting callers overlay values without
+/// copying the underlying variable map.
+pub trait TextVariables {
+    fn get(&self, name: &str) -> Option<&Value>;
+}
+
+impl TextVariables for BTreeMap<String, Value> {
+    fn get(&self, name: &str) -> Option<&Value> {
+        BTreeMap::get(self, name)
+    }
+}
+
 /// Expands variable placeholders using the same rules as story dialogue.
 ///
 /// # Errors
 /// Returns an error for a missing variable or malformed placeholder.
-pub fn format_text(
+pub fn format_text<T: TextVariables + ?Sized>(
     text: &str,
-    variables: &BTreeMap<String, Value>,
+    variables: &T,
 ) -> Result<String, RuntimeError> {
     interpolate(text, variables, 0)
 }

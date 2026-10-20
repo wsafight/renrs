@@ -1,6 +1,7 @@
 use super::{SaveFile, SaveMetadata, SaveRepository, SaveSlot};
 use crate::runtime::RuntimeSnapshot;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::thread::{self, JoinHandle};
 
@@ -51,7 +52,8 @@ pub enum SaveRequest {
 pub enum SaveResponse {
     Saved(String),
     Loaded(String, Box<SaveFile>),
-    Listed(Vec<SaveSlot>),
+    /// Unchanged listings reuse the previous allocation; compare with [`Arc::ptr_eq`].
+    Listed(Arc<[SaveSlot]>),
     Completed(String),
     Error(String),
 }
@@ -154,7 +156,7 @@ fn execute(repository: &SaveRepository, request: SaveRequest) -> Result<SaveResp
         SaveRequest::Load(slot) => repository
             .load(&slot)
             .map(|save| SaveResponse::Loaded(slot, Box::new(save))),
-        SaveRequest::List => repository.list_cached().map(SaveResponse::Listed),
+        SaveRequest::List => repository.list_shared().map(SaveResponse::Listed),
         SaveRequest::Delete(slot) => repository
             .delete(&slot)
             .map(|()| SaveResponse::Completed("Deleted".to_owned())),

@@ -29,6 +29,12 @@ pub(super) struct Settings {
     pub(super) wait_voice: bool,
     #[serde(default)]
     pub(super) self_voicing: bool,
+    /// Skip mode also passes unread dialogue instead of stopping there.
+    #[serde(default)]
+    pub(super) skip_unread: bool,
+    /// Skip mode resumes after the player picks a choice instead of ending.
+    #[serde(default)]
+    pub(super) skip_after_choices: bool,
 }
 
 impl Default for Settings {
@@ -46,6 +52,8 @@ impl Default for Settings {
             reduced_motion: false,
             wait_voice: true,
             self_voicing: false,
+            skip_unread: false,
+            skip_after_choices: false,
         }
     }
 }
@@ -103,6 +111,20 @@ mod tests {
         )
         .unwrap();
         assert!((Settings::load(&path).text_speed - 42.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn skip_preferences_default_off_for_older_settings_files() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("settings.json");
+        fs::write(
+            &path,
+            r#"{"text_speed":40,"music_volume":0.6,"sound_volume":0.8}"#,
+        )
+        .unwrap();
+        let settings = Settings::load(&path);
+        assert!((settings.text_speed - 40.0).abs() < f32::EPSILON);
+        assert!(!settings.skip_unread && !settings.skip_after_choices);
     }
 }
 const fn default_wait_voice() -> bool {

@@ -4,6 +4,10 @@
 以及 `dialogue`、`choices`，并叠加只读 `hud`。未声明的界面继续使用内置版本。目录热重载和 `.renrs` 归档均支持该文件。
 这是 RenRS 的受限 JSON 格式，不执行 Ren'Py screen language 或任意代码。
 
+编辑器 Schema 位于 [`schemas/screens-v1.schema.json`](../schemas/screens-v1.schema.json)。RenRS VS Code 扩展会自动为
+任意 `screens.json` 启用补全和校验；其他编辑器可在文件中写 `"$schema"` 指向该文件，引擎会忽略这个字段。
+Schema 只覆盖字段、取值和类型；布局边界、嵌套上限、表达式和各界面允许的控件仍以引擎校验为准。
+
 ## 最小示例
 
 ```json
@@ -50,7 +54,7 @@
 | `choices` | 无 | 选项区，只允许在 choices 界面且必须恰好一个；至少 200x64 |
 | `set` | `text`, `variable`, `expression` | 按钮执行确定性变量更新，仅限 dialogue/choices/settings |
 | `slider` | `text`, `setting` | 编辑偏好，至少需要 200x64 的区域 |
-| `toggle` | `text`, `setting` | 切换 `high_contrast`、`reduced_motion`、`wait_voice` 或 `self_voicing` |
+| `toggle` | `text`, `setting` | 切换 `high_contrast`、`reduced_motion`、`wait_voice`、`self_voicing`、`skip_unread`（快进也跳过未读）或 `skip_after_choices`（选项后继续快进） |
 | `input` | `text`, `variable`, `max_length` | 编辑已声明的字符串变量；需要已开始游戏 |
 | `list` | `source`, `item_height`, `gap` | 有界显示、滚轮及翻页；每个界面最多一个列表 |
 | `viewport` | `id`, `content_height`, `child` | 可嵌套滚动区域，原生和 Web 保持独立滚动位置并裁剪内容 |
@@ -98,4 +102,4 @@ NVL 使用专门的阅读页。历史列表在 Web 按每页 50 条读取，避�
 ```
 
 变量必须已声明且更新前后类型一致；只有停在对白或菜单时可以执行。表达式或菜单条件求值失败会保留原变量、
-profile 和检查点。成功更新进入当前检查点，后续存档及回退可恢复。没有任意宿主回调、拖拽、嵌套 viewport 或 Ren'Py displayable。
+profile 和检查点。成功更新进入当前检查点，后续存档及回退可恢复。没有任意宿主回调或 Ren'Py displayable；拖放和嵌套 viewport 仅限上表中的 `drag`/`drop` 与 `viewport` 控件。

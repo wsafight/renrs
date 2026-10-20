@@ -2,6 +2,7 @@ use super::{SaveError, SavePresentation, SaveRepository, SaveSlot};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[derive(Deserialize)]
@@ -49,7 +50,7 @@ struct ListingDialogue {
 pub(super) struct SaveIndex {
     scanned_at: Option<Instant>,
     entries: HashMap<String, (u64, Option<SystemTime>, SaveSlot)>,
-    slots: Vec<SaveSlot>,
+    slots: Arc<[SaveSlot]>,
 }
 
 impl SaveIndex {
@@ -66,10 +67,20 @@ impl SaveRepository {
     /// # Errors
     /// Returns a storage error if the directory or file metadata cannot be read.
     pub fn list_cached(&self) -> Result<Vec<SaveSlot>, SaveError> {
+        self.list_shared().map(|slots| slots.to_vec())
+    }
+
+    /// Same freshness as [`Self::list_cached`], but shares the listing. A rescan
+    /// that finds no changed file returns the previous allocation, so callers can
+    /// skip unchanged listings with [`Arc::ptr_eq`].
+    ///
+    /// # Errors
+    /// Returns a storage error if the directory or file metadata cannot be read.
+    pub fn list_shared(&self) -> Result<Arc<[SaveSlot]>, SaveError> {
         self.list_indexed(false)
     }
 
-    pub(super) fn list_indexed(&self, refresh: bool) -> Result<Vec<SaveSlot>, SaveError> {
+    pub(super) fn list_indexed(&self, refresh: bool) -> Result<Arc<[SaveSlot]>, SaveError> {
         let mut index = self.index();
         if !refresh
             && index
@@ -79,6 +90,7 @@ impl SaveRepository {
             return Ok(index.slots.clone());
         }
         let mut entries = HashMap::new();
+        let mut changed = false;
         if self.root.exists() {
             for entry in std::fs::read_dir(&self.root)? {
                 let entry = entry?;
@@ -97,21 +109,25 @@ impl SaveRepository {
                     && modified.is_some()
                 {
                     slot.clone()
-                } else if let Some(summary) = self.read_summary(name, &metadata) {
-                    summary
                 } else {
-                    self.slot_from_listing(name, &path, modified)
+                    changed = true;
+                    self.read_summary(name, &metadata)
+                        .unwrap_or_else(|| self.slot_from_listing(name, &path, modified))
                 };
                 entries.insert(name.to_owned(), (metadata.len(), modified, slot));
             }
         }
-        index.slots = entries.values().map(|(_, _, slot)| slot.clone()).collect();
-        index.slots.sort_by(|left, right| {
-            right
-                .saved_at_unix
-                .cmp(&left.saved_at_unix)
-                .then(left.name.cmp(&right.name))
-        });
+        // Every surviving file was reused unchanged, so equal counts mean the same set.
+        if changed || entries.len() != index.entries.len() {
+            let mut slots: Vec<_> = entries.values().map(|(_, _, slot)| slot.clone()).collect();
+            slots.sort_by(|left, right| {
+                right
+                    .saved_at_unix
+                    .cmp(&left.saved_at_unix)
+                    .then(left.name.cmp(&right.name))
+            });
+            index.slots = slots.into();
+        }
         index.entries = entries;
         index.scanned_at = Some(Instant::now());
         Ok(index.slots.clone())
@@ -210,6 +226,31 @@ mod tests {
         assert_eq!(repository.list_cached().unwrap().len(), 1);
         repository.index().scanned_at = None;
         assert_eq!(repository.list_cached().unwrap(), []);
+    }
+
+    #[test]
+    fn unchanged_rescans_share_the_previous_listing() {
+        let root = tempfile::tempdir().unwrap();
+        let repository = SaveRepository::new(root.path());
+        let mut runtime = Runtime::new(
+            compile(&parse_script("label start:\n    \"Hello\"", "test.rns").unwrap()).unwrap(),
+        )
+        .unwrap();
+        runtime.advance().unwrap();
+        repository.save("slot-1", &runtime.snapshot()).unwrap();
+        let first = repository.list_shared().unwrap();
+        repository.index().scanned_at = None;
+        let rescanned = repository.list_shared().unwrap();
+        assert!(Arc::ptr_eq(&first, &rescanned));
+        repository.save("slot-2", &runtime.snapshot()).unwrap();
+        let written = repository.list_shared().unwrap();
+        assert!(!Arc::ptr_eq(&first, &written));
+        assert_eq!(written.len(), 2);
+        std::fs::remove_file(root.path().join("slot-1.json")).unwrap();
+        repository.index().scanned_at = None;
+        let deleted = repository.list_shared().unwrap();
+        assert!(!Arc::ptr_eq(&written, &deleted));
+        assert_eq!(deleted.len(), 1);
     }
 
     #[test]

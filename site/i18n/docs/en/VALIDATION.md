@@ -48,6 +48,29 @@ plist checks passed. Started from `/private/tmp` with no project argument, it pa
 remote CI were not submitted. Signed delta-patch tests cover rebuild, content
 tamper, and a wrong public key.
 
+## Current benchmark
+
+Local run on 2026-10-21: Apple M3 Pro, macOS 26.6.2 (arm64), Rust 1.99.0, release
+profile, with the same commands and workload as the historical baseline below (100
+chapters, 10,000 dialogue lines, 10,805 instructions, 209 project files).
+
+| Operation | Local measurement |
+| --- | --- |
+| Directory check and compile, 5 runs | 38.49 / 36.71 / 36.20 / 36.19 / 36.05 ms |
+| First-choice route, 10,102 interactions | 13.53 ms |
+| Snapshot create and JSON | 3.27 ms, 5,067,953 bytes |
+| Snapshot restore | 2.66 ms |
+| Write one full save (checksum to disk) | 57.10 ms |
+| First read of one full save | 11.81 ms |
+| Full six-slot list | 0.218 ms |
+| Cached list, mean of 100 | 0.000361 ms/call |
+| Watcher idle scan, mean of 10 | 1.15 ms/call |
+| Directory archive pack | 26.84 ms, 3,291,948 bytes |
+| Archive check and compile | 35.46 ms |
+
+`renrs-bench` measures saves synchronously on the command line; in-player saves run on
+the background storage queue and are not main-thread stalls.
+
 The following is the historical baseline from before this round. Current features and
 limits are in [Capability upgrades](UPGRADES.md).
 
@@ -156,7 +179,8 @@ player. Captures and reports are in `target/validation/`, grouped as `demo-*`,
 - Tests cover old snapshots/containers, stable ID aliases, rollback, directory/archive consistency, corrupt saves, the migrator, language transactions, and route assertions.
 - The VS Code extension passed strict TypeScript checks and regenerated a VSIX with the compiled LSP bundle, grammar, and license.
 - Rust checks, template and route tests, VSIX packaging, window captures, and shipping
-  startup run through layered local gates; GitHub Actions retains only documentation deployment.
+  startup ran through layered local gates; GitHub Actions then retained only documentation
+  deployment. Current CI scope is in [Command-line tools](TOOLING.md#engineering-gates).
 
 This historical stage did not actually run remote three-platform acceptance or human
 audio listening. Window automated acceptance

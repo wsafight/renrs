@@ -36,7 +36,7 @@ import type {
   RuntimeState,
   SaveRecord,
 } from './types';
-import { errorMessage, waitingObject } from './types';
+import { errorMessage, skipsCurrentDialogue, waitingObject } from './types';
 import { resumeMedia } from './video-audio';
 
 type Engine = PlayerApp['engine'];
@@ -141,6 +141,8 @@ export const app: PlayerApp = {
     voice_volume: 1,
     auto: false,
     skip: false,
+    skip_unread: false,
+    skip_after_choices: false,
     text_speed: 40,
     auto_delay: 2.5,
     wait_voice: true,
@@ -326,6 +328,10 @@ async function render(elapsed = 0): Promise<void> {
   $('chapter').textContent = `${debug.label || ''}${waiting === 'Finished' ? ' / The End' : ''}`;
   $('rollback').disabled = !app.state.can_rollback;
   $('next').disabled = waiting === 'Finished' || Boolean(wait.Choice) || debug.paused;
+  if (wait.Choice && app.settings.skip && !app.settings.skip_after_choices) {
+    app.settings.skip = false;
+    app.applySettings();
+  }
   $('choices').replaceChildren();
   for (const [index, text] of (wait.Choice?.options || []).entries()) {
     const choice = element('button', text);
@@ -360,7 +366,7 @@ function schedule(remaining?: number): void {
     return;
   }
   if (waiting === 'Dialogue') {
-    if (app.settings.skip && app.wasRead) {
+    if (skipsCurrentDialogue(app)) {
       if (app.reading.finish()) return;
       delay = 40;
     } else if (

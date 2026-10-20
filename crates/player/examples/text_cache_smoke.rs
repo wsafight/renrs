@@ -66,6 +66,16 @@ async fn main() {
     let clusters = text::cluster_boundaries("office e\u{301}");
     assert_eq!(clusters.first(), Some(&0));
     assert_eq!(clusters.last(), Some(&"office e\u{301}".len()));
+    let full = text::measure_width("office e\u{301}", 32);
+    assert_eq!(
+        text::prefix_end_for_width("office e\u{301}", full + 0.5, 32),
+        "office e\u{301}".len()
+    );
+    assert!(clusters.contains(&text::prefix_end_for_width(
+        "office e\u{301}",
+        full - 1.0,
+        32
+    )));
     assert!(text::measure_width("AV To", 32) > 0.0);
     assert_eq!(text::stats()["atlas_bytes"], 0);
     let target = render_target(800, 600);

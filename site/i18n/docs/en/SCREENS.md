@@ -6,6 +6,12 @@ Undeclared screens keep the built-in versions. Directory hot reload and `.renrs`
 archives both support the file. This is RenRS's constrained JSON format. It does not
 execute Ren'Py screen language or arbitrary code.
 
+The editor schema is [`schemas/screens-v1.schema.json`](../schemas/screens-v1.schema.json).
+The RenRS VS Code extension enables completion and validation for any `screens.json`;
+other editors can point a `"$schema"` field at the file, which the engine ignores. The
+schema covers fields, values, and types only; layout bounds, nesting limits,
+expressions, and per-screen widget rules are still enforced by the engine.
+
 ## Minimal example
 
 ```json
@@ -56,7 +62,7 @@ Dialogue body uses separate paging.
 | `choices` | none | Choice region; only on the choices screen, exactly one; at least 200x64 |
 | `set` | `text`, `variable`, `expression` | Button runs a deterministic variable update; dialogue/choices/settings only |
 | `slider` | `text`, `setting` | Edits a preference; needs at least 200x64 |
-| `toggle` | `text`, `setting` | Toggles `high_contrast`, `reduced_motion`, `wait_voice`, or `self_voicing` |
+| `toggle` | `text`, `setting` | Toggles `high_contrast`, `reduced_motion`, `wait_voice`, `self_voicing`, `skip_unread` (skip also passes unread text), or `skip_after_choices` (keep skipping after a choice) |
 | `input` | `text`, `variable`, `max_length` | Edits a declared string variable; a game must have started |
 | `list` | `source`, `item_height`, `gap` | Bounded display, wheel, and paging; at most one list per screen |
 | `viewport` | `id`, `content_height`, `child` | Nested scroll region; native and web keep independent scroll and clip |
@@ -113,5 +119,5 @@ The variable must already be declared, and types must match before and after the
 update. It can run only while stopped on dialogue or a menu. If the expression or
 menu condition fails, the original variable, profile, and checkpoint stay. A
 successful update enters the current checkpoint and can restore from later saves and
-rollback. There are no arbitrary host callbacks, nested viewports beyond the
-supported widget, or Ren'Py displayables.
+rollback. There are no arbitrary host callbacks or Ren'Py displayables; drag/drop and
+nested viewports are limited to the `drag`/`drop` and `viewport` widgets above.

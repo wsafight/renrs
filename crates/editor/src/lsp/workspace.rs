@@ -140,6 +140,51 @@ impl Workspace {
         })
     }
 
+    /// Shows the defining line, its location, and the reference count.
+    pub(super) fn hover(&self, message: &Value) -> Value {
+        let Some(target) = self.find_symbol(message) else {
+            return Value::Null;
+        };
+        let occurrences = self.occurrences(&target);
+        let references = occurrences
+            .iter()
+            .filter(|(_, occurrence)| occurrence.role != SymbolRole::Definition)
+            .count();
+        let mut sections = Vec::new();
+        for (uri, definition) in occurrences
+            .iter()
+            .filter(|(_, occurrence)| occurrence.role == SymbolRole::Definition)
+        {
+            let line = self
+                .source(uri)
+                .and_then(|source| source.lines().nth(definition.line))
+                .unwrap_or_default()
+                .trim();
+            let file = uri.rsplit('/').next().unwrap_or(uri);
+            sections.push(format!(
+                "```renrs\n{line}\n```\n{} `{}` defined in `{file}:{}`",
+                symbol_kind_name(target.kind),
+                target.name,
+                definition.line + 1
+            ));
+        }
+        if sections.is_empty() {
+            sections.push(format!(
+                "{} `{}` has no definition in the workspace",
+                symbol_kind_name(target.kind),
+                target.name
+            ));
+        }
+        sections.push(format!(
+            "{references} reference{}",
+            if references == 1 { "" } else { "s" }
+        ));
+        json!({
+            "contents": {"kind": "markdown", "value": sections.join("\n\n")},
+            "range": occurrence_range(&target)
+        })
+    }
+
     pub(super) fn references(&self, message: &Value) -> Vec<Value> {
         let include_declaration = message
             .pointer("/params/context/includeDeclaration")

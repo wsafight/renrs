@@ -53,6 +53,31 @@ function tool(name: string): string {
   }
   return binary;
 }
+const labelPattern = /^\s*label\s+([A-Za-z_][\w.]*)\s*(\(?)/;
+/** Labels a new game can start at; parameterized labels need `call` arguments. */
+async function startableLabels(root: string): Promise<string[]> {
+  const files = await vscode.workspace.findFiles(
+    new vscode.RelativePattern(root, '**/*.rns'),
+    '{**/node_modules/**,**/target/**,**/dist/**}',
+  );
+  const labels = new Set<string>();
+  for (const file of files) {
+    const text = Buffer.from(await vscode.workspace.fs.readFile(file)).toString('utf8');
+    for (const line of text.split(/\r?\n/)) {
+      const match = labelPattern.exec(line);
+      if (match && !match[2]) labels.add(match[1]);
+    }
+  }
+  return [...labels].sort();
+}
+function enclosingLabel(editor: vscode.TextEditor | undefined): string | undefined {
+  if (editor?.document.languageId !== 'renrs') return undefined;
+  for (let line = editor.selection.active.line; line >= 0; line -= 1) {
+    const match = labelPattern.exec(editor.document.lineAt(line).text);
+    if (match) return match[1];
+  }
+  return undefined;
+}
 function project(): string {
   const editor = vscode.window.activeTextEditor;
   const folder =
@@ -86,8 +111,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const diagnostics = vscode.languages.createDiagnosticCollection('renrs-project');
   const migrationDiagnostics = vscode.languages.createDiagnosticCollection('renrs-migration');
   context.subscriptions.push(output, diagnostics, migrationDiagnostics);
-  async function command(name: string, args: string[], root: string): Promise<CommandResult> {
-    output.show(true);
+  async function command(
+    name: string,
+    args: string[],
+    root: string,
+    reveal = true,
+  ): Promise<CommandResult> {
+    if (reveal) output.show(true);
     try {
       const result = await execute(tool(name), args, { cwd: root, maxBuffer: 8 * 1024 * 1024 });
       output.append(result.stdout + result.stderr);
@@ -98,16 +128,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   }
   let checkVersion = 0;
-  async function check() {
+  async function check(reveal = true) {
     const root = project();
     const version = ++checkVersion;
-    const result = await command('renrs-check', ['--json', root], root).catch((error: unknown) => {
-      if (errorProperty(error, 'code') === 'ENOENT')
-        throw new Error(
-          'RenRS tools were not found. Set renrs.toolsPath or add the tools to PATH.',
-        );
-      return { stdout: errorProperty(error, 'stdout'), stderr: errorProperty(error, 'stderr') };
-    });
+    const result = await command('renrs-check', ['--json', root], root, reveal).catch(
+      (error: unknown) => {
+        if (errorProperty(error, 'code') === 'ENOENT')
+          throw new Error(
+            'RenRS tools were not found. Set renrs.toolsPath or add the tools to PATH.',
+          );
+        return { stdout: errorProperty(error, 'stdout'), stderr: errorProperty(error, 'stderr') };
+      },
+    );
     if (version !== checkVersion) return;
     diagnostics.clear();
     const grouped = new Map<string, [vscode.Uri, vscode.Diagnostic[]]>();
@@ -170,7 +202,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
     migrationDiagnostics.set([...grouped.values()]);
   }
-  register('renrs.check', check);
+  register('renrs.check', () => check());
   register('renrs.setup', async () => {
     const selected = await vscode.window.showOpenDialog({
       canSelectFiles: false,
@@ -239,18 +271,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await vscode.workspace.saveAll(false);
     await command('renrs-graph', [project()], project());
   });
-  register('renrs.run', async () => {
+  const runPlayer = async (name: string, args: string[]) => {
     await vscode.workspace.saveAll(false);
     const root = project();
     await vscode.tasks.executeTask(
       new vscode.Task(
         { type: 'renrs' },
         vscode.TaskScope.Workspace,
-        'Run',
+        name,
         'RenRS',
-        new vscode.ProcessExecution(tool('renrs'), [root], { cwd: root }),
+        new vscode.ProcessExecution(tool('renrs'), [root, ...args], { cwd: root }),
       ),
     );
+  };
+  register('renrs.run', () => runPlayer('Run', []));
+  register('renrs.runFromLabel', async () => {
+    const labels = await startableLabels(project());
+    const current = enclosingLabel(vscode.window.activeTextEditor);
+    const items =
+      current && labels.includes(current)
+        ? [current, ...labels.filter((label) => label !== current)]
+        : labels;
+    const label = await vscode.window.showQuickPick(items, {
+      placeHolder: 'Start a new game at label',
+    });
+    if (label) await runPlayer(`Run from ${label}`, ['--label', label]);
   });
   register('renrs.build', async () => {
     await vscode.workspace.saveAll(false);
@@ -366,8 +411,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((document) => {
-      if (configuration().get('checkOnSave') && document.languageId === 'renrs') {
-        check().catch((error) => output.appendLine(error.message));
+      if (!configuration().get('checkOnSave')) return;
+      // Scripts and project JSON (screens, theme, catalogs) all feed renrs-check.
+      const relative = path.relative(project(), document.uri.fsPath);
+      const inProject = !relative.startsWith('..') && !path.isAbsolute(relative);
+      if (
+        document.languageId === 'renrs' ||
+        (inProject && document.uri.fsPath.toLowerCase().endsWith('.json'))
+      ) {
+        check(false).catch((error) => output.appendLine(errorMessage(error)));
       }
     }),
   );

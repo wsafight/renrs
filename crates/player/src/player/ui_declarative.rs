@@ -3,9 +3,27 @@ use super::ui_common::{ButtonState, button, color, draw_text_block, ellipsize, s
 use super::ui_screen_actions::ScreenCommand;
 use crate::frontend::{FocusAxis, FocusScope, UiAction, UiActions};
 use macroquad::prelude::*;
+use renrs::runtime::{TextVariables, format_text};
 use renrs::screens::{Action, ListSource, ScreenKind, Screens, Widget};
 use renrs::syntax::Value;
 use renrs::{ProjectSource, theme::Theme};
+use std::collections::BTreeMap;
+
+struct ScreenVariables<'a> {
+    base: Option<&'a BTreeMap<String, Value>>,
+    title: &'a Value,
+    chapter: &'a Value,
+}
+
+impl TextVariables for ScreenVariables<'_> {
+    fn get(&self, name: &str) -> Option<&Value> {
+        match name {
+            "title" => Some(self.title),
+            "chapter" => Some(self.chapter),
+            _ => self.base.and_then(|variables| variables.get(name)),
+        }
+    }
+}
 
 pub(super) fn load_screens(source: &ProjectSource) -> Result<Screens, String> {
     if !source.contains(renrs::screens::SCREENS_FILE) {
@@ -437,10 +455,10 @@ impl App {
         true
     }
 
-    fn story_options(&self) -> Vec<String> {
+    fn story_options(&self) -> &[String] {
         match self.runtime.as_ref().and_then(renrs::Runtime::waiting) {
-            Some(renrs::WaitState::Choice { options }) => options.clone(),
-            _ => Vec::new(),
+            Some(renrs::WaitState::Choice { options }) => options,
+            _ => &[],
         }
     }
 
@@ -461,24 +479,19 @@ impl App {
     }
 
     pub(super) fn screen_text(&self, text: &str) -> String {
-        let mut variables = self
-            .runtime
-            .as_ref()
-            .map_or_else(Default::default, |runtime| runtime.variables().clone());
-        variables.insert(
-            "title".to_owned(),
-            Value::String(self.program.title.clone().into()),
+        let title = Value::String(self.program.title.clone().into());
+        let chapter = Value::String(
+            self.runtime
+                .as_ref()
+                .and_then(renrs::Runtime::current_label)
+                .unwrap_or("")
+                .into(),
         );
-        variables.insert(
-            "chapter".to_owned(),
-            Value::String(
-                self.runtime
-                    .as_ref()
-                    .and_then(renrs::Runtime::current_label)
-                    .unwrap_or("")
-                    .into(),
-            ),
-        );
-        renrs::runtime::format_text(text, &variables).unwrap_or_else(|_| text.to_owned())
+        let variables = ScreenVariables {
+            base: self.runtime.as_ref().map(renrs::Runtime::variables),
+            title: &title,
+            chapter: &chapter,
+        };
+        format_text(text, &variables).unwrap_or_else(|_| text.to_owned())
     }
 }

@@ -7,7 +7,9 @@ The RenRS Project view in Explorer also migrates Ren'Py projects, publishes migr
 issues at original `.rpy` locations, inspects variables/reachability/coverage, compares
 project impact, emits the story graph, opens screens and themes, builds Web distributions,
 runs release acceptance, and checks current-build saved games.
-Acceptance results appear in the RenRS output channel.
+Acceptance results appear in the RenRS output channel. `RenRS: Run From Label` starts
+a new game at a chosen label (defaulting to the one around the cursor), and any
+`screens.json` gets completion and validation from the bundled schema.
 
 Build the tools with `cargo build --bins`. Set `renrs.toolsPath` to the absolute
 `target/debug` directory, or place the release tools on PATH. Open the game folder;

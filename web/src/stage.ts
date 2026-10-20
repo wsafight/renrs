@@ -1,4 +1,9 @@
-import { parseCameraFrames, parseLayerCameraFrames, parseSpriteFrames } from './protocol';
+import {
+  parseCameraFrames,
+  parseLayerCameraFrames,
+  parseParallelFrames,
+  parseSpriteFrames,
+} from './protocol';
 import type {
   EffectMap,
   PlayerApp,
@@ -19,6 +24,15 @@ interface ParallelAnimation {
   frames: SpriteState[][];
   seconds: number;
 }
+interface ParallelEngineFrames {
+  sprites: SpriteState[][];
+  camera: TransformState[];
+  background: TransformState[];
+  layer_cameras: Record<string, TransformState[]>;
+}
+type BatchEngine = PlayerApp['engine'] & {
+  parallel_frames?: () => string;
+};
 type SpriteEffect = TransformEffect | TweenEffect;
 
 const dimensions = new Map<string, Promise<Size>>();
@@ -246,8 +260,16 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
   } else background.hidden = true;
   const sprites = app.$('sprites');
   sprites.hidden = !!effect?.Video;
+  const batchEngine = app.engine as BatchEngine;
+  const batchFrames: ParallelEngineFrames | null =
+    !app.settings.reduced && effect?.Parallel && typeof batchEngine.parallel_frames === 'function'
+      ? parseParallelFrames(batchEngine.parallel_frames())
+      : null;
   const parallel = effect?.Parallel
-    ? { frames: parseSpriteFrames(app.engine.animation_frames()), seconds: effect.Parallel.seconds }
+    ? {
+        frames: batchFrames?.sprites ?? parseSpriteFrames(app.engine.animation_frames()),
+        seconds: effect.Parallel.seconds,
+      }
     : undefined;
   const grouped = new Map<string, SpriteState[]>();
   for (const sprite of [...stage.sprites].sort(spriteOrder)) {
@@ -260,12 +282,16 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
       const node = app.element('div', null, { className: 'stage-layer' });
       const camera = stage.layer_cameras?.[name];
       const layerFrames =
-        !app.settings.reduced && effect?.Parallel && 'camera_layer_frames' in app.engine
-          ? parseLayerCameraFrames(
-              (
-                app.engine as { camera_layer_frames: (layer: string) => string }
-              ).camera_layer_frames(name),
-            )
+        !app.settings.reduced && effect?.Parallel
+          ? batchFrames
+            ? (batchFrames.layer_cameras[name] ?? null)
+            : 'camera_layer_frames' in app.engine
+              ? parseLayerCameraFrames(
+                  (
+                    app.engine as { camera_layer_frames: (layer: string) => string }
+                  ).camera_layer_frames(name),
+                )
+              : null
           : null;
       node.replaceChildren(
         ...(await Promise.all(
@@ -289,11 +315,11 @@ export async function renderStage(app: PlayerApp, stage: StageState, elapsed = 0
   startLayerClock(app);
   const cameraFrames =
     !app.settings.reduced && effect?.Parallel
-      ? parseCameraFrames(app.engine.camera_frames())
+      ? (batchFrames?.camera ?? parseCameraFrames(app.engine.camera_frames()))
       : null;
   const backgroundFrames =
     !app.settings.reduced && effect?.Parallel
-      ? parseCameraFrames(app.engine.background_frames())
+      ? (batchFrames?.background ?? parseCameraFrames(app.engine.background_frames()))
       : null;
   animateCamera(
     background,

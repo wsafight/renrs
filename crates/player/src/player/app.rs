@@ -351,7 +351,7 @@ impl App {
         }
         self.redraw |= previous != self.visible_characters as usize;
         if self.playback.skip_read {
-            if self.playback.current_dialogue_was_read {
+            if self.playback.current_dialogue_was_read || self.settings.skip_unread {
                 self.skip_remaining -= delta;
                 return self.skip_remaining <= 0.0;
             }

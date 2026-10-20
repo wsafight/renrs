@@ -16,6 +16,8 @@ const preferences: Record<string, Preference> = {
   reduced_motion: ['reduced'],
   wait_voice: ['wait_voice'],
   self_voicing: ['self_voicing'],
+  skip_unread: ['skip_unread'],
+  skip_after_choices: ['skip_after_choices'],
 };
 interface ListEntry {
   text: string;

@@ -1,4 +1,4 @@
-use super::{BTreeMap, Expr, RuntimeError, Value, is_text_tag};
+use super::{BTreeMap, Expr, RuntimeError, TextVariables, Value, is_text_tag};
 
 pub(super) fn evaluate(
     expression: &Expr,
@@ -9,9 +9,9 @@ pub(super) fn evaluate(
         .map_err(|error| execution(error.line, error.message))
 }
 
-pub(super) fn interpolate(
+pub(super) fn interpolate<T: TextVariables + ?Sized>(
     input: &str,
-    variables: &BTreeMap<String, Value>,
+    variables: &T,
     line: usize,
 ) -> Result<String, RuntimeError> {
     let mut output = String::with_capacity(input.len());

@@ -3,6 +3,8 @@ use macroquad::prelude::*;
 use renrs::Runtime;
 use renrs::save::worker::{SaveRequest, SaveResponse, SaveWorker};
 use renrs::save::{SaveFile, SaveMetadata, SavePresentation, SaveRepository, SaveSlot};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 #[derive(Clone)]
@@ -16,7 +18,7 @@ pub(super) enum Confirmation {
 #[allow(clippy::struct_excessive_bools)]
 pub(super) struct PlayerStorage {
     pub(super) worker: SaveWorker,
-    pub(super) slots: Vec<SaveSlot>,
+    pub(super) slots: Arc<[SaveSlot]>,
     pub(super) screen_lists: std::collections::HashMap<
         (String, bool),
         std::sync::Arc<[super::ui_screen_lists::ListItem]>,
@@ -48,7 +50,7 @@ impl PlayerStorage {
         let _ = worker.submit(SaveRequest::List);
         Self {
             worker,
-            slots: Vec::new(),
+            slots: Arc::default(),
             screen_lists: std::collections::HashMap::new(),
             loading: false,
             confirmation: None,
@@ -94,7 +96,7 @@ impl App {
         let mut refresh = false;
         while let Some(response) = self.storage.worker.poll() {
             self.redraw |= match &response {
-                SaveResponse::Listed(slots) => slots != &self.storage.slots,
+                SaveResponse::Listed(slots) => !Arc::ptr_eq(slots, &self.storage.slots),
                 SaveResponse::Completed(message) => !message.is_empty(),
                 _ => true,
             };
@@ -187,35 +189,37 @@ impl App {
         }
     }
 
-    fn update_slot_previews(&mut self, slots: Vec<SaveSlot>) {
-        if slots != self.storage.slots {
-            self.storage.screen_lists.clear();
+    fn update_slot_previews(&mut self, slots: Arc<[SaveSlot]>) {
+        if Arc::ptr_eq(&slots, &self.storage.slots) {
+            return;
         }
-        self.storage
-            .thumbnails
-            .retain(|name, _| slots.iter().any(|slot| &slot.name == name));
-        for slot in &slots {
-            let changed = self
-                .storage
-                .slots
-                .iter()
-                .find(|old| old.name == slot.name)
-                .is_none_or(|old| old.thumbnail_png != slot.thumbnail_png);
-            if changed {
-                self.storage.thumbnails.remove(&slot.name);
-            }
-        }
+        self.storage.screen_lists.clear();
+        let previous: HashMap<_, _> = self
+            .storage
+            .slots
+            .iter()
+            .map(|slot| (slot.name.as_str(), &slot.thumbnail_png))
+            .collect();
+        let current: HashMap<_, _> = slots
+            .iter()
+            .map(|slot| (slot.name.as_str(), &slot.thumbnail_png))
+            .collect();
+        self.storage.thumbnails.retain(|name, _| {
+            current
+                .get(name.as_str())
+                .is_some_and(|thumbnail| previous.get(name.as_str()) == Some(thumbnail))
+        });
         self.storage.slots = slots;
     }
 
     pub(super) fn prepare_slot_previews(&mut self, prefix: &str, start: usize, count: usize) {
-        let names: Vec<_> = (1..=count)
+        let names: HashSet<_> = (1..=count)
             .map(|index| format!("{prefix}-{}", start + index))
             .collect();
         self.storage
             .thumbnails
             .retain(|name, _| names.contains(name));
-        for slot in &self.storage.slots {
+        for slot in self.storage.slots.iter() {
             if names.contains(&slot.name)
                 && !self.storage.thumbnails.contains_key(&slot.name)
                 && let Ok(image) =

@@ -470,6 +470,10 @@ export interface PlayerSettings {
   voice_volume: number;
   auto: boolean;
   skip: boolean;
+  /** Skip also passes unread dialogue. */
+  skip_unread: boolean;
+  /** Skip resumes after a choice instead of turning off. */
+  skip_after_choices: boolean;
   text_speed: number;
   auto_delay: number;
   wait_voice: boolean;
@@ -490,11 +494,17 @@ export type SettingKey = keyof Pick<
   | 'reduced'
   | 'self_voicing'
   | 'skip'
+  | 'skip_after_choices'
+  | 'skip_unread'
   | 'sound_volume'
   | 'text_speed'
   | 'voice_volume'
   | 'wait_voice'
 >;
+
+export function skipsCurrentDialogue(app: PlayerApp): boolean {
+  return app.settings.skip && (app.wasRead || app.settings.skip_unread);
+}
 
 export function waitingObject(waiting: WaitingState): WaitingObject {
   return waiting !== null && typeof waiting === 'object' ? waiting : {};

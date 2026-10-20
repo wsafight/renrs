@@ -1785,6 +1785,7 @@ dependencies = [
  "renrs-runtime",
  "renrs-shared",
  "renrs-syntax",
+ "serde",
  "serde_json",
  "wasm-bindgen",
 ]

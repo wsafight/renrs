@@ -92,3 +92,38 @@ fn evaluate_expression_and_format_text_use_story_variables() {
     );
     assert!(matches!(runtime.choose(0), Err(RuntimeError::NotChoosing)));
 }
+
+#[test]
+fn new_at_label_starts_there_with_declared_defaults() {
+    let program = compile(
+        &parse_script(
+            r#"default score = 3
+label start:
+    set score = 10
+    "Opening"
+    jump middle
+label middle:
+    "Middle {score}"
+    return
+label greet(name):
+    "Hi {name}"
+    return
+"#,
+            "test.rns",
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let mut runtime = Runtime::new_at_label(program.clone(), "middle").unwrap();
+    assert_eq!(runtime.advance().unwrap(), WaitState::Dialogue);
+    assert_eq!(runtime.stage().dialogue.as_ref().unwrap().text, "Middle 3");
+    assert_eq!(runtime.current_label(), Some("middle"));
+    assert!(matches!(
+        Runtime::new_at_label(program.clone(), "greet"),
+        Err(RuntimeError::ParameterizedLabel(label)) if label == "greet"
+    ));
+    assert!(matches!(
+        Runtime::new_at_label(program, "nowhere"),
+        Err(RuntimeError::MissingLabel(label)) if label == "nowhere"
+    ));
+}

@@ -1,16 +1,35 @@
 #![allow(clippy::missing_errors_doc)] // Exported errors are JavaScript values, not Rust API errors.
 
 use renrs_runtime::{Program, Runtime, RuntimeError};
+use renrs_syntax::syntax::TransformState;
+use serde::Serialize;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 const PARALLEL_SAMPLES: u16 = 12;
 
+#[derive(Serialize)]
+struct ParallelFrames {
+    sprites: Vec<Vec<renrs_runtime::runtime::SpriteState>>,
+    camera: Vec<TransformState>,
+    background: Vec<TransformState>,
+    layer_cameras: BTreeMap<String, Vec<TransformState>>,
+}
+
+/// Serialized NVL page keyed like the native `DialogueView`: page start,
+/// history length, and current dialogue.
+struct NvlCache {
+    key: (usize, usize, renrs_runtime::runtime::DialogueState),
+    json: Box<serde_json::value::RawValue>,
+}
+
 #[wasm_bindgen]
 pub struct Engine {
     runtime: Runtime,
     last_stage: RefCell<Option<Arc<renrs_runtime::runtime::StageState>>>,
+    nvl: RefCell<Option<NvlCache>>,
 }
 
 mod saves;
@@ -36,6 +55,7 @@ impl Engine {
         Ok(Self {
             runtime,
             last_stage: RefCell::new(None),
+            nvl: RefCell::new(None),
         })
     }
 
@@ -62,6 +82,8 @@ impl Engine {
             .borrow()
             .as_ref()
             .is_some_and(|previous| Arc::ptr_eq(previous, &stage));
+        self.refresh_nvl(&stage)?;
+        let nvl = self.nvl.borrow();
         let encoded = serde_json::to_string(&serde_json::json!({
             "stage": if unchanged { serde_json::Value::Null } else { serde_json::to_value(stage.as_ref()).map_err(js_error)? },
             "waiting": self.runtime.waiting(),
@@ -69,7 +91,7 @@ impl Engine {
             "profile_revision": self.runtime.profile_revision(),
             "history_count": self.runtime.history().len(),
             "can_rollback": self.runtime.can_rollback(),
-            "nvl": self.runtime.nvl_dialogue()
+            "nvl": nvl.as_ref().map(|cache| &*cache.json)
         }))
         .map_err(js_error)?;
         *self.last_stage.borrow_mut() = Some(stage);
@@ -104,6 +126,13 @@ impl Engine {
 
     pub fn camera_layer_frames(&self, layer: &str) -> Result<String, JsValue> {
         self.parallel_layer_camera_frames(layer)
+    }
+
+    /// Samples every parallel animation track once and returns all frame
+    /// families in one JSON payload. The older per-family methods remain
+    /// available for clients that have not adopted this batch endpoint.
+    pub fn parallel_frames(&self) -> Result<String, JsValue> {
+        self.parallel_frames_json()
     }
 
     pub fn inspect(&self) -> Result<String, JsValue> {
@@ -215,6 +244,7 @@ impl Engine {
         next.enable_tracing();
         self.runtime = next;
         *self.last_stage.borrow_mut() = None;
+        *self.nvl.borrow_mut() = None;
         self.state()
     }
 
@@ -252,6 +282,26 @@ impl Engine {
 }
 
 impl Engine {
+    fn refresh_nvl(&self, stage: &renrs_runtime::runtime::StageState) -> Result<(), JsValue> {
+        let Some(dialogue) = stage.dialogue.as_ref().filter(|_| stage.nvl) else {
+            *self.nvl.borrow_mut() = None;
+            return Ok(());
+        };
+        let history = self.runtime.history().len();
+        let current = self.nvl.borrow().as_ref().is_some_and(|cache| {
+            cache.key.0 == stage.nvl_start && cache.key.1 == history && &cache.key.2 == dialogue
+        });
+        if !current {
+            let json =
+                serde_json::value::to_raw_value(&self.runtime.nvl_dialogue()).map_err(js_error)?;
+            *self.nvl.borrow_mut() = Some(NvlCache {
+                key: (stage.nvl_start, history, dialogue.clone()),
+                json,
+            });
+        }
+        Ok(())
+    }
+
     fn try_sample_parallel(&self, progress: f32) -> Option<renrs_runtime::runtime::StageState> {
         let renrs_runtime::WaitState::Effect {
             effect:
@@ -293,6 +343,65 @@ impl Engine {
                 .sprites
             })
             .collect();
+        serde_json::to_string(&frames).map_err(js_error)
+    }
+
+    fn parallel_frames_json(&self) -> Result<String, JsValue> {
+        let Some(renrs_runtime::WaitState::Effect {
+            effect:
+                renrs_runtime::runtime::VisualEffect::Parallel {
+                    from,
+                    tracks,
+                    seconds,
+                },
+        }) = self.runtime.waiting()
+        else {
+            return serde_json::to_string(&ParallelFrames {
+                sprites: Vec::new(),
+                camera: Vec::new(),
+                background: Vec::new(),
+                layer_cameras: BTreeMap::new(),
+            })
+            .map_err(js_error);
+        };
+
+        let frame_count = usize::from(PARALLEL_SAMPLES) + 1;
+        let mut frames = ParallelFrames {
+            sprites: Vec::with_capacity(frame_count),
+            camera: Vec::with_capacity(frame_count),
+            background: Vec::with_capacity(frame_count),
+            layer_cameras: BTreeMap::new(),
+        };
+        for index in 0..=PARALLEL_SAMPLES {
+            let stage = renrs_runtime::animation::sample(
+                from,
+                tracks,
+                f32::from(index) * seconds / f32::from(PARALLEL_SAMPLES),
+            );
+            let renrs_runtime::runtime::StageState {
+                camera,
+                background_transform,
+                layer_cameras,
+                sprites,
+                ..
+            } = stage;
+            frames.sprites.push(sprites);
+            frames.camera.push(camera);
+            frames.background.push(background_transform);
+
+            for values in frames.layer_cameras.values_mut() {
+                values.push(TransformState::default());
+            }
+            for (layer, camera) in layer_cameras {
+                let values = frames
+                    .layer_cameras
+                    .entry(layer)
+                    .or_insert_with(|| vec![TransformState::default(); usize::from(index) + 1]);
+                if let Some(last) = values.last_mut() {
+                    *last = camera;
+                }
+            }
+        }
         serde_json::to_string(&frames).map_err(js_error)
     }
 

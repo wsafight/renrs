@@ -1,4 +1,4 @@
-use super::text::{draw_text, measure_width};
+use super::text::{draw_text, measure_width, prefix_end_for_width};
 use macroquad::prelude::*;
 use renrs::save::SaveSlot;
 use renrs::theme::Theme as ProjectTheme;
@@ -364,12 +364,10 @@ pub(super) fn ellipsize(text: &str, width: f32, size: u16) -> String {
     if measure_width(text, size) <= width {
         return text.to_owned();
     }
-    let mut result = text.to_owned();
-    while !result.is_empty() && measure_width(format!("{result}..."), size) > width {
-        result.pop();
-    }
-    result.push_str("...");
-    result
+    let suffix = "...";
+    let available = width - measure_width(suffix, size);
+    let end = prefix_end_for_width(text, available, size);
+    format!("{}{suffix}", &text[..end])
 }
 
 pub(super) fn draw_centered(

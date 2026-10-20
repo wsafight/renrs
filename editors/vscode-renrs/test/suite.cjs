@@ -27,6 +27,8 @@ exports.run = async function () {
   await vscode.window.showTextDocument(ending);
   await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
   assert.equal((await query()).length, 1, 'closing the defining document must preserve navigation');
+  const hovers = await vscode.commands.executeCommand('vscode.executeHoverProvider', main.uri, new vscode.Position(1, 10));
+  assert(hovers.some(hover => hover.contents.some(part => String(part.value ?? part).includes('label ending'))), 'hover must show the label definition');
   await vscode.commands.executeCommand('renrs.check');
   assert.equal(vscode.languages.getDiagnostics(main.uri).length, 0);
   const fixturePath = path.join(root, 'missing.rns');
@@ -38,7 +40,17 @@ exports.run = async function () {
   } finally {
     await fs.rm(fixturePath, {force: true});
   }
+  const screensPath = path.join(root, 'screens.json');
+  try {
+    await fs.writeFile(screensPath, '{"main_menu":{"bounds":{},"root":{"type":"button","text":"Start","action":"new_gme"}}}\n');
+    const screens = await vscode.workspace.openTextDocument(screensPath);
+    await vscode.window.showTextDocument(screens);
+    await until(() => vscode.languages.getDiagnostics(screens.uri).some(item => item.message.includes('new_game')));
+    await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+  } finally {
+    await fs.rm(screensPath, {force: true});
+  }
   const commands = await vscode.commands.getCommands();
-  for (const command of ['renrs.init', 'renrs.run', 'renrs.build', 'renrs.setup', 'renrs.webBuild', 'renrs.accept', 'renrs.checkSaves', 'renrs.openScreens', 'renrs.openTheme', 'renrs.migrate', 'renrs.migrationReport', 'renrs.inspect', 'renrs.impact', 'renrs.graph']) assert(commands.includes(command));
+  for (const command of ['renrs.init', 'renrs.run', 'renrs.runFromLabel', 'renrs.build', 'renrs.setup', 'renrs.webBuild', 'renrs.accept', 'renrs.checkSaves', 'renrs.openScreens', 'renrs.openTheme', 'renrs.migrate', 'renrs.migrationReport', 'renrs.inspect', 'renrs.impact', 'renrs.graph']) assert(commands.includes(command));
   console.log('RenRS extension host checks passed');
 };

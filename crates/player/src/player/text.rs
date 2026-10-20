@@ -8,7 +8,7 @@ mod shaping;
 pub(super) use font::Face;
 use macroquad::prelude::{Color, DrawTextureParams, Rect, draw_texture_ex, vec2};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 const MAX_ENTRIES: usize = 4096;
 
@@ -129,6 +129,31 @@ pub(super) fn measure_width(text: impl AsRef<str>, size: u16) -> f32 {
     })
 }
 
+pub(super) fn prefix_end_for_width(text: &str, width: f32, size: u16) -> usize {
+    RENDERER.with_borrow_mut(|renderer| {
+        let mut cluster_widths = BTreeMap::<usize, f32>::new();
+        for glyph in renderer.shape(text).iter() {
+            *cluster_widths.entry(glyph.cluster).or_default() += glyph.advance * f32::from(size);
+        }
+        let clusters = cluster_widths.into_iter().collect::<Vec<_>>();
+        let mut total = 0.0;
+        let mut end = 0;
+        for (index, (start, cluster_width)) in clusters.iter().enumerate() {
+            if total + cluster_width > width {
+                break;
+            }
+            total += cluster_width;
+            end = clusters
+                .get(index + 1)
+                .map_or(text.len(), |(next, _)| *next);
+            if end < *start {
+                break;
+            }
+        }
+        end
+    })
+}
+
 pub(super) fn cluster_boundaries(text: &str) -> Vec<usize> {
     RENDERER.with_borrow_mut(|renderer| {
         let mut boundaries = renderer
@@ -200,5 +225,20 @@ mod tests {
         assert_eq!(stats["cached_glyphs"], 0);
         assert_eq!(stats["atlas_bytes"], 0);
         assert_eq!(stats["rasterizations"], 0);
+    }
+
+    #[test]
+    fn width_prefixes_end_at_shaping_cluster_boundaries() {
+        for text in ["office e\u{301}", "سلام بالعالم", "中文选项很长"] {
+            let boundaries = cluster_boundaries(text);
+            let width = measure_width(text, 24);
+            for step in 0..=32 {
+                let end = prefix_end_for_width(text, width * step as f32 / 32.0, 24);
+                assert!(
+                    boundaries.binary_search(&end).is_ok(),
+                    "prefix for {text:?} ended at byte offset {end}, boundaries: {boundaries:?}"
+                );
+            }
+        }
     }
 }

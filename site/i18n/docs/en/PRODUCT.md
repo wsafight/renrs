@@ -83,7 +83,7 @@ validation with real users.
 ### 5.2 Playback and UI
 
 - 1280x720 logical canvas, uniform scale, background/sprite/UI layers.
-- Stable typewriter text, long-dialogue paging, full history scrolling, menu focus, auto-forward, skip-read, and interaction rollback.
+- Stable typewriter text, long-dialogue paging, full history scrolling, menu focus, auto-forward, skip (read text only and stopping at choices by default; settings can skip all text or keep skipping after choices), and interaction rollback.
 - Title, settings, 60 manual save slots, quick save/load, and grouped manual/quick/auto browsing.
 - `theme.json`, project fonts, high contrast, and reduced motion.
 - Desktop/Web `screens.json` for title, dialogue, choices, save/load, preferences, and history, with controlled variable updates and a read-only HUD.

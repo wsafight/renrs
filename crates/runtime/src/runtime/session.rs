@@ -207,14 +207,65 @@ impl Runtime {
         self.program.clone()
     }
 
+    /// Starts a new session at `label` instead of `start`, for previews and
+    /// debugging. Variables take their declared defaults, the call stack is
+    /// empty, and everything else behaves like a new game.
+    ///
+    /// # Errors
+    /// Returns [`RuntimeError::MissingLabel`] for an unknown label,
+    /// [`RuntimeError::ParameterizedLabel`] for a label that takes parameters,
+    /// or any error from [`Runtime::new`].
+    pub fn new_at_label(
+        program: impl Into<std::sync::Arc<Program>>,
+        label: &str,
+    ) -> Result<Self, RuntimeError> {
+        let mut runtime = Self::new(program)?;
+        let instruction = *runtime
+            .program
+            .labels
+            .get(label)
+            .ok_or_else(|| RuntimeError::MissingLabel(label.to_owned()))?;
+        if runtime
+            .program
+            .label_parameters
+            .get(label)
+            .is_some_and(|parameters| !parameters.is_empty())
+        {
+            return Err(RuntimeError::ParameterizedLabel(label.to_owned()));
+        }
+        runtime.instruction = instruction;
+        runtime.last_instruction = instruction;
+        Ok(runtime)
+    }
+
     #[must_use]
     pub fn current_label(&self) -> Option<&str> {
-        self.program
+        if let Some((instruction, label)) = self.current_label_cache.get()
+            && instruction == self.last_instruction
+        {
+            return label.and_then(|index| {
+                self.program
+                    .labels
+                    .get_index(index)
+                    .map(|(name, _)| name.as_str())
+            });
+        }
+        let label = self
+            .program
             .labels
             .iter()
-            .filter(|(_, index)| **index <= self.last_instruction)
-            .max_by_key(|(_, index)| **index)
-            .map(|(name, _)| name.as_str())
+            .enumerate()
+            .filter(|(_, (_, index))| **index <= self.last_instruction)
+            .max_by_key(|(_, (_, index))| **index)
+            .map(|(index, _)| index);
+        self.current_label_cache
+            .set(Some((self.last_instruction, label)));
+        label.and_then(|index| {
+            self.program
+                .labels
+                .get_index(index)
+                .map(|(name, _)| name.as_str())
+        })
     }
 
     #[must_use]

@@ -1,0 +1,911 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wsafight.github.io/renrs/schemas/screens-v1.schema.json",
+  "title": "RenRS screens.json v1",
+  "description": "Editor schema for declarative screens. The engine additionally validates layout bounds, nesting (16 levels, 256 elements), expressions, and per-screen widget rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1
+    },
+    "styles": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/style"
+      }
+    },
+    "main_menu": {
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "$ref": "#/$defs/screen"
+      },
+      "else": {
+        "type": "null"
+      }
+    },
+    "hud": {
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "$ref": "#/$defs/screen"
+      },
+      "else": {
+        "type": "null"
+      }
+    },
+    "save": {
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "$ref": "#/$defs/screen"
+      },
+      "else": {
+        "type": "null"
+      }
+    },
+    "load": {
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "$ref": "#/$defs/screen"
+      },
+      "else": {
+        "type": "null"
+      }
+    },
+    "settings": {
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "$ref": "#/$defs/screen"
+      },
+      "else": {
+        "type": "null"
+      }
+    },
+    "history": {
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "$ref": "#/$defs/screen"
+      },
+      "else": {
+        "type": "null"
+      }
+    },
+    "dialogue": {
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "$ref": "#/$defs/screen"
+      },
+      "else": {
+        "type": "null"
+      }
+    },
+    "choices": {
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "$ref": "#/$defs/screen"
+      },
+      "else": {
+        "type": "null"
+      }
+    },
+    "story": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": {
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/screen"
+      }
+    }
+  },
+  "$defs": {
+    "rect": {
+      "type": "object",
+      "description": "Rectangle in 1280x720 design pixels.",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
+      }
+    },
+    "action": {
+      "enum": [
+        "collection",
+        "new_game",
+        "continue",
+        "save",
+        "load",
+        "settings",
+        "history",
+        "quick_save",
+        "quick_load",
+        "manual_saves",
+        "quick_saves",
+        "auto_saves",
+        "rollback",
+        "auto",
+        "skip",
+        "close",
+        "quit"
+      ]
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "font_size": {
+          "type": "integer",
+          "minimum": 12,
+          "maximum": 72
+        },
+        "text_color": {
+          "$ref": "#/$defs/color"
+        },
+        "background_color": {
+          "$ref": "#/$defs/color"
+        }
+      }
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+    },
+    "screen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bounds",
+        "root"
+      ],
+      "properties": {
+        "bounds": {
+          "$ref": "#/$defs/rect"
+        },
+        "root": {
+          "$ref": "#/$defs/element"
+        }
+      }
+    },
+    "element": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "text",
+            "image",
+            "button",
+            "hotspot",
+            "slider",
+            "toggle",
+            "input",
+            "list",
+            "data_list",
+            "set",
+            "drag",
+            "drop",
+            "extension",
+            "dialogue",
+            "choices",
+            "row",
+            "column",
+            "stack",
+            "viewport"
+          ]
+        },
+        "bounds": {
+          "$ref": "#/$defs/rect"
+        },
+        "size": {
+          "type": "number",
+          "description": "Fixed main-axis size inside a row or column."
+        },
+        "style": {
+          "type": "string",
+          "description": "Name from the top-level styles map."
+        },
+        "visible": {
+          "type": "string",
+          "description": "Condition expression; the element is hidden when false."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "text"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_text"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "image"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_image"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "button"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_button"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "hotspot"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_hotspot"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "slider"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_slider"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "toggle"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_toggle"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "input"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_input"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "list"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_list"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "data_list"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_data_list"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "set"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_set"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "drag"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_drag"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "drop"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_drop"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "extension"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_extension"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "dialogue"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_dialogue"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "choices"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_choices"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "row"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_row"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "column"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_column"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "stack"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_stack"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "viewport"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/widget_viewport"
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "widget_text": {
+      "type": "object",
+      "required": [
+        "type",
+        "text"
+      ],
+      "properties": {
+        "type": {
+          "const": "text"
+        },
+        "text": {
+          "type": "string",
+          "description": "Text; supports {variable}, {title} and {chapter} placeholders."
+        }
+      }
+    },
+    "widget_image": {
+      "type": "object",
+      "required": [
+        "type",
+        "path"
+      ],
+      "properties": {
+        "type": {
+          "const": "image"
+        },
+        "path": {
+          "type": "string",
+          "description": "Project-relative image path."
+        }
+      }
+    },
+    "widget_button": {
+      "type": "object",
+      "required": [
+        "type",
+        "text",
+        "action"
+      ],
+      "properties": {
+        "type": {
+          "const": "button"
+        },
+        "text": {
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/action"
+        }
+      }
+    },
+    "widget_hotspot": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "hotspot"
+        },
+        "action": {
+          "$ref": "#/$defs/action"
+        },
+        "variable": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Declared story variable name."
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expression assigned to variable; requires variable."
+        }
+      }
+    },
+    "widget_slider": {
+      "type": "object",
+      "required": [
+        "type",
+        "text",
+        "setting"
+      ],
+      "properties": {
+        "type": {
+          "const": "slider"
+        },
+        "text": {
+          "type": "string"
+        },
+        "setting": {
+          "enum": [
+            "text_speed",
+            "auto_delay",
+            "music_volume",
+            "sound_volume",
+            "voice_volume"
+          ]
+        }
+      }
+    },
+    "widget_toggle": {
+      "type": "object",
+      "required": [
+        "type",
+        "text",
+        "setting"
+      ],
+      "properties": {
+        "type": {
+          "const": "toggle"
+        },
+        "text": {
+          "type": "string"
+        },
+        "setting": {
+          "enum": [
+            "high_contrast",
+            "reduced_motion",
+            "wait_voice",
+            "self_voicing",
+            "skip_unread",
+            "skip_after_choices"
+          ]
+        }
+      }
+    },
+    "widget_input": {
+      "type": "object",
+      "required": [
+        "type",
+        "text",
+        "variable"
+      ],
+      "properties": {
+        "type": {
+          "const": "input"
+        },
+        "text": {
+          "type": "string"
+        },
+        "variable": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_]+$"
+        },
+        "max_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024,
+          "default": 128
+        }
+      }
+    },
+    "widget_list": {
+      "type": "object",
+      "required": [
+        "type",
+        "source"
+      ],
+      "properties": {
+        "type": {
+          "const": "list"
+        },
+        "source": {
+          "enum": [
+            "saves",
+            "manual_saves",
+            "quick_saves",
+            "auto_saves",
+            "history",
+            "languages"
+          ]
+        },
+        "item_height": {
+          "type": "number",
+          "minimum": 24,
+          "default": 52
+        },
+        "gap": {
+          "type": "number",
+          "minimum": 0,
+          "default": 8
+        }
+      }
+    },
+    "widget_data_list": {
+      "type": "object",
+      "required": [
+        "type",
+        "variable",
+        "selected"
+      ],
+      "properties": {
+        "type": {
+          "const": "data_list"
+        },
+        "variable": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Declared story variable name."
+        },
+        "selected": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Declared story variable name."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional field shown for each item."
+        },
+        "item_height": {
+          "type": "number",
+          "minimum": 24,
+          "default": 52
+        }
+      }
+    },
+    "widget_set": {
+      "type": "object",
+      "required": [
+        "type",
+        "text",
+        "variable",
+        "expression"
+      ],
+      "properties": {
+        "type": {
+          "const": "set"
+        },
+        "text": {
+          "type": "string"
+        },
+        "variable": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Declared story variable name."
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expression assigned when activated."
+        }
+      }
+    },
+    "widget_drag": {
+      "type": "object",
+      "required": [
+        "type",
+        "text",
+        "expression"
+      ],
+      "properties": {
+        "type": {
+          "const": "drag"
+        },
+        "text": {
+          "type": "string"
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Value carried by the drag."
+        }
+      }
+    },
+    "widget_drop": {
+      "type": "object",
+      "required": [
+        "type",
+        "text",
+        "variable"
+      ],
+      "properties": {
+        "type": {
+          "const": "drop"
+        },
+        "text": {
+          "type": "string"
+        },
+        "variable": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Declared story variable name."
+        }
+      }
+    },
+    "widget_extension": {
+      "type": "object",
+      "required": [
+        "type",
+        "text",
+        "name",
+        "variable",
+        "input"
+      ],
+      "properties": {
+        "type": {
+          "const": "extension"
+        },
+        "text": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Registered extension name."
+        },
+        "variable": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Declared story variable name."
+        },
+        "input": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expression passed to the extension."
+        }
+      }
+    },
+    "widget_dialogue": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "dialogue"
+        }
+      }
+    },
+    "widget_choices": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "choices"
+        }
+      }
+    },
+    "widget_row": {
+      "type": "object",
+      "required": [
+        "type",
+        "children"
+      ],
+      "properties": {
+        "type": {
+          "const": "row"
+        },
+        "gap": {
+          "type": "number",
+          "default": 0
+        },
+        "padding": {
+          "type": "number",
+          "default": 0
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/element"
+          }
+        }
+      }
+    },
+    "widget_column": {
+      "type": "object",
+      "required": [
+        "type",
+        "children"
+      ],
+      "properties": {
+        "type": {
+          "const": "column"
+        },
+        "gap": {
+          "type": "number",
+          "default": 0
+        },
+        "padding": {
+          "type": "number",
+          "default": 0
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/element"
+          }
+        }
+      }
+    },
+    "widget_stack": {
+      "type": "object",
+      "required": [
+        "type",
+        "children"
+      ],
+      "properties": {
+        "type": {
+          "const": "stack"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/element"
+          }
+        }
+      }
+    },
+    "widget_viewport": {
+      "type": "object",
+      "required": [
+        "type",
+        "id",
+        "content_height",
+        "child"
+      ],
+      "properties": {
+        "type": {
+          "const": "viewport"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_height": {
+          "type": "number",
+          "maximum": 65536
+        },
+        "child": {
+          "$ref": "#/$defs/element"
+        }
+      }
+    }
+  }
+}

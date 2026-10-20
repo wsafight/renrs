@@ -140,3 +140,29 @@ fn lsp_session_formats_completes_defines_renames_and_shuts_down() {
             .any(|item| { item.get("id") == Some(&json!(10)) && item["error"]["code"] == -32601 })
     );
 }
+
+#[test]
+fn hover_shows_definition_location_and_reference_count() {
+    let mut workspace = Workspace::default();
+    workspace.insert(
+        "file:///story/main.rns",
+        "default score = 3\nlabel start:\n    set score = score + 1\n    call ending\n",
+    );
+    workspace.insert("file:///story/ending.rns", "label ending:\n    return\n");
+    let hover = |line: u64, character: u64| {
+        workspace.hover(&json!({"params": {
+            "textDocument": {"uri": "file:///story/main.rns"},
+            "position": {"line": line, "character": character}
+        }}))
+    };
+    let label = hover(3, 10);
+    let text = label["contents"]["value"].as_str().unwrap();
+    assert!(text.contains("label ending:"), "{text}");
+    assert!(text.contains("`ending.rns:1`"), "{text}");
+    assert!(text.ends_with("1 reference"), "{text}");
+    let variable = hover(2, 9);
+    let text = variable["contents"]["value"].as_str().unwrap();
+    assert!(text.contains("default score = 3"), "{text}");
+    assert!(text.ends_with("2 references"), "{text}");
+    assert!(hover(2, 0).is_null());
+}

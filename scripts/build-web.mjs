@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -26,7 +26,22 @@ const local = path.join(
   'target/web-tools/bin',
   process.platform === 'win32' ? 'wasm-bindgen.exe' : 'wasm-bindgen',
 );
-run(existsSync(local) ? local : 'wasm-bindgen', [
+const bindgen = existsSync(local) ? local : 'wasm-bindgen';
+const expected = readFileSync(path.join(root, 'crates/web/Cargo.toml'), 'utf8').match(
+  /^wasm-bindgen = "=([^"]+)"/m,
+)?.[1];
+const installed = spawnSync(bindgen, ['--version'], {
+  encoding: 'utf8',
+  shell: process.platform === 'win32',
+}).stdout?.trim();
+if (expected && installed !== `wasm-bindgen ${expected}`) {
+  console.error(
+    `wasm-bindgen CLI ${installed || 'not found'} does not match crate ${expected}. Install it with:\n` +
+      `cargo install wasm-bindgen-cli --version ${expected} --locked --root target/web-tools`,
+  );
+  process.exit(1);
+}
+run(bindgen, [
   'target/wasm32-unknown-unknown/release/renrs_web.wasm',
   '--target',
   'web',

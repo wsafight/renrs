@@ -42,6 +42,8 @@ const settings = (): PlayerSettings => ({
   voice_volume: 1,
   auto: false,
   skip: false,
+  skip_unread: false,
+  skip_after_choices: false,
   text_speed: 40,
   auto_delay: 2.5,
   wait_voice: true,

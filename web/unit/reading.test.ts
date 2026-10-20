@@ -2,6 +2,17 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { ReadStore } from '../src/read-store';
 import { RevealClock } from '../src/reveal';
+import type { PlayerApp } from '../src/types';
+import { skipsCurrentDialogue } from '../src/types';
+
+test('skip passes read dialogue, and unread dialogue only when enabled', () => {
+  const app = (skip: boolean, wasRead: boolean, skip_unread: boolean) =>
+    ({ settings: { skip, skip_unread }, wasRead }) as unknown as PlayerApp;
+  assert.equal(skipsCurrentDialogue(app(true, true, false)), true);
+  assert.equal(skipsCurrentDialogue(app(true, false, false)), false);
+  assert.equal(skipsCurrentDialogue(app(true, false, true)), true);
+  assert.equal(skipsCurrentDialogue(app(false, true, true)), false);
+});
 
 test('read history batches thousands of statements, ignores duplicates and retries failed storage', () => {
   const writes: string[][] = [],

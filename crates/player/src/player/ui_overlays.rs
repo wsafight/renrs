@@ -10,7 +10,14 @@ impl App {
         if self.draw_custom_screen(renrs::screens::ScreenKind::Settings, mouse, actions) {
             return;
         }
-        if self.overlay_backdrop("Settings", mouse, actions, FocusScope::Settings, 8, Some(1)) {
+        if self.overlay_backdrop(
+            "Settings",
+            mouse,
+            actions,
+            FocusScope::Settings,
+            10,
+            Some(1),
+        ) {
             self.persist_settings();
             return;
         }
@@ -70,7 +77,7 @@ impl App {
         ] {
             let previous = *value;
             *value = slider(
-                Rect::new(340.0, 225.0 + (index - 2) as f32 * 86.0, 600.0, 48.0),
+                Rect::new(340.0, 225.0 + (index - 2) as f32 * 72.0, 600.0, 48.0),
                 label,
                 *value,
                 minimum,
@@ -84,18 +91,53 @@ impl App {
             self.settings_dirty |= (previous - *value).abs() > f32::EPSILON;
         }
         self.audio.apply_volume(&self.settings);
+        self.draw_skip_preferences(mouse, actions);
         if compact_button(
             Rect::new(440.0, 645.0, 400.0, 42.0),
             "Accessibility",
             mouse,
-            self.focus.is(7),
-            self.focus.is(7) && actions.pressed(UiAction::Activate),
+            self.focus.is(9),
+            self.focus.is(9) && actions.pressed(UiAction::Activate),
             &self.theme,
         ) {
             self.overlay = Some(Overlay::Accessibility);
         }
         if is_mouse_button_released(MouseButton::Left) {
             self.persist_settings();
+        }
+    }
+
+    fn draw_skip_preferences(&mut self, mouse: Vec2, actions: &UiActions) {
+        let skip_unread = if self.settings.skip_unread {
+            "Skip: all text"
+        } else {
+            "Skip: read text only"
+        };
+        let after_choices = if self.settings.skip_after_choices {
+            "After choices: keep skipping"
+        } else {
+            "After choices: stop skipping"
+        };
+        for (index, x, label, value) in [
+            (7, 340.0, skip_unread, &mut self.settings.skip_unread),
+            (
+                8,
+                650.0,
+                after_choices,
+                &mut self.settings.skip_after_choices,
+            ),
+        ] {
+            if compact_button(
+                Rect::new(x, 565.0, 290.0, 42.0),
+                label,
+                mouse,
+                self.focus.is(index),
+                self.focus.is(index) && actions.pressed(UiAction::Activate),
+                &self.theme,
+            ) {
+                *value = !*value;
+                self.settings_dirty = true;
+            }
         }
     }
 

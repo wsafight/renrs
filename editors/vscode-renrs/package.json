@@ -28,7 +28,7 @@
     }
   },
   "scripts": {
-    "build": "tsc --noEmit && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js",
+    "build": "tsc --noEmit && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && node -e \"require('node:fs').copyFileSync('../../schemas/screens-v1.schema.json','dist/screens.schema.json')\"",
     "check": "tsc --noEmit",
     "prepackage": "npm run build",
     "package": "vsce package --allow-missing-repository",
@@ -47,6 +47,12 @@
     "typescript": "7.0.2"
   },
   "contributes": {
+    "jsonValidation": [
+      {
+        "fileMatch": "**/screens.json",
+        "url": "./dist/screens.schema.json"
+      }
+    ],
     "views": {
       "explorer": [
         {
@@ -128,6 +134,10 @@
         "title": "RenRS: Run Project"
       },
       {
+        "command": "renrs.runFromLabel",
+        "title": "RenRS: Run From Label"
+      },
+      {
         "command": "renrs.build",
         "title": "RenRS: Build Distribution"
       },
@@ -169,7 +179,7 @@
         "renrs.checkOnSave": {
           "type": "boolean",
           "default": true,
-          "description": "Run project and resource checks after saving a script."
+          "description": "Run project and resource checks after saving a script or project JSON file."
         }
       }
     }

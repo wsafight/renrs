@@ -2,6 +2,7 @@ import { richText } from './presentation';
 import type { RevealCue } from './reveal';
 import { RevealClock } from './reveal';
 import type { Dialogue, PlayerApp, TextRun } from './types';
+import { skipsCurrentDialogue } from './types';
 
 function revealCues(runs: TextRun[] | undefined) {
   let position = 0;
@@ -80,7 +81,7 @@ export function setupReading(app: PlayerApp): void {
         pendingPosition = null;
         dialogueKey = currentKey;
       }
-      if (app.state.waiting !== 'Dialogue' || (app.settings.skip && app.wasRead)) clock.finish();
+      if (app.state.waiting !== 'Dialogue' || skipsCurrentDialogue(app)) clock.finish();
       this.prefix = Math.max(0, Array.from(dialogue.text || '').length - clock.total);
     },
     bind(node: HTMLElement, dialogue: Dialogue | null | undefined, prefix = app.reading.prefix) {

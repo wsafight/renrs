@@ -19,5 +19,8 @@
   "Start a new game?": "开始新游戏？", "Replace current progress?": "替换当前进度？",
   "Choose an empty slot before importing": "请先选择空存档槽再导入", "Deleted": "已删除",
   "Imported": "已导入", "Exported": "已导出", "Save belongs to another game": "存档属于另一个游戏",
-  "Self voicing": "界面朗读", "Name": "姓名", "No dialogue yet": "暂无对白"
+  "Self voicing": "界面朗读", "Name": "姓名", "No dialogue yet": "暂无对白",
+  "Skip: all text": "快进：全部文本", "Skip: read text only": "快进：仅已读文本",
+  "After choices: keep skipping": "选项后：继续快进", "After choices: stop skipping": "选项后：停止快进",
+  "Skip unread text": "快进未读文本", "Keep skipping after choices": "选项后继续快进"
 }

@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-const USAGE: &str = "usage: renrs [project|archive] [--window-size WIDTHxHEIGHT] [--smoke-test <new-output-directory>] [--profile <new-report.json>] [--benchmark <new-report.json>]";
+const USAGE: &str = "usage: renrs [project|archive] [--window-size WIDTHxHEIGHT] [--smoke-test <new-output-directory>] [--profile <new-report.json>] [--benchmark <new-report.json>] [--label <label>]";
 
 pub(super) struct Options {
     pub(super) project: PathBuf,
@@ -9,6 +9,8 @@ pub(super) struct Options {
     pub(super) smoke_test: Option<PathBuf>,
     pub(super) profile: Option<PathBuf>,
     pub(super) benchmark: Option<PathBuf>,
+    /// Starts a new game at this label instead of showing the title screen.
+    pub(super) label: Option<String>,
 }
 
 impl Options {
@@ -29,6 +31,7 @@ impl Options {
         let mut smoke_test = None;
         let mut profile = None;
         let mut benchmark = None;
+        let mut label = None;
         let mut window = (1280, 720);
         let mut arguments = arguments.into_iter();
         while let Some(argument) = arguments.next() {
@@ -48,6 +51,14 @@ impl Options {
                     return Err("benchmark output already exists".to_owned());
                 }
                 benchmark = Some(path);
+            } else if argument == "--label" && label.is_none() {
+                label = Some(
+                    arguments
+                        .next()
+                        .and_then(|value| value.into_string().ok())
+                        .filter(|value| !value.is_empty())
+                        .ok_or("missing label name")?,
+                );
             } else if argument == "--window-size" {
                 let size = arguments.next().ok_or("missing window size")?;
                 let (width, height) = size
@@ -73,6 +84,11 @@ impl Options {
         if benchmark.is_some() && (profile.is_some() || smoke_test.is_some()) {
             return Err("benchmark cannot be combined with profile or smoke-test".to_owned());
         }
+        if label.is_some() && (benchmark.is_some() || profile.is_some() || smoke_test.is_some()) {
+            return Err(
+                "label cannot be combined with benchmark, profile or smoke-test".to_owned(),
+            );
+        }
         let project = match project {
             Some(project) => project,
             None => renrs::default_project_path(
@@ -86,6 +102,7 @@ impl Options {
             smoke_test,
             profile,
             benchmark,
+            label,
         })
     }
 }
@@ -107,10 +124,20 @@ mod tests {
         assert_eq!(options.project, PathBuf::from("example.renrs"));
         assert_eq!(options.window, (800, 600));
         assert_eq!(options.smoke_test, Some(PathBuf::from("captures")));
+        let options = Options::parse(
+            ["demo", "--label", "middle"]
+                .into_iter()
+                .map(OsString::from)
+                .collect(),
+        )
+        .unwrap();
+        assert_eq!(options.label.as_deref(), Some("middle"));
         for args in [
             vec!["--window-size", "0x600"],
             vec!["--smoke-test"],
             vec!["--unknown"],
+            vec!["--label"],
+            vec!["--label", "middle", "--smoke-test", "captures"],
         ] {
             assert!(Options::parse(args.into_iter().map(OsString::from).collect()).is_err());
         }

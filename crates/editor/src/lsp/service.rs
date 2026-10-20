@@ -68,6 +68,7 @@ impl Service {
                     "documentFormattingProvider": true,
                     "definitionProvider": true,
                     "referencesProvider": true,
+                    "hoverProvider": true,
                     "renameProvider": {"prepareProvider": false},
                     "completionProvider": {"triggerCharacters": [" "]}
                 },
@@ -116,6 +117,7 @@ impl Service {
                 id,
                 &Value::Array(self.workspace.references(message)),
             ),
+            "textDocument/hover" => respond(writer, id, &self.workspace.hover(message)),
             "textDocument/rename" => self.rename(writer, message, id),
             "textDocument/completion" => {
                 respond(writer, id, &Value::Array(self.workspace.completions()))

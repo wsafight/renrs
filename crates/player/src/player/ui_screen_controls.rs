@@ -21,6 +21,8 @@ impl App {
             TogglePreference::ReducedMotion => &mut self.settings.reduced_motion,
             TogglePreference::WaitVoice => &mut self.settings.wait_voice,
             TogglePreference::SelfVoicing => &mut self.settings.self_voicing,
+            TogglePreference::SkipUnread => &mut self.settings.skip_unread,
+            TogglePreference::SkipAfterChoices => &mut self.settings.skip_after_choices,
         };
         let square = Rect::new(rect.x + 8.0, rect.y + (rect.h - 24.0) / 2.0, 24.0, 24.0);
         draw_rectangle_lines(

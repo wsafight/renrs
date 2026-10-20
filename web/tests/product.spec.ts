@@ -27,7 +27,7 @@ for (const width of [1280, 390]) {
     let text = '';
     for await (const part of stream) text += part;
     expect(text).toContain('9007199254740993');
-    expect(JSON.parse(text).container_version).toBe(2);
+    expect(JSON.parse(text).container_version).toBe(3);
     await page.locator('input[type=file]').setInputFiles({
       name: 'desktop.json',
       mimeType: 'application/json',

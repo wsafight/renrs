@@ -58,6 +58,10 @@ cargo run --bin renrs-debug -- test my-story my-story/routes.json
 面板还提供 Ren'Py 迁移、带原始 `.rpy` 位置的迁移诊断、项目检查、影响分析、剧情图、界面/主题、
 Web 构建、发布验收和当前版本存档检查。迁移器不会为不确定规则提供自动修改。
 
+调试某段剧情时可用 `renrs <project> --label <label>` 跳过标题、直接从该标签开始新游戏；VS Code 对应
+`RenRS: Run From Label`，默认选中光标所在标签。变量取声明默认值、调用栈为空，profile、已读记录和存档
+照常工作；未知标签或带参数的标签（只能经 `call` 进入）会显示错误。
+
 剧情状态查看、录制、重放和有界分支探索见 [剧情调试](DEBUGGING.md)。
 中型项目生成与 `renrs-bench` 的测量范围见 [规模与运行验证](VALIDATION.md)。
 
@@ -73,9 +77,12 @@ cargo run --bin renrs-lsp
 - 角色、标签、静态图片和变量文档符号。
 - 全文格式化。
 - 工作区定义、引用和重命名。
+- 悬停显示定义行、所在文件位置和引用次数。
 - 关键字与工作区符号补全。
 
-发行前仍应运行 `renrs-check`，因为它会加载完整项目和资源并执行 CFG 分析。
+LSP 只做语法级诊断。资源、界面/主题/翻译文件和 CFG 分析由 `renrs-check` 完成；VS Code 扩展在保存
+`.rns` 或项目内 JSON 文件后自动运行它（`renrs.checkOnSave`，默认开启），其他编辑器可调用
+`renrs-check --json`。发行前仍应完整运行一次。
 
 ## 剧情图
 
@@ -243,6 +250,10 @@ node scripts/verify-local.mjs --editor   # VS Code host 与 VSIX
 node scripts/verify-local.mjs --release  # release/native/SDK/Capacitor wrapper
 node scripts/verify-local.mjs --full     # 上述全部
 ```
+
+`--web` 和 `--media` 委托给 `node scripts/test-web.mjs [--web] [--media]`：构建 wasm32 引擎与 Web shell、
+生成浏览器 fixture 并运行 Playwright。GitHub Actions 的 `web-browser` job 以 `--web --media` 执行同一脚本。
+`scripts/build-web.mjs` 会在 `wasm-bindgen` CLI 与 `crates/web/Cargo.toml` 的固定版本不一致时直接失败。
 
 完整依赖和 RC 兼容矩阵见 [发布契约](RELEASE.md)。
 

@@ -223,7 +223,7 @@ impl SaveRepository {
     /// malformed save files are returned as corrupt slots so players can see
     /// and replace them without hiding valid saves.
     pub fn list(&self) -> Result<Vec<SaveSlot>, SaveError> {
-        self.list_indexed(true)
+        self.list_indexed(true).map(|slots| slots.to_vec())
     }
 
     fn slot_path(&self, slot: &str) -> Result<PathBuf, SaveError> {

@@ -41,15 +41,22 @@ shipping-package lookup that does not depend on the working directory.
 
 Authoring entry is in [Command-line tools](TOOLING.md), route assertions in
 [Story debugging](DEBUGGING.md), screen format in [Screens and interaction](SCREENS.md).
-Template/route, VSIX, and window checks now run through the layered local gates; GitHub
-Actions retains only documentation deployment. Remote three-platform acceptance and
-human audio listening were not run in this round.
+Template/route, VSIX, and window checks ran through the layered local gates at the time.
+Remote three-platform acceptance and human audio listening were not run in this round.
 
 Performance bounds: texture cache target 256 MiB; audio cache estimated from decoded
 size, target 64 MiB. The current stage and playing audio are not force-evicted, so
 active resources themselves may still exceed the target. The image background queue
-is bounded. GPU upload and the current audio backend still decode on the main thread.
+is bounded. GPU upload is still on the main thread.
 Save UI no longer reads disk every frame; external file changes appear within one
-second; explicit load always rechecks. Local large-save write is about 144 ms and
-first six-slot read about 263 ms, still synchronous. Dialogue page numbers are not
-in the save yet.
+second; explicit load always rechecks. In this round's historical CLI benchmark, a
+large-save write took about 144 ms and the first six-slot read about 263 ms; these
+numbers do not describe the current player.
+
+Current state (2026-10-21): player save reads, writes, and listings run on the
+background storage queue in `src/save/worker.rs`, and an unchanged listing reuses
+the same shared data instead of copying thumbnails. The audio `Decoder` is created in
+the audio worker in `crates/player/src/player/audio_worker.rs`. GitHub Actions
+`core.yml` runs Rust fmt/Clippy/tests, three-platform native tests, dependency audit,
+Web checks, and a wasm32 build with Playwright browser regression. Current numbers
+are in [Scale and runtime validation](VALIDATION.md#current-benchmark).

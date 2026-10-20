@@ -230,7 +230,16 @@ export function parseSettings(text: string): Partial<PlayerSettings> {
     'auto_delay',
     'volume',
   ];
-  const booleans = ['auto', 'skip', 'wait_voice', 'self_voicing', 'contrast', 'reduced'];
+  const booleans = [
+    'auto',
+    'skip',
+    'skip_unread',
+    'skip_after_choices',
+    'wait_voice',
+    'self_voicing',
+    'contrast',
+    'reduced',
+  ];
   for (const key of numbers)
     if (settings[key] !== undefined) number(settings[key], `setting ${key}`);
   for (const key of booleans)
@@ -432,4 +441,27 @@ export function parseLayerCameraFrames(text: string): StageState['camera'][] {
     parseJson(text, 'layer camera frames'),
     'layer camera frames',
   ) as StageState['camera'][];
+}
+
+export interface ParallelFrames {
+  sprites: SpriteState[][];
+  camera: StageState['camera'][];
+  background: StageState['camera'][];
+  layer_cameras: Record<string, StageState['camera'][]>;
+}
+
+export function parseParallelFrames(text: string): ParallelFrames {
+  const value = record(parseJson(text, 'parallel animation frames'), 'parallel animation frames');
+  const layers = record(value.layer_cameras, 'parallel layer camera frames');
+  return {
+    sprites: array(value.sprites, 'parallel sprite frames') as SpriteState[][],
+    camera: array(value.camera, 'parallel camera frames') as StageState['camera'][],
+    background: array(value.background, 'parallel background frames') as StageState['camera'][],
+    layer_cameras: Object.fromEntries(
+      Object.entries(layers).map(([name, frames]) => [
+        name,
+        array(frames, `parallel layer camera frames for ${name}`) as StageState['camera'][],
+      ]),
+    ),
+  };
 }

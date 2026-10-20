@@ -189,6 +189,8 @@ export const panels = {
       ['text_speed', 'Text speed', 'range', 10, 100, 5],
       ['auto_delay', 'Auto-play delay', 'range', 0.5, 10, 0.5],
       ['auto', 'Auto advance', 'checkbox'],
+      ['skip_unread', 'Skip unread text', 'checkbox'],
+      ['skip_after_choices', 'Keep skipping after choices', 'checkbox'],
       ['wait_voice', 'Wait for voice', 'checkbox'],
       ['contrast', 'High contrast', 'checkbox'],
       ['reduced', 'Reduced motion', 'checkbox'],

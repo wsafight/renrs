@@ -24,6 +24,9 @@ pub enum ScreenKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Screens {
+    /// Editor schema reference; ignored by the engine.
+    #[serde(rename = "$schema", skip_serializing_if = "Option::is_none")]
+    pub schema: Option<String>,
     pub version: u32,
     pub styles: BTreeMap<String, Style>,
     pub main_menu: Option<Screen>,
@@ -41,6 +44,7 @@ pub struct Screens {
 impl Default for Screens {
     fn default() -> Self {
         Self {
+            schema: None,
             version: 1,
             styles: BTreeMap::new(),
             main_menu: None,
@@ -194,6 +198,8 @@ pub enum TogglePreference {
     ReducedMotion,
     WaitVoice,
     SelfVoicing,
+    SkipUnread,
+    SkipAfterChoices,
 }
 const fn list_gap() -> f32 {
     8.0

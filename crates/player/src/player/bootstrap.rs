@@ -98,6 +98,7 @@ pub(crate) async fn run() {
                 smoke,
                 options.profile,
                 benchmark,
+                options.label,
             )
             .await;
         }
@@ -184,6 +185,7 @@ async fn run_player(
     mut smoke: Option<SmokeTest>,
     profile: Option<PathBuf>,
     mut benchmark: Option<super::benchmark::BenchmarkRun>,
+    label: Option<String>,
 ) {
     let mut app = App::new(source, program, theme, &data_root);
     app.storage.profile_path = data_root.join("profile.json");
@@ -225,6 +227,9 @@ async fn run_player(
         app.settings.auto_delay = 0.5;
         app.start_new_game();
         app.playback.auto = true;
+    }
+    if let Some(label) = &label {
+        app.start_new_game_at(Some(label));
     }
     if benchmark.is_some() {
         app.storage.quiet = true;

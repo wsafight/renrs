@@ -109,7 +109,7 @@ v1 在没有它时仍可移植。Web v2 使用 HTML video。输入音轨变成�
 
 ```sh
 rustup target add wasm32-unknown-unknown
-cargo install wasm-bindgen-cli --version 0.2.121 --locked --root target/web-tools
+cargo install wasm-bindgen-cli --version 0.2.129 --locked --root target/web-tools
 npm ci --prefix web
 node scripts/build-web.mjs
 cargo run --bin renrs-web-build -- demo target/web-game

@@ -3,7 +3,16 @@ use renrs::{Runtime, WaitState};
 
 impl App {
     pub(super) fn start_new_game(&mut self) {
-        match Runtime::new(self.program.clone()) {
+        self.start_new_game_at(None);
+    }
+
+    /// Starts a new game at `label`, or at `start` when `label` is `None`.
+    pub(super) fn start_new_game_at(&mut self, label: Option<&str>) {
+        let runtime = match label {
+            Some(label) => Runtime::new_at_label(self.program.clone(), label),
+            None => Runtime::new(self.program.clone()),
+        };
+        match runtime {
             Ok(mut runtime) => {
                 if let Some(previous) = &self.runtime {
                     self.storage.profile = previous.profile().clone();
@@ -137,7 +146,7 @@ impl App {
             Ok(WaitState::Choice { .. }) => {
                 self.visible_characters = f32::MAX;
                 self.selected_choice = 0;
-                self.playback.skip_read = false;
+                self.playback.skip_read &= self.settings.skip_after_choices;
                 self.focus.clear();
                 self.auto_save();
             }

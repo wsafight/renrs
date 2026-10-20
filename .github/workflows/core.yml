@@ -100,3 +100,36 @@ jobs:
         working-directory: web
       - run: npm run check
         working-directory: web
+
+  web-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.0
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # Must match the `wasm-bindgen` pin in crates/web/Cargo.toml.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.129
+      - name: Install FFmpeg for media fixtures
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npm ci
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - name: WASM build and Playwright regression
+        run: node scripts/test-web.mjs --web --media
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: web-browser-results
+          path: web/test-results
+          if-no-files-found: ignore

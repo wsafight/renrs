@@ -65,6 +65,12 @@ theme, migrates Ren'Py with source-located diagnostics, inspects a story, compar
 project impact, emits a story graph, builds Web, runs release acceptance, and checks
 current-version saves. The extension does not offer edits for uncertain migration rules.
 
+To debug one passage, `renrs <project> --label <label>` skips the title and starts a new
+game at that label; in VS Code use `RenRS: Run From Label`, which preselects the label
+around the cursor. Variables take their declared defaults and the call stack is empty;
+profile, read tracking, and saves work as usual. Unknown labels, and labels with
+parameters (enterable only through `call`), show an error.
+
 Story inspect, record, replay, and bounded exploration are in [Story debugging](DEBUGGING.md).
 Medium-project generation and `renrs-bench` coverage are in [Local validation](VALIDATION.md).
 
@@ -81,10 +87,13 @@ non-hidden workspace directories. It supports:
 - Document symbols for characters, labels, static images, and variables.
 - Full-document format.
 - Workspace definition, references, and rename.
+- Hover with the defining line, its file location, and the reference count.
 - Keyword and workspace-symbol completion.
 
-Still run `renrs-check` before shipping; it loads the full project and assets and runs
-CFG analysis.
+The LSP reports syntax diagnostics only. Assets, screens/theme/catalog files, and CFG
+analysis come from `renrs-check`; the VS Code extension runs it after saving a `.rns`
+file or a project JSON file (`renrs.checkOnSave`, on by default), and other editors can
+call `renrs-check --json`. Still run it in full before shipping.
 
 ## Story graph
 
@@ -263,6 +272,12 @@ node scripts/verify-local.mjs --editor   # VS Code host and VSIX
 node scripts/verify-local.mjs --release  # Release/native/SDK/Capacitor wrapper
 node scripts/verify-local.mjs --full     # Every profile above
 ```
+
+`--web` and `--media` delegate to `node scripts/test-web.mjs [--web] [--media]`, which
+builds the wasm32 engine and Web shell, generates browser fixtures, and runs Playwright.
+The GitHub Actions `web-browser` job runs the same script with `--web --media`.
+`scripts/build-web.mjs` fails early when the `wasm-bindgen` CLI does not match the pin
+in `crates/web/Cargo.toml`.
 
 See the [release contract](RELEASE.md) for complete dependencies and the RC matrix.
 

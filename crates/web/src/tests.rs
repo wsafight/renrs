@@ -210,3 +210,91 @@ fn background_frames_are_sampled_through_wasm_boundary() {
     assert!((frames[6]["x"].as_f64().unwrap() - 20.0).abs() < 0.01);
     assert!((frames[6]["scale"].as_f64().unwrap() - 1.5).abs() < 0.01);
 }
+
+#[test]
+fn parallel_frames_batch_samples_all_stage_components_together() {
+    let mut engine = engine(
+        r#"layer effects order 50
+label start:
+    scene "room.png"
+    show "front.png" as front onlayer effects
+    parallel:
+        timeline:
+            transform camera x 20 over 1
+        timeline:
+            transform background x 40 over 1
+        timeline:
+            transform camera onlayer effects y 30 over 1
+        timeline:
+            transform front alpha 0.5 over 1
+    "Done"
+"#,
+    );
+    engine.action("start", 0).unwrap();
+    let frames: serde_json::Value =
+        serde_json::from_str(&engine.parallel_frames().unwrap()).unwrap();
+    assert_eq!(
+        frames["sprites"].as_array().unwrap().len(),
+        usize::from(PARALLEL_SAMPLES) + 1
+    );
+    assert_eq!(
+        frames["camera"].as_array().unwrap().len(),
+        usize::from(PARALLEL_SAMPLES) + 1
+    );
+    assert_eq!(
+        frames["background"].as_array().unwrap().len(),
+        usize::from(PARALLEL_SAMPLES) + 1
+    );
+    let layer = &frames["layer_cameras"]["effects"];
+    assert_eq!(
+        layer.as_array().unwrap().len(),
+        usize::from(PARALLEL_SAMPLES) + 1
+    );
+    assert!((frames["camera"][6]["x"].as_f64().unwrap() - 10.0).abs() < 0.01);
+    assert!((frames["background"][6]["x"].as_f64().unwrap() - 20.0).abs() < 0.01);
+    assert!((layer[6]["y"].as_f64().unwrap() - 15.0).abs() < 0.01);
+    assert!(
+        (frames["sprites"][6][0]["transform"]["alpha"]
+            .as_f64()
+            .unwrap()
+            - 0.75)
+            .abs()
+            < 0.01
+    );
+}
+
+#[test]
+fn nvl_page_is_cached_until_history_or_page_changes() {
+    let mut engine = engine(
+        "label start:\n    nvl on\n    \"One\"\n    \"Two\"\n    nvl clear\n    \"Three\"\n",
+    );
+    let state = |text: &str| serde_json::from_str::<serde_json::Value>(text).unwrap();
+    let first = state(&engine.action("start", 0).unwrap());
+    assert_eq!(first["nvl"]["text"], "One");
+    let cached = engine
+        .nvl
+        .borrow()
+        .as_ref()
+        .map(|cache| cache.json.get().as_ptr());
+    assert_eq!(state(&engine.state().unwrap())["nvl"], first["nvl"]);
+    assert_eq!(
+        engine
+            .nvl
+            .borrow()
+            .as_ref()
+            .map(|cache| cache.json.get().as_ptr()),
+        cached
+    );
+    assert_eq!(
+        state(&engine.action("next", 0).unwrap())["nvl"]["text"],
+        "One\n\nTwo"
+    );
+    assert_eq!(
+        state(&engine.action("next", 0).unwrap())["nvl"]["text"],
+        "Three"
+    );
+    assert_eq!(
+        state(&engine.action("rollback", 0).unwrap())["nvl"]["text"],
+        "One\n\nTwo"
+    );
+}
