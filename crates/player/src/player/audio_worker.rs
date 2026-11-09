@@ -213,9 +213,28 @@ fn run(
     video_position: &std::sync::atomic::AtomicU32,
     pending_video: &AtomicUsize,
 ) -> Result<(), String> {
-    let mut device = DeviceSinkBuilder::open_default_sink().map_err(|error| error.to_string())?;
-    device.log_on_drop(false);
-    let mixer = device.mixer();
+    // `RENRS_SILENT_AUDIO=1` keeps the worker alive on a detached `Mixer` when
+    // no output device exists; headless CI runs have no sound card, and smoke
+    // tests still need track bookkeeping (ended events, video position) to work.
+    let silent = std::env::var_os("RENRS_SILENT_AUDIO").is_some_and(|value| !value.is_empty());
+    let mut device = match DeviceSinkBuilder::open_default_sink() {
+        Ok(device) => Some(device),
+        Err(error) if silent => {
+            eprintln!("renrs: no audio output device, running silent ({error})");
+            None
+        }
+        Err(error) => return Err(error.to_string()),
+    };
+    if let Some(device) = &mut device {
+        device.log_on_drop(false);
+    }
+    let silent_mixer = device
+        .is_none()
+        .then(|| rodio::mixer::mixer(2.try_into().unwrap(), 48000.try_into().unwrap()).0);
+    let mixer = silent_mixer
+        .as_ref()
+        .or_else(|| device.as_ref().map(rodio::MixerDeviceSink::mixer))
+        .expect("mixer exists when a device opened or silent audio is active");
     let mut music: Option<Track> = None;
     let mut voice: Option<Track> = None;
     let mut sound: Option<Track> = None;

@@ -390,6 +390,22 @@ pub(super) fn draw_centered(
 pub(super) fn draw_fitted_centered(rect: Rect, text: &str, mut size: u16, tint: Color) {
     let width = (rect.w - 24.0).max(1.0);
     let height = (rect.h - 8.0).max(1.0);
+    // Most labels fit on one line; measuring is shaped-cache hits while a full
+    // wrap allocates per character, so only pay for layout when it can matter.
+    let trimmed = text.trim();
+    while size > 12 && f32::from(size + 4) > height {
+        size -= 1;
+    }
+    if !trimmed.is_empty() && !text.contains('\n') && measure_width(trimmed, size) <= width {
+        draw_centered(
+            trimmed,
+            rect.x + rect.w / 2.0,
+            rect.y + (rect.h - f32::from(size + 4)) / 2.0 + f32::from(size + 4),
+            size,
+            tint,
+        );
+        return;
+    }
     let mut lines = wrap_lines(text, width, size);
     while size > 12 && lines.len() as f32 * f32::from(size + 4) > height {
         size -= 1;

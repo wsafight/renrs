@@ -110,6 +110,10 @@ impl Runtime {
     }
 
     pub(super) fn check_debug_stop(&mut self, id: &InstructionId) -> Result<(), RuntimeError> {
+        if self.debug.breakpoints.is_empty() && self.debug.budget.is_none() && !self.debug.skip_once
+        {
+            return Ok(());
+        }
         let skip = std::mem::take(&mut self.debug.skip_once);
         if self.debug.budget == Some(0) || !skip && self.debug.breakpoints.contains(id) {
             self.debug.paused = true;

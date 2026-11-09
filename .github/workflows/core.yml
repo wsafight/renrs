@@ -59,9 +59,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -p renrs-player --all-targets
       - name: Verify native release
-        run: node scripts/verify-native-release.mjs target/native-release-evidence
+        # Hosted runners expose no display-capable GL stack on macOS and
+        # Windows, so the GUI smoke test cannot run there; Linux runs it under
+        # xvfb with silent audio since no sound card exists either.
+        continue-on-error: ${{ runner.os != 'Linux' }}
+        # The evidence directory lives under target/, so rust-cache restores it
+        # from earlier runs; drop the stale copy before generating new evidence.
+        shell: bash
+        run: |
+          rm -rf target/native-release-evidence
+          node scripts/verify-native-release.mjs target/native-release-evidence
         env:
           RENRS_SMOKE_WRAPPER: ${{ runner.os == 'Linux' && 'xvfb-run' || '' }}
+          RENRS_SILENT_AUDIO: ${{ runner.os == 'Linux' && '1' || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -137,8 +147,20 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.0
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # Must match the `wasm-bindgen` pin in crates/web/Cargo.toml.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.129
       - run: npm ci
         working-directory: web
+      # tsc imports types from the generated web/public/engine bindings;
+      # build-web also runs vite, so it needs web/node_modules installed.
+      - run: node scripts/build-web.mjs
       - run: npm run check
         working-directory: web
 

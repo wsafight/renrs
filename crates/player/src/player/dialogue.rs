@@ -114,10 +114,7 @@ impl DialogueView {
     }
 
     pub(super) fn character_count(&self) -> usize {
-        self.page_lines()
-            .flat_map(|line| &line.fragments)
-            .map(crate::text_layout::TextFragment::character_count)
-            .sum()
+        self.page_lines().map(|line| line.characters).sum()
     }
 
     pub(super) fn cue(&self) -> Option<DialogueCue> {
@@ -202,8 +199,7 @@ impl DialogueView {
             let end = (start + self.rows).min(section_end);
             let page_length = self.lines[start..end]
                 .iter()
-                .flat_map(|line| &line.fragments)
-                .map(TextFragment::character_count)
+                .map(|line| line.characters)
                 .sum::<usize>();
             let is_last = end == section_end;
             let mut cues = visual_cues
@@ -240,12 +236,7 @@ impl DialogueView {
             });
         for (index, line) in self.page_lines().enumerate() {
             let (rtl, pieces) = crate::text_layout::visual::pieces(line, remaining);
-            remaining = remaining.saturating_sub(
-                line.fragments
-                    .iter()
-                    .map(crate::text_layout::TextFragment::character_count)
-                    .sum(),
-            );
+            remaining = remaining.saturating_sub(line.characters);
             let mut x = panel.x
                 + 34.0
                 + if rtl {

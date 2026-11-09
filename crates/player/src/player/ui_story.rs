@@ -2,16 +2,20 @@ use super::app::App;
 use super::ui_common::{color, color_alpha};
 use crate::frontend::{FocusAxis, FocusScope, UiAction, UiActions};
 use macroquad::prelude::*;
-use renrs::screens::{Action, PlacedElement, Widget, layout};
+use renrs::WaitState;
+use renrs::screens::{Action, PlacedElement, Widget};
 use renrs::syntax::Value;
-use renrs::{WaitState, expression};
 
 impl App {
     pub(super) fn draw_story_wait(&mut self, mouse: Vec2, actions: &UiActions) {
-        let Some(WaitState::Screen { name }) = self
+        let Some(name) = self
             .runtime
             .as_ref()
-            .and_then(|runtime| runtime.waiting().cloned())
+            .and_then(renrs::Runtime::waiting)
+            .and_then(|waiting| match waiting {
+                WaitState::Screen { name } => Some(name.clone()),
+                _ => None,
+            })
         else {
             return;
         };
@@ -28,13 +32,16 @@ impl App {
             .as_ref()
             .map(|runtime| runtime.stage().shown_screens.clone())
             .unwrap_or_default();
-        let waiting = self
+        let waiting_screen = self
             .runtime
             .as_ref()
             .and_then(renrs::Runtime::waiting)
-            .cloned();
+            .and_then(|waiting| match waiting {
+                WaitState::Screen { name } => Some(name.clone()),
+                _ => None,
+            });
         for name in names {
-            if matches!(&waiting, Some(WaitState::Screen { name: current }) if *current == name) {
+            if waiting_screen.as_deref() == Some(name.as_str()) {
                 continue;
             }
             self.draw_named_screen(&name, mouse, actions, false);
@@ -48,23 +55,23 @@ impl App {
         actions: &UiActions,
         interactive: bool,
     ) {
-        let Some(screen) = self.screens.story.get(name).cloned() else {
-            if interactive {
+        let layout = self.screen_layouts.story(name);
+        let Some(super::ui_layouts::StoryLayout::Ready(screen)) = layout else {
+            if layout.is_none() && interactive {
                 self.notice = Some((format!("unknown screen `{name}`"), 4.0));
             }
             return;
         };
-        let Ok(mut elements) = layout(&screen) else {
-            return;
-        };
-        elements.retain(|element| self.element_visible(element.visible.as_deref()));
-        let focusable = elements
+        let focusable = screen
+            .elements
             .iter()
-            .filter(|element| {
-                matches!(
-                    element.widget,
-                    Widget::Hotspot { .. } | Widget::Button { .. }
-                )
+            .zip(screen.visible.iter())
+            .filter(|(element, visible)| {
+                self.element_visible(visible)
+                    && matches!(
+                        element.widget,
+                        Widget::Hotspot { .. } | Widget::Button { .. }
+                    )
             })
             .count();
         if interactive {
@@ -77,8 +84,10 @@ impl App {
             );
         }
         let mut focus = 0;
-        for element in &elements {
-            self.draw_story_element(element, mouse, actions, interactive, &mut focus);
+        for (element, visibility) in screen.elements.iter().zip(screen.visible.iter()) {
+            if self.element_visible(visibility) {
+                self.draw_story_element(element, mouse, actions, interactive, &mut focus);
+            }
         }
     }
 
@@ -177,19 +186,18 @@ impl App {
         }
     }
 
-    fn element_visible(&self, expression: Option<&str>) -> bool {
-        let Some(source) = expression else {
-            return true;
-        };
-        let Some(runtime) = &self.runtime else {
-            return true;
-        };
-        let Ok(expr) = expression::parse_condition(source, "screens.json", 1, 1) else {
-            return false;
-        };
-        runtime
-            .evaluate_condition(&expr)
-            .is_ok_and(|value| value == Value::Boolean(true))
+    fn element_visible(&self, visibility: &super::ui_layouts::Visibility) -> bool {
+        match visibility {
+            super::ui_layouts::Visibility::Always => true,
+            super::ui_layouts::Visibility::Never => false,
+            super::ui_layouts::Visibility::When(expr) => {
+                self.runtime.as_ref().is_none_or(|runtime| {
+                    runtime
+                        .evaluate_condition(expr)
+                        .is_ok_and(|value| value == Value::Boolean(true))
+                })
+            }
+        }
     }
 
     fn story_action(&mut self, action: Action) {

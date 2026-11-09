@@ -53,12 +53,20 @@ pub(super) fn hit_clip(element: &PlacedElement, mouse: Vec2) -> bool {
 }
 
 impl App {
-    pub(super) fn prepare_viewports(
+    pub(super) fn prepare_viewports<'a>(
         &mut self,
         kind: ScreenKind,
-        elements: &[PlacedElement],
+        elements: &'a [PlacedElement],
         mouse: Vec2,
-    ) -> Vec<PlacedElement> {
+    ) -> std::borrow::Cow<'a, [PlacedElement]> {
+        // Cloned-and-shifted elements are only needed while a viewport is
+        // scrolled; otherwise the placed elements are identical, so the common
+        // case returns the layout without cloning it or building scroll keys.
+        let scrolled =
+            mouse_wheel().1 != 0.0 || self.screen_scroll.values().any(|offset| *offset != 0);
+        if !scrolled || elements.iter().all(|element| element.viewports.is_empty()) {
+            return std::borrow::Cow::Borrowed(elements);
+        }
         let mut hovered = None;
         for element in elements {
             let mut shift = 0.0;
@@ -95,29 +103,31 @@ impl App {
                 .saturating_add_signed((-mouse_wheel().1 * 36.0) as isize)
                 .min(maximum as usize);
         }
-        elements
-            .iter()
-            .filter_map(|element| {
-                let mut element = element.clone();
-                let mut shift = 0.0;
-                for frame in &mut element.viewports {
-                    frame.bounds.y -= shift;
-                    shift += *self
-                        .screen_scroll
-                        .get(&format!("{kind:?}:viewport:{}", frame.id))
-                        .unwrap_or(&0) as f32;
-                }
-                element.bounds.y -= shift;
-                let bounds = element.bounds;
-                clip(&element)?.intersect(Rect::new(
-                    bounds.x,
-                    bounds.y,
-                    bounds.width,
-                    bounds.height,
-                ))?;
-                Some(element)
-            })
-            .collect()
+        std::borrow::Cow::Owned(
+            elements
+                .iter()
+                .filter_map(|element| {
+                    let mut element = element.clone();
+                    let mut shift = 0.0;
+                    for frame in &mut element.viewports {
+                        frame.bounds.y -= shift;
+                        shift += *self
+                            .screen_scroll
+                            .get(&format!("{kind:?}:viewport:{}", frame.id))
+                            .unwrap_or(&0) as f32;
+                    }
+                    element.bounds.y -= shift;
+                    let bounds = element.bounds;
+                    clip(&element)?.intersect(Rect::new(
+                        bounds.x,
+                        bounds.y,
+                        bounds.width,
+                        bounds.height,
+                    ))?;
+                    Some(element)
+                })
+                .collect(),
+        )
     }
 
     pub(super) fn data_rows(&self, variable: &str, height: f32, item_height: f32) -> usize {

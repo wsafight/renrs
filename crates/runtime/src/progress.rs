@@ -77,6 +77,13 @@ impl Runtime {
 
     pub(crate) fn observe_progress(&mut self) {
         let config = &self.program.progress;
+        if config.achievements.is_empty()
+            && config.gallery.is_empty()
+            && config.endings.is_empty()
+            && config.rollback_barriers.is_empty()
+        {
+            return;
+        }
         for (items, unlocked) in [
             (&config.achievements, &mut self.profile.achievements),
             (&config.gallery, &mut self.profile.gallery),

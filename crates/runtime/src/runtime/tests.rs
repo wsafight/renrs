@@ -371,7 +371,9 @@ fn restore_rejects_parameter_scope_that_does_not_match_its_call() {
     );
     runtime.advance().unwrap();
     let mut snapshot = runtime.snapshot();
-    snapshot.call_stack[0].previous_variables.clear();
+    std::sync::Arc::make_mut(&mut snapshot.call_stack)[0]
+        .previous_variables
+        .clear();
     assert!(matches!(
         Runtime::restore(runtime.shared_program(), snapshot),
         Err(RuntimeError::InvalidStablePositions)

@@ -265,7 +265,7 @@ pub struct RuntimeSnapshot {
     pub format_version: u32,
     pub program_fingerprint: String,
     pub instruction: usize,
-    pub call_stack: Vec<CallFrame>,
+    pub call_stack: Arc<Vec<CallFrame>>,
     pub instruction_id: Option<InstructionId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_instruction_id: Option<InstructionId>,
@@ -283,7 +283,7 @@ pub struct RuntimeSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RollbackCheckpoint {
     pub instruction: usize,
-    pub call_stack: Vec<CallFrame>,
+    pub call_stack: Arc<Vec<CallFrame>>,
     pub instruction_id: Option<InstructionId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_instruction_id: Option<InstructionId>,
@@ -328,7 +328,7 @@ pub struct Runtime {
     last_instruction: usize,
     current_label_cache: Cell<Option<(usize, Option<usize>)>>,
     trace: Option<BTreeSet<usize>>,
-    call_stack: Vec<CallFrame>,
+    call_stack: Arc<Vec<CallFrame>>,
     pub(crate) variables: Arc<BTreeMap<String, Value>>,
     stage: Arc<StageState>,
     waiting: Option<WaitState>,

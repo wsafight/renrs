@@ -191,7 +191,7 @@ fn variables(values: &[Value], index: usize) -> Result<Arc<BTreeMap<String, Valu
     }
 }
 
-fn call_stack(values: &[Value], saved: Vec<SavedCallFrame>) -> Result<Vec<CallFrame>, String> {
+fn call_stack(values: &[Value], saved: Vec<SavedCallFrame>) -> Result<Arc<Vec<CallFrame>>, String> {
     if saved.len() > 10_000 {
         return Err("snapshot call stack exceeds its budget".to_owned());
     }
@@ -218,7 +218,8 @@ fn call_stack(values: &[Value], saved: Vec<SavedCallFrame>) -> Result<Vec<CallFr
                 previous_variables,
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()
+        .map(Arc::new)
 }
 
 impl TryFrom<Snapshot> for RuntimeSnapshot {
