@@ -63,7 +63,12 @@ jobs:
         # Windows, so the GUI smoke test cannot run there; Linux runs it under
         # xvfb with silent audio since no sound card exists either.
         continue-on-error: ${{ runner.os != 'Linux' }}
-        run: node scripts/verify-native-release.mjs target/native-release-evidence
+        # The evidence directory lives under target/, so rust-cache restores it
+        # from earlier runs; drop the stale copy before generating new evidence.
+        shell: bash
+        run: |
+          rm -rf target/native-release-evidence
+          node scripts/verify-native-release.mjs target/native-release-evidence
         env:
           RENRS_SMOKE_WRAPPER: ${{ runner.os == 'Linux' && 'xvfb-run' || '' }}
           RENRS_SILENT_AUDIO: ${{ runner.os == 'Linux' && '1' || '' }}
