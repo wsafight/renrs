@@ -396,10 +396,7 @@ pub(super) fn draw_fitted_centered(rect: Rect, text: &str, mut size: u16, tint: 
     while size > 12 && f32::from(size + 4) > height {
         size -= 1;
     }
-    if !trimmed.is_empty()
-        && !text.contains('\n')
-        && measure_width(trimmed, size) <= width
-    {
+    if !trimmed.is_empty() && !text.contains('\n') && measure_width(trimmed, size) <= width {
         draw_centered(
             trimmed,
             rect.x + rect.w / 2.0,

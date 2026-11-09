@@ -88,6 +88,12 @@ fn strict_migration_fails_for_post_validation_diagnostics_and_writes_the_report(
 fn official_the_question_sample_matches_the_migration_baseline() {
     let temporary = tempfile::tempdir().unwrap();
     let input = Path::new(env!("CARGO_MANIFEST_DIR")).join("references/renpy/the_question/game");
+    if !input.is_dir() {
+        // `references/renpy` is a gitignored local research copy, so CI
+        // checkouts cannot run this baseline; skip rather than fail.
+        eprintln!("skipping: {} not present", input.display());
+        return;
+    }
     let output = temporary.path().join("output");
     let baseline: serde_json::Value = serde_json::from_slice(include_bytes!(
         "fixtures/the_question_migration_baseline.json"

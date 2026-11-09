@@ -260,7 +260,10 @@ mod tests {
                     boundaries.binary_search(&end).is_ok(),
                     "prefix for {text:?} ended at byte offset {end}, boundaries: {boundaries:?}"
                 );
-                assert!(end >= previous, "prefix for {text:?} shrank to {end} at budget {budget}");
+                assert!(
+                    end >= previous,
+                    "prefix for {text:?} shrank to {end} at budget {budget}"
+                );
                 assert!(
                     measure_width(&text[..end], 24) <= budget + 1.0,
                     "prefix for {text:?} at {end} overflows budget {budget}"

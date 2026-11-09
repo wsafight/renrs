@@ -62,8 +62,8 @@ impl App {
         // Cloned-and-shifted elements are only needed while a viewport is
         // scrolled; otherwise the placed elements are identical, so the common
         // case returns the layout without cloning it or building scroll keys.
-        let scrolled = mouse_wheel().1 != 0.0
-            || self.screen_scroll.values().any(|offset| *offset != 0);
+        let scrolled =
+            mouse_wheel().1 != 0.0 || self.screen_scroll.values().any(|offset| *offset != 0);
         if !scrolled || elements.iter().all(|element| element.viewports.is_empty()) {
             return std::borrow::Cow::Borrowed(elements);
         }

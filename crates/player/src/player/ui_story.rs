@@ -2,9 +2,9 @@ use super::app::App;
 use super::ui_common::{color, color_alpha};
 use crate::frontend::{FocusAxis, FocusScope, UiAction, UiActions};
 use macroquad::prelude::*;
+use renrs::WaitState;
 use renrs::screens::{Action, PlacedElement, Widget};
 use renrs::syntax::Value;
-use renrs::WaitState;
 
 impl App {
     pub(super) fn draw_story_wait(&mut self, mouse: Vec2, actions: &UiActions) {
@@ -190,14 +190,13 @@ impl App {
         match visibility {
             super::ui_layouts::Visibility::Always => true,
             super::ui_layouts::Visibility::Never => false,
-            super::ui_layouts::Visibility::When(expr) => self
-                .runtime
-                .as_ref()
-                .is_none_or(|runtime| {
+            super::ui_layouts::Visibility::When(expr) => {
+                self.runtime.as_ref().is_none_or(|runtime| {
                     runtime
                         .evaluate_condition(expr)
                         .is_ok_and(|value| value == Value::Boolean(true))
-                }),
+                })
+            }
         }
     }
 

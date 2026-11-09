@@ -286,7 +286,7 @@ fn flush_token(tokens: &mut Vec<Token>, current: &mut Vec<StyledChar>, kind: Opt
 }
 
 fn affects_visual_order(character: char) -> bool {
-    use unicode_bidi::BidiClass::{AL, B, BN, FSI, LRE, LRI, LRO, PDI, PDF, R, RLE, RLI, RLO, S};
+    use unicode_bidi::BidiClass::{AL, B, BN, FSI, LRE, LRI, LRO, PDF, PDI, R, RLE, RLI, RLO, S};
     matches!(
         unicode_bidi::bidi_class(character),
         R | AL | RLE | RLO | RLI | LRE | LRO | LRI | FSI | PDI | PDF | BN | B | S
