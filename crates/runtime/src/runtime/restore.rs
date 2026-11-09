@@ -34,7 +34,7 @@ impl Runtime {
             last_instruction: instruction,
             current_label_cache: std::cell::Cell::new(None),
             trace: None,
-            call_stack: Vec::new(),
+            call_stack: Arc::default(),
             variables: Arc::new(variables),
             stage: Arc::new(StageState::default()),
             waiting: None,
@@ -106,7 +106,7 @@ impl Runtime {
             initialize_missing_defaults(
                 &program,
                 Arc::make_mut(&mut snapshot.variables),
-                &mut call_stack,
+                Arc::make_mut(&mut call_stack).as_mut_slice(),
                 &mut report,
             )?;
         }
@@ -205,7 +205,7 @@ fn restore_stable_positions(
     snapshot: &RuntimeSnapshot,
     report: &mut ReloadReport,
     changed: bool,
-) -> Result<(usize, Vec<CallFrame>), RuntimeError> {
+) -> Result<(usize, Arc<Vec<CallFrame>>), RuntimeError> {
     if snapshot.call_stack.len() != snapshot.call_stack_ids.len() {
         return Err(RuntimeError::InvalidStablePositions);
     }
@@ -231,7 +231,7 @@ fn restore_stable_positions(
     let call_stack = restore_call_stack(
         program,
         &snapshot.call_stack_ids,
-        snapshot.call_stack.clone(),
+        snapshot.call_stack.as_slice().to_vec(),
         report,
         changed,
     )?;
@@ -299,7 +299,7 @@ fn restore_checkpoint(
     checkpoint.call_stack = restore_call_stack(
         program,
         &checkpoint.call_stack_ids,
-        checkpoint.call_stack,
+        checkpoint.call_stack.as_slice().to_vec(),
         report,
         changed,
     )?;
@@ -308,7 +308,7 @@ fn restore_checkpoint(
         initialize_missing_defaults(
             program,
             Arc::make_mut(&mut checkpoint.variables),
-            &mut checkpoint.call_stack,
+            Arc::make_mut(&mut checkpoint.call_stack).as_mut_slice(),
             report,
         )?;
     }
@@ -360,7 +360,7 @@ fn restore_call_stack(
     frames: Vec<CallFrame>,
     report: &mut ReloadReport,
     changed: bool,
-) -> Result<Vec<CallFrame>, RuntimeError> {
+) -> Result<Arc<Vec<CallFrame>>, RuntimeError> {
     if ids.len() != frames.len() {
         return Err(RuntimeError::InvalidStablePositions);
     }
@@ -384,7 +384,7 @@ fn restore_call_stack(
         frame.return_address = index + 1;
         restored.push(frame);
     }
-    Ok(restored)
+    Ok(Arc::new(restored))
 }
 
 fn initialize_missing_defaults(

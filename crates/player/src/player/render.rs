@@ -7,8 +7,20 @@ use renrs::{Runtime, WaitState};
 use crate::frontend::{FocusAxis, FocusScope, UiAction, UiActions};
 
 use super::app::{App, Screen};
-use super::ui_common::{button, choice_button, color, color_alpha, draw_centered, wrap_lines};
+use super::ui_common::{button, color, color_alpha, draw_centered};
 use super::{CANVAS_HEIGHT, CANVAS_WIDTH};
+
+/// Lightweight summary of [`WaitState`] used by [`App::draw_game`]. Matching on
+/// this instead of cloning the wait state avoids deep-copying the `StageState`
+/// boxed inside `Effect` variants every frame of every transition.
+enum Waiting {
+    Dialogue,
+    Choice,
+    Finished,
+    Fade(f32),
+    Screen,
+    Other,
+}
 
 impl App {
     pub(super) fn draw_game(&mut self, mouse: Vec2, actions: &UiActions) {
@@ -38,12 +50,21 @@ impl App {
             );
             return;
         }
-        let waiting = self.runtime.as_ref().and_then(Runtime::waiting).cloned();
-        let custom = match &waiting {
-            Some(WaitState::Dialogue) if !stage.nvl && stage.window => {
+        let waiting = match self.runtime.as_ref().and_then(Runtime::waiting) {
+            Some(WaitState::Dialogue) => Waiting::Dialogue,
+            Some(WaitState::Choice { .. }) => Waiting::Choice,
+            Some(WaitState::Finished) => Waiting::Finished,
+            Some(WaitState::Effect {
+                effect: VisualEffect::Fade { seconds },
+            }) => Waiting::Fade(*seconds),
+            Some(WaitState::Screen { .. }) => Waiting::Screen,
+            Some(WaitState::Pause { .. } | WaitState::Effect { .. }) | None => Waiting::Other,
+        };
+        let custom = match waiting {
+            Waiting::Dialogue if !stage.nvl && stage.window => {
                 Some(renrs::screens::ScreenKind::Dialogue)
             }
-            Some(WaitState::Choice { .. }) => Some(renrs::screens::ScreenKind::Choices),
+            Waiting::Choice => Some(renrs::screens::ScreenKind::Choices),
             _ => None,
         };
         if let Some(kind) = custom
@@ -51,7 +72,7 @@ impl App {
         {
             return;
         }
-        if !matches!(waiting, Some(WaitState::Finished)) {
+        if !matches!(waiting, Waiting::Finished) {
             self.draw_toolbar(mouse, actions);
             if self.overlay.is_some() {
                 return;
@@ -59,7 +80,7 @@ impl App {
         }
 
         match waiting {
-            Some(WaitState::Dialogue) => {
+            Waiting::Dialogue => {
                 let previous = self.apply_dialogue_theme();
                 let nvl = self.dialogue_view.nvl.clone();
                 if stage.window
@@ -71,7 +92,7 @@ impl App {
                     self.theme = previous;
                 }
             }
-            Some(WaitState::Choice { options }) => {
+            Waiting::Choice => {
                 if stage.window
                     && let Some(dialogue) = &stage.dialogue
                 {
@@ -81,28 +102,12 @@ impl App {
                         self.theme = previous;
                     }
                 }
-                self.draw_choices(&options, mouse, actions);
+                self.draw_choices(mouse, actions);
             }
-            Some(WaitState::Finished) => self.draw_finished(mouse, actions),
-            Some(WaitState::Effect {
-                effect: VisualEffect::Fade { seconds },
-            }) => self.draw_fade_overlay(seconds),
-            Some(WaitState::Screen { .. }) => self.draw_story_wait(mouse, actions),
-            Some(
-                WaitState::Effect {
-                    effect:
-                        VisualEffect::Tween { .. }
-                        | VisualEffect::Parallel { .. }
-                        | VisualEffect::Transform { .. }
-                        | VisualEffect::Dissolve { .. }
-                        | VisualEffect::Video { .. }
-                        | VisualEffect::Push { .. }
-                        | VisualEffect::Wipe { .. }
-                        | VisualEffect::Punch { .. },
-                }
-                | WaitState::Pause { .. },
-            )
-            | None => {}
+            Waiting::Finished => self.draw_finished(mouse, actions),
+            Waiting::Fade(seconds) => self.draw_fade_overlay(seconds),
+            Waiting::Screen => self.draw_story_wait(mouse, actions),
+            Waiting::Other => {}
         }
     }
 
@@ -222,16 +227,28 @@ impl App {
             );
         }
         let tween = self.active_tween();
-        let mut sprites = stage.sprites.iter().enumerate().collect::<Vec<_>>();
-        sprites.sort_by_key(|(index, sprite)| {
-            (
-                sprite.display_order,
-                sprite.display_layer.as_str(),
-                sprite.layer,
-                *index,
-            )
-        });
-        for (_, sprite) in sprites {
+        // With at most one sprite there is nothing to sort, so the common case
+        // avoids the order buffer entirely.
+        let mut order: Vec<usize> = Vec::new();
+        if stage.sprites.len() > 1 {
+            order.extend(0..stage.sprites.len());
+            order.sort_by_key(|&index| {
+                let sprite = &stage.sprites[index];
+                (
+                    sprite.display_order,
+                    sprite.display_layer.as_str(),
+                    sprite.layer,
+                    index,
+                )
+            });
+        }
+        let indices: &[usize] = if order.is_empty() {
+            &[0][..stage.sprites.len()]
+        } else {
+            &order
+        };
+        for &index in indices {
+            let sprite = &stage.sprites[index];
             let mut layer_camera = self.camera_transform_for(stage, Some(&sprite.display_layer));
             layer_camera.x += offset.x;
             layer_camera.y += offset.y;
@@ -360,80 +377,6 @@ impl App {
             || (self.focus.selected().is_none() && actions.pressed(UiAction::Activate));
         if interactive && advance {
             self.continue_story();
-        }
-    }
-
-    pub(super) fn draw_choices(&mut self, options: &[String], mouse: Vec2, actions: &UiActions) {
-        if self.focus.selected().is_none() && actions.pressed(UiAction::Up) {
-            self.selected_choice = self.selected_choice.saturating_sub(1);
-        }
-        if self.focus.selected().is_none() && actions.pressed(UiAction::Down) {
-            self.selected_choice = (self.selected_choice + 1).min(options.len().saturating_sub(1));
-        }
-        if self.focus.selected().is_none() {
-            if actions.pressed(UiAction::Home) {
-                self.selected_choice = 0;
-            }
-            if actions.pressed(UiAction::End) {
-                self.selected_choice = options.len().saturating_sub(1);
-            }
-            self.selected_choice = self
-                .selected_choice
-                .saturating_add_signed(-mouse_wheel().1.round() as isize)
-                .min(options.len().saturating_sub(1));
-        }
-        let rows = 5.min(options.len());
-        let start = self.selected_choice.saturating_sub(rows.saturating_sub(1));
-        let heights: Vec<_> = options
-            .iter()
-            .skip(start)
-            .take(rows)
-            .map(|option| {
-                let lines = wrap_lines(option, 676.0, self.theme.ui_font_size).len();
-                (lines as f32 * f32::from(self.theme.ui_font_size + 4) + 16.0).clamp(52.0, 92.0)
-            })
-            .collect();
-        let total_height = heights.iter().sum::<f32>() + rows.saturating_sub(1) as f32 * 14.0;
-        let mut y = (CANVAS_HEIGHT - total_height) / 2.0 + 20.0;
-        let mut selected = None;
-        for ((index, option), height) in options
-            .iter()
-            .enumerate()
-            .skip(start)
-            .take(rows)
-            .zip(heights)
-        {
-            let rect = Rect::new(290.0, y, 700.0, height);
-            y += height + 14.0;
-            if choice_button(
-                rect,
-                option,
-                mouse,
-                index == self.selected_choice,
-                &self.theme,
-            ) {
-                selected = Some(index);
-            }
-        }
-        if options.len() > rows {
-            draw_centered(
-                &format!("{}-{} / {}", start + 1, start + rows, options.len()),
-                CANVAS_WIDTH / 2.0,
-                y + 16.0,
-                18,
-                color(&self.theme.text_color),
-            );
-        }
-        if self.focus.selected().is_none() && actions.pressed(UiAction::Activate) {
-            selected = Some(self.selected_choice);
-        }
-        if let Some(index) = selected {
-            let result = self
-                .runtime
-                .as_mut()
-                .expect("playing requires runtime")
-                .choose(index);
-            self.handle_wait(result);
         }
     }
 

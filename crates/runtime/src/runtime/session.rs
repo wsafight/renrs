@@ -14,16 +14,29 @@ impl Runtime {
     /// to variables must refresh that cache without changing the sprite's
     /// stable alias, transform, or ordering.
     pub(super) fn refresh_layered_images(&mut self, line: usize) -> Result<(), RuntimeError> {
-        let paths = self
+        // `stage` is shared with every rollback checkpoint and the player's
+        // render handle, so `Arc::make_mut` below deep-copies it. Skip the copy
+        // unless a layered image is on stage and its resolution changed.
+        if self.program.layered_images.is_empty() {
+            return Ok(());
+        }
+        let compositions = self
             .stage
             .sprites
             .iter()
-            .map(|sprite| sprite.path.clone())
-            .collect::<Vec<_>>();
-        let compositions = paths
-            .iter()
-            .map(|path| self.resolve_image(path, line))
+            .map(|sprite| self.resolve_image(&sprite.path, line))
             .collect::<Result<Vec<_>, _>>()?;
+        if self
+            .stage
+            .sprites
+            .iter()
+            .zip(&compositions)
+            .all(|(sprite, composition)| {
+                composition.is_none() || sprite.composition.as_ref() == composition.as_ref()
+            })
+        {
+            return Ok(());
+        }
         let stage = std::sync::Arc::make_mut(&mut self.stage);
         for (sprite, composition) in stage.sprites.iter_mut().zip(compositions) {
             if composition.is_some() {

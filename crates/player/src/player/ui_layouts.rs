@@ -1,8 +1,51 @@
 use super::app::{App, Overlay, Screen};
 use renrs::screens::{PlacedElement, ScreenKind, Screens, Widget, layout};
+use renrs::syntax::Expr;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
-pub(super) struct ScreenLayouts(Vec<(ScreenKind, Arc<[PlacedElement]>, Vec<String>)>);
+pub(super) struct ScreenLayouts {
+    fixed: Vec<(ScreenKind, Arc<[PlacedElement]>, Vec<String>)>,
+    // `Invalid` marks a story screen whose layout failed to build: it exists
+    // but draws nothing, matching the previous lazy-layout behaviour.
+    story: BTreeMap<String, StoryLayout>,
+}
+
+pub(super) enum StoryLayout {
+    Invalid,
+    Ready(StoryScreen),
+}
+
+pub(super) struct StoryScreen {
+    pub(super) elements: Arc<[PlacedElement]>,
+    pub(super) images: Arc<[String]>,
+    pub(super) visible: Arc<[Visibility]>,
+}
+
+/// Visibility of a placed element, resolved once when screens load instead of
+/// re-parsing the condition expression every frame.
+pub(super) enum Visibility {
+    Always,
+    Never,
+    When(Expr),
+}
+
+fn visibility(expression: Option<&str>) -> Visibility {
+    let Some(source) = expression else {
+        return Visibility::Always;
+    };
+    match renrs::expression::parse_condition(source, "screens.json", 1, 1) {
+        Ok(expr) => Visibility::When(expr),
+        Err(_) => Visibility::Never,
+    }
+}
+
+fn image_paths(elements: &[PlacedElement]) -> impl Iterator<Item = String> + '_ {
+    elements.iter().filter_map(|element| match &element.widget {
+        Widget::Image { path } => Some(path.clone()),
+        _ => None,
+    })
+}
 
 impl App {
     pub(super) fn active_screen_images(&self) -> Vec<String> {
@@ -39,17 +82,11 @@ impl App {
             {
                 names.push(name.clone());
             }
-            images.extend(names.into_iter().flat_map(|name| {
-                self.screens
-                    .story
-                    .get(&name)
-                    .into_iter()
-                    .flat_map(|screen| layout(screen).unwrap_or_default())
-                    .filter_map(|element| match element.widget {
-                        Widget::Image { path } => Some(path),
-                        _ => None,
-                    })
-            }));
+            for name in &names {
+                if let Some(StoryLayout::Ready(screen)) = self.screen_layouts.story(name) {
+                    images.extend(screen.images.iter().cloned());
+                }
+            }
         }
         images
     }
@@ -57,40 +94,61 @@ impl App {
 
 impl ScreenLayouts {
     pub(super) fn new(screens: &Screens) -> Self {
-        Self(
-            [
-                ScreenKind::MainMenu,
-                ScreenKind::Hud,
-                ScreenKind::Dialogue,
-                ScreenKind::Choices,
-                ScreenKind::Save,
-                ScreenKind::Load,
-                ScreenKind::History,
-                ScreenKind::Settings,
-            ]
-            .into_iter()
-            .filter_map(|kind| {
-                let elements = layout(screens.get(kind)?).ok()?;
-                let images = elements
-                    .iter()
-                    .filter_map(|element| match &element.widget {
-                        Widget::Image { path } => Some(path.clone()),
-                        _ => None,
+        let fixed = [
+            ScreenKind::MainMenu,
+            ScreenKind::Hud,
+            ScreenKind::Dialogue,
+            ScreenKind::Choices,
+            ScreenKind::Save,
+            ScreenKind::Load,
+            ScreenKind::History,
+            ScreenKind::Settings,
+        ]
+        .into_iter()
+        .filter_map(|kind| {
+            let elements: Arc<[PlacedElement]> = layout(screens.get(kind)?).ok()?.into();
+            let images = image_paths(&elements).collect();
+            Some((kind, elements, images))
+        })
+        .collect();
+        let story = screens
+            .story
+            .iter()
+            .map(|(name, screen)| {
+                let entry = layout(screen).map_or(StoryLayout::Invalid, |elements| {
+                    let elements: Arc<[PlacedElement]> = elements.into();
+                    StoryLayout::Ready(StoryScreen {
+                        images: image_paths(&elements).collect(),
+                        visible: elements
+                            .iter()
+                            .map(|element| visibility(element.visible.as_deref()))
+                            .collect(),
+                        elements,
                     })
-                    .collect();
-                Some((kind, elements.into(), images))
+                });
+                (name.clone(), entry)
             })
-            .collect(),
-        )
+            .collect();
+        Self { fixed, story }
     }
     pub(super) fn elements(&self, kind: ScreenKind) -> Option<Arc<[PlacedElement]>> {
-        self.0
+        self.fixed
             .iter()
             .find(|(key, _, _)| *key == kind)
             .map(|(_, elements, _)| elements.clone())
     }
+    pub(super) fn story(&self, name: &str) -> Option<StoryLayout> {
+        self.story.get(name).map(|entry| match entry {
+            StoryLayout::Invalid => StoryLayout::Invalid,
+            StoryLayout::Ready(screen) => StoryLayout::Ready(StoryScreen {
+                elements: Arc::clone(&screen.elements),
+                images: Arc::clone(&screen.images),
+                visible: Arc::clone(&screen.visible),
+            }),
+        })
+    }
     pub(super) fn images(&self, kind: ScreenKind) -> impl Iterator<Item = String> + '_ {
-        self.0
+        self.fixed
             .iter()
             .filter(move |(key, _, _)| *key == kind)
             .flat_map(|(_, _, images)| images.iter().cloned())

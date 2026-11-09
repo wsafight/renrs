@@ -8,7 +8,7 @@ mod shaping;
 pub(super) use font::Face;
 use macroquad::prelude::{Color, DrawTextureParams, Rect, draw_texture_ex, vec2};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 const MAX_ENTRIES: usize = 4096;
 
@@ -131,11 +131,28 @@ pub(super) fn measure_width(text: impl AsRef<str>, size: u16) -> f32 {
 
 pub(super) fn prefix_end_for_width(text: &str, width: f32, size: u16) -> usize {
     RENDERER.with_borrow_mut(|renderer| {
-        let mut cluster_widths = BTreeMap::<usize, f32>::new();
+        // Shaped clusters come back in visual order (RTL spans emit descending
+        // byte offsets), so merge equal clusters and sort by byte offset; a
+        // flat Vec still replaces a BTreeMap per call.
+        let mut clusters: Vec<(usize, f32)> = Vec::new();
         for glyph in renderer.shape(text).iter() {
-            *cluster_widths.entry(glyph.cluster).or_default() += glyph.advance * f32::from(size);
+            if let Some((start, width)) = clusters.last_mut()
+                && *start == glyph.cluster
+            {
+                *width += glyph.advance * f32::from(size);
+            } else {
+                clusters.push((glyph.cluster, glyph.advance * f32::from(size)));
+            }
         }
-        let clusters = cluster_widths.into_iter().collect::<Vec<_>>();
+        clusters.sort_unstable_by_key(|&(start, _)| start);
+        clusters.dedup_by(|next, previous| {
+            if previous.0 == next.0 {
+                previous.1 += next.1;
+                true
+            } else {
+                false
+            }
+        });
         let mut total = 0.0;
         let mut end = 0;
         for (index, (start, cluster_width)) in clusters.iter().enumerate() {
@@ -232,13 +249,25 @@ mod tests {
         for text in ["office e\u{301}", "سلام بالعالم", "中文选项很长"] {
             let boundaries = cluster_boundaries(text);
             let width = measure_width(text, 24);
+            // Prefix ends must grow monotonically and cover the whole string at
+            // full width; RTL spans shape in visual order, so a naive emission-
+            // order walk would collapse the range to the string's last bytes.
+            let mut previous = 0;
             for step in 0..=32 {
-                let end = prefix_end_for_width(text, width * step as f32 / 32.0, 24);
+                let budget = width * step as f32 / 32.0;
+                let end = prefix_end_for_width(text, budget, 24);
                 assert!(
                     boundaries.binary_search(&end).is_ok(),
                     "prefix for {text:?} ended at byte offset {end}, boundaries: {boundaries:?}"
                 );
+                assert!(end >= previous, "prefix for {text:?} shrank to {end} at budget {budget}");
+                assert!(
+                    measure_width(&text[..end], 24) <= budget + 1.0,
+                    "prefix for {text:?} at {end} overflows budget {budget}"
+                );
+                previous = end;
             }
+            assert_eq!(previous, text.len());
         }
     }
 }

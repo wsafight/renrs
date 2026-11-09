@@ -30,6 +30,11 @@ impl TextFragment {
 pub struct TextLine {
     pub fragments: Vec<TextFragment>,
     pub width: f32,
+    /// Total character count of all fragments, cached at layout.
+    pub characters: usize,
+    /// Whether any character could reorder or split visual runs, computed once
+    /// at layout so pure-LTR lines skip the bidi pass every frame.
+    pub needs_bidi: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -280,6 +285,14 @@ fn flush_token(tokens: &mut Vec<Token>, current: &mut Vec<StyledChar>, kind: Opt
     }
 }
 
+fn affects_visual_order(character: char) -> bool {
+    use unicode_bidi::BidiClass::{AL, B, BN, FSI, LRE, LRI, LRO, PDI, PDF, R, RLE, RLI, RLO, S};
+    matches!(
+        unicode_bidi::bidi_class(character),
+        R | AL | RLE | RLO | RLI | LRE | LRO | LRI | FSI | PDI | PDF | BN | B | S
+    )
+}
+
 fn finish_line(lines: &mut Vec<TextLine>, current: &mut TextLine, keep_empty: bool) {
     while current
         .fragments
@@ -303,6 +316,10 @@ fn finish_line(lines: &mut Vec<TextLine>, current: &mut TextLine, keep_empty: bo
         }
     }
     current.fragments = merged;
+    current.needs_bidi = current
+        .fragments
+        .iter()
+        .any(|fragment| fragment.text.chars().any(affects_visual_order));
     for fragment in &mut current.fragments {
         fragment.boundaries = fragment
             .text
@@ -311,6 +328,11 @@ fn finish_line(lines: &mut Vec<TextLine>, current: &mut TextLine, keep_empty: bo
             .chain(std::iter::once(fragment.text.len()))
             .collect();
     }
+    current.characters = current
+        .fragments
+        .iter()
+        .map(TextFragment::character_count)
+        .sum();
     if keep_empty || !current.fragments.is_empty() {
         lines.push(std::mem::take(current));
     }

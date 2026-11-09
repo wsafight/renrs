@@ -9,6 +9,32 @@ pub struct Piece<'a> {
 }
 
 pub fn pieces(line: &TextLine, visible: usize) -> (bool, Vec<Piece<'_>>) {
+    if !line.needs_bidi {
+        // Pure-LTR text: the whole line is one visual run, so pieces are just
+        // the fragments in order with the reveal clipped to `visible` chars.
+        let mut characters = 0;
+        let parts = line
+            .fragments
+            .iter()
+            .enumerate()
+            .map(|(index, fragment)| {
+                let full = fragment.text.as_str();
+                let count = visible.saturating_sub(characters);
+                let bytes = full
+                    .char_indices()
+                    .nth(count)
+                    .map_or(full.len(), |(i, _)| i);
+                characters += fragment.character_count();
+                Piece {
+                    fragment: index,
+                    full,
+                    visible: &full[..bytes],
+                    rtl: false,
+                }
+            })
+            .collect();
+        return (false, parts);
+    }
     let text: String = line
         .fragments
         .iter()

@@ -33,7 +33,7 @@ impl Runtime {
             if let Some(trace) = &mut self.trace {
                 trace.insert(self.instruction);
             }
-            match &program.instructions[self.instruction].kind {
+            match &instruction.kind {
                 InstructionKind::Nvl { mode } => {
                     if mode == "on" {
                         Arc::make_mut(&mut self.stage).nvl = true;
@@ -179,7 +179,7 @@ impl Runtime {
                         Arc::make_mut(&mut self.variables).insert(parameter.clone(), value);
                     }
                     self.refresh_layered_images(line)?;
-                    self.call_stack.push(CallFrame {
+                    Arc::make_mut(&mut self.call_stack).push(CallFrame {
                         return_address: self.instruction + 1,
                         previous_variables,
                     });
@@ -190,7 +190,7 @@ impl Runtime {
                         .as_ref()
                         .map(|expression| evaluate(expression, &self.variables, line))
                         .transpose()?;
-                    if let Some(frame) = self.call_stack.pop() {
+                    if let Some(frame) = Arc::make_mut(&mut self.call_stack).pop() {
                         let variables = Arc::make_mut(&mut self.variables);
                         for (name, previous) in frame.previous_variables {
                             if let Some(previous) = previous {
