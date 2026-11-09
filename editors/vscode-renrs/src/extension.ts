@@ -116,10 +116,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     args: string[],
     root: string,
     reveal = true,
+    signal?: AbortSignal,
   ): Promise<CommandResult> {
     if (reveal) output.show(true);
     try {
-      const result = await execute(tool(name), args, { cwd: root, maxBuffer: 8 * 1024 * 1024 });
+      const result = await execute(tool(name), args, {
+        cwd: root,
+        maxBuffer: 8 * 1024 * 1024,
+        signal,
+      });
       output.append(result.stdout + result.stderr);
       return result;
     } catch (error) {
@@ -128,41 +133,72 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   }
   let checkVersion = 0;
+  let checkTimer: ReturnType<typeof setTimeout> | undefined;
+  let checkProcess: AbortController | undefined;
   async function check(reveal = true) {
+    if (checkTimer) clearTimeout(checkTimer);
+    checkTimer = undefined;
     const root = project();
     const version = ++checkVersion;
-    const result = await command('renrs-check', ['--json', root], root, reveal).catch(
-      (error: unknown) => {
+    checkProcess?.abort();
+    const controller = new AbortController();
+    checkProcess = controller;
+    try {
+      const result = await command(
+        'renrs-check',
+        ['--json', root],
+        root,
+        reveal,
+        controller.signal,
+      ).catch((error: unknown) => {
         if (errorProperty(error, 'code') === 'ENOENT')
           throw new Error(
             'RenRS tools were not found. Set renrs.toolsPath or add the tools to PATH.',
           );
         return { stdout: errorProperty(error, 'stdout'), stderr: errorProperty(error, 'stderr') };
-      },
-    );
-    if (version !== checkVersion) return;
-    diagnostics.clear();
-    const grouped = new Map<string, [vscode.Uri, vscode.Diagnostic[]]>();
-    const report = JSON.parse(result.stdout || '{}') as { diagnostics?: CheckDiagnostic[] };
-    for (const item of report.diagnostics || []) {
-      const uri = vscode.Uri.file(path.resolve(root, item.file));
-      const line = Math.max(0, item.line - 1),
-        column = Math.max(0, item.column - 1);
-      const range = new vscode.Range(line, column, line, column + 1);
-      const diagnostic = new vscode.Diagnostic(
-        range,
-        item.message + (item.hint ? `\n${item.hint}` : ''),
-        item.severity === 'warning'
-          ? vscode.DiagnosticSeverity.Warning
-          : vscode.DiagnosticSeverity.Error,
-      );
-      diagnostic.source = 'renrs-project';
-      const entry = grouped.get(uri.toString()) || [uri, []];
-      entry[1].push(diagnostic);
-      grouped.set(uri.toString(), entry);
+      });
+      if (version !== checkVersion) return;
+      diagnostics.clear();
+      const grouped = new Map<string, [vscode.Uri, vscode.Diagnostic[]]>();
+      const report = JSON.parse(result.stdout || '{}') as { diagnostics?: CheckDiagnostic[] };
+      for (const item of report.diagnostics || []) {
+        const uri = vscode.Uri.file(path.resolve(root, item.file));
+        const line = Math.max(0, item.line - 1),
+          column = Math.max(0, item.column - 1);
+        const range = new vscode.Range(line, column, line, column + 1);
+        const diagnostic = new vscode.Diagnostic(
+          range,
+          item.message + (item.hint ? `\n${item.hint}` : ''),
+          item.severity === 'warning'
+            ? vscode.DiagnosticSeverity.Warning
+            : vscode.DiagnosticSeverity.Error,
+        );
+        diagnostic.source = 'renrs-project';
+        const entry = grouped.get(uri.toString()) || [uri, []];
+        entry[1].push(diagnostic);
+        grouped.set(uri.toString(), entry);
+      }
+      diagnostics.set([...grouped.values()]);
+    } finally {
+      if (checkProcess === controller) checkProcess = undefined;
     }
-    diagnostics.set([...grouped.values()]);
   }
+  function scheduleCheck(): void {
+    if (checkTimer) clearTimeout(checkTimer);
+    checkVersion += 1;
+    checkProcess?.abort();
+    checkTimer = setTimeout(() => {
+      checkTimer = undefined;
+      check(false).catch((error) => output.appendLine(errorMessage(error)));
+    }, 300);
+  }
+  context.subscriptions.push({
+    dispose() {
+      checkVersion += 1;
+      if (checkTimer) clearTimeout(checkTimer);
+      checkProcess?.abort();
+    },
+  });
   function register(name: string, callback: () => unknown | Promise<unknown>): void {
     context.subscriptions.push(
       vscode.commands.registerCommand(name, async () => {
@@ -419,7 +455,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         document.languageId === 'renrs' ||
         (inProject && document.uri.fsPath.toLowerCase().endsWith('.json'))
       ) {
-        check(false).catch((error) => output.appendLine(errorMessage(error)));
+        scheduleCheck();
       }
     }),
   );

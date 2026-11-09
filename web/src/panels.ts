@@ -1,7 +1,7 @@
 import { richText } from './presentation';
 import { parseHistory, parseImportedSave } from './protocol';
 import { deleteSave, download, listSaves, validateSave, writeSave } from './storage';
-import type { CollectionCategory, PlayerApp, SettingKey } from './types';
+import type { CollectionCategory, PlayerApp, SaveSummary, SettingKey } from './types';
 
 function open(app: PlayerApp, title: string): HTMLElement {
   app.reading.pause();
@@ -27,6 +27,13 @@ function button(
 
 type SettingRow = readonly [SettingKey, string, 'checkbox' | 'range', number?, number?, number?];
 
+function playTime(save: SaveSummary): string {
+  const seconds = save.play_time_seconds ?? 0;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
 export const panels = {
   open,
   async saves(app: PlayerApp, page = 0): Promise<void> {
@@ -50,7 +57,10 @@ export const panels = {
       picker,
     );
     for (const slot of ['resume', 'auto']) {
-      const save = saved.find((item) => item.slot === slot);
+      const save =
+        slot === 'auto'
+          ? saved.find((item) => item.slot === 'auto-1' || item.slot === 'auto')
+          : saved.find((item) => item.slot === slot);
       if (save)
         bar.append(
           button(app, slot === 'resume' ? 'Resume' : 'Autosave', async () => {
@@ -73,7 +83,10 @@ export const panels = {
       info.append(app.element('h3', `${app.tr('Slot')} ${index}`));
       if (save)
         info.append(
-          app.element('small', `${save.chapter || ''} / ${new Date(save.time).toLocaleString()}`),
+          app.element(
+            'small',
+            `${save.chapter || ''} / ${playTime(save)} / ${new Date(save.time).toLocaleString()}`,
+          ),
           app.element('p', save.note || save.text),
         );
       const note = app.element('input', null, {

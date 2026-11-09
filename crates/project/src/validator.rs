@@ -8,14 +8,18 @@ use crate::syntax::{Block, Expr, Script, StatementKind};
 
 #[must_use]
 pub fn validate(script: &Script, game_root: &Path) -> Vec<Diagnostic> {
-    let story_screens = std::fs::read(game_root.join(crate::screens::SCREENS_FILE))
+    let story_screens = crate::resources::resource_path(game_root, crate::screens::SCREENS_FILE)
         .ok()
+        .and_then(|path| std::fs::File::open(path).ok())
+        .and_then(|file| {
+            crate::resource_budget::read_limited(file, crate::resource_budget::CONFIG_BYTES).ok()
+        })
         .and_then(|bytes| crate::screens::Screens::from_slice(&bytes).ok())
         .map(|screens| screens.story.into_keys().collect::<HashSet<_>>())
         .or_else(|| (!game_root.join(crate::screens::SCREENS_FILE).exists()).then(HashSet::new));
     validate_with_resources(
         script,
-        &|resource| game_root.join(resource).is_file(),
+        &|resource| crate::resources::resource_path(game_root, resource).is_ok(),
         story_screens.as_ref(),
     )
 }
@@ -24,7 +28,10 @@ pub fn validate(script: &Script, game_root: &Path) -> Vec<Diagnostic> {
 pub fn validate_archive(script: &Script, archive: &ResourceArchive) -> Vec<Diagnostic> {
     let story_screens = if archive.contains(crate::screens::SCREENS_FILE) {
         archive
-            .read(crate::screens::SCREENS_FILE)
+            .read_limited(
+                crate::screens::SCREENS_FILE,
+                crate::resource_budget::CONFIG_BYTES,
+            )
             .ok()
             .and_then(|bytes| crate::screens::Screens::from_slice(&bytes).ok())
             .map(|screens| screens.story.into_keys().collect::<HashSet<_>>())

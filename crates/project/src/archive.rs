@@ -47,8 +47,12 @@ pub enum ArchiveError {
     ManifestTooLarge,
     #[error("unsafe or duplicate archive path `{0}`")]
     InvalidPath(String),
+    #[error("archive resource rules are invalid: {0}")]
+    InvalidRules(String),
     #[error("archive entry `{0}` points outside the file")]
     InvalidBounds(String),
+    #[error("archive entry `{0}` exceeds its byte budget")]
+    ResourceTooLarge(String),
     #[error("archive entry `{0}` failed its SHA-256 check")]
     Checksum(String),
     #[error("archive does not contain `{0}`")]
@@ -179,12 +183,30 @@ impl ResourceArchive {
                 return Err(ArchiveError::InvalidBounds(entry.path.clone()));
             }
         }
-        Ok(Self {
+        let mut archive = Self {
             path,
             payload_start,
             entries: manifest.entries,
             index,
-        })
+        };
+        let rules = if archive.contains(crate::resources::RESOURCE_RULES_FILE) {
+            let bytes = archive.read_limited(
+                crate::resources::RESOURCE_RULES_FILE,
+                crate::resource_budget::RESOURCE_RULES_BYTES,
+            )?;
+            crate::resources::ResourceRules::from_slice(&bytes)
+                .map_err(|error| ArchiveError::InvalidRules(error.to_string()))?
+        } else {
+            crate::resources::ResourceRules::default()
+        };
+        archive.entries.retain(|entry| rules.includes(&entry.path));
+        archive.index = archive
+            .entries
+            .iter()
+            .enumerate()
+            .map(|(index, entry)| (entry.path.clone(), index))
+            .collect();
+        Ok(archive)
     }
 
     #[must_use]
@@ -200,6 +222,78 @@ impl ResourceArchive {
     #[must_use]
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Repacks only visible entries into a deterministic, normalized archive.
+    /// Source payloads are copied and verified in one pass.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for corrupt or inaccessible source payloads,
+    /// serialization failures, or an unwritable destination.
+    pub fn repack(&self, destination: &Path) -> Result<usize, ArchiveError> {
+        let mut sources = self.entries.iter().collect::<Vec<_>>();
+        sources.sort_unstable_by(|left, right| left.path.cmp(&right.path));
+        let mut offset = 0_u64;
+        let mut entries = Vec::with_capacity(sources.len());
+        for source in &sources {
+            entries.push(ArchiveEntry {
+                path: source.path.clone(),
+                offset,
+                length: source.length,
+                sha256: source.sha256.clone(),
+            });
+            offset = offset
+                .checked_add(source.length)
+                .ok_or_else(|| ArchiveError::InvalidBounds(source.path.clone()))?;
+        }
+        let entry_count = entries.len();
+        let manifest_data = Manifest {
+            version: FORMAT_VERSION,
+            entries,
+        };
+        let manifest = serde_json::to_vec(&manifest_data)?;
+        let manifest_length =
+            u64::try_from(manifest.len()).map_err(|_| ArchiveError::ManifestTooLarge)?;
+        if manifest_length > MAX_MANIFEST_BYTES {
+            return Err(ArchiveError::ManifestTooLarge);
+        }
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let temporary = destination.with_extension("renrs.tmp");
+        let result = (|| -> Result<(), ArchiveError> {
+            let mut output = OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&temporary)?;
+            output.write_all(MAGIC)?;
+            output.write_all(&manifest_length.to_le_bytes())?;
+            output.write_all(&manifest)?;
+            let mut buffer = vec![0_u8; 64 * 1024];
+            for (source, entry) in sources.iter().zip(&manifest_data.entries) {
+                let start = self
+                    .payload_start
+                    .checked_add(source.offset)
+                    .ok_or_else(|| ArchiveError::InvalidBounds(source.path.clone()))?;
+                let mut reader = crate::resource_reader::ResourceReader::new(
+                    File::open(&self.path)?,
+                    start,
+                    source.length,
+                )?;
+                copy_verified(&mut reader, &mut output, entry, &mut buffer)?;
+            }
+            output.flush()?;
+            output.sync_all()?;
+            Ok(())
+        })();
+        if let Err(error) = result {
+            let _ = fs::remove_file(&temporary);
+            return Err(error);
+        }
+        renrs_shared::io::replace_file(&temporary, destination)?;
+        Ok(entry_count)
     }
 
     /// Reads and checksum-validates one archived resource.
@@ -224,6 +318,21 @@ impl ResourceArchive {
             return Err(ArchiveError::Checksum(entry.path.clone()));
         }
         Ok(bytes)
+    }
+
+    /// Reads one resource only when its manifest length fits the byte budget.
+    /// # Errors
+    /// Returns an error for oversized, missing or corrupt resources and I/O failures.
+    pub fn read_limited(&self, path: &str, limit: usize) -> Result<Vec<u8>, ArchiveError> {
+        let entry = self
+            .index
+            .get(path)
+            .and_then(|index| self.entries.get(*index))
+            .ok_or_else(|| ArchiveError::Missing(path.to_owned()))?;
+        if entry.length > u64::try_from(limit).unwrap_or(u64::MAX) {
+            return Err(ArchiveError::ResourceTooLarge(path.to_owned()));
+        }
+        self.read(path)
     }
 
     /// Opens a verified resource without allocating its entire encoded payload.
@@ -258,22 +367,54 @@ impl ResourceArchive {
     /// inaccessible storage, or an existing output file.
     pub fn extract(&self, destination: &Path) -> Result<(), ArchiveError> {
         prepare_destination(destination)?;
+        let mut buffer = vec![0_u8; 64 * 1024];
         for entry in &self.entries {
             let output = destination.join(&entry.path);
             if let Some(parent) = output.parent() {
                 prepare_entry_parent(destination, parent)?;
             }
             reject_existing_output(&output)?;
-            let bytes = self.read(&entry.path)?;
+            let start = self
+                .payload_start
+                .checked_add(entry.offset)
+                .ok_or_else(|| ArchiveError::InvalidBounds(entry.path.clone()))?;
+            let mut reader = crate::resource_reader::ResourceReader::new(
+                File::open(&self.path)?,
+                start,
+                entry.length,
+            )?;
             let mut file = OpenOptions::new()
                 .write(true)
                 .create_new(true)
                 .open(&output)
                 .map_err(|error| map_create_error(error, &output))?;
-            file.write_all(&bytes)?;
+            let result = copy_verified(&mut reader, &mut file, entry, &mut buffer)
+                .and_then(|()| file.flush().map_err(ArchiveError::Io));
+            if let Err(error) = result {
+                drop(file);
+                if let Err(cleanup) = fs::remove_file(&output)
+                    && cleanup.kind() != std::io::ErrorKind::NotFound
+                {
+                    return Err(ArchiveError::Io(cleanup));
+                }
+                return Err(error);
+            }
         }
         Ok(())
     }
+}
+
+fn copy_verified(
+    reader: &mut impl Read,
+    output: &mut impl Write,
+    entry: &ArchiveEntry,
+    buffer: &mut [u8],
+) -> Result<(), ArchiveError> {
+    let (length, digest) = renrs_shared::hash::copy_hashed(reader, output, buffer)?;
+    if length != entry.length || digest != entry.sha256 {
+        return Err(ArchiveError::Checksum(entry.path.clone()));
+    }
+    Ok(())
 }
 
 fn prepare_destination(destination: &Path) -> Result<(), ArchiveError> {
@@ -347,62 +488,4 @@ fn map_create_error(error: std::io::Error, path: &Path) -> ArchiveError {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn packs_reads_and_extracts_project_files() {
-        let temporary = tempfile::tempdir().unwrap();
-        let root = temporary.path().join("game");
-        fs::create_dir_all(root.join("images")).unwrap();
-        fs::write(root.join("script.rns"), b"label start:\n    return\n").unwrap();
-        fs::write(root.join("images/pixel.bin"), [1, 2, 3, 4]).unwrap();
-        fs::create_dir(root.join(".renrs")).unwrap();
-        fs::write(root.join(".renrs/private.json"), b"secret").unwrap();
-        let archive_path = temporary.path().join("game.renrs");
-
-        pack_project(&root, &archive_path).unwrap();
-        let archive = ResourceArchive::open(&archive_path).unwrap();
-        assert_eq!(archive.entries().len(), 2);
-        assert!(archive.contains("script.rns"));
-        assert!(!archive.contains("missing.rns"));
-        assert_eq!(archive.read("images/pixel.bin").unwrap(), [1, 2, 3, 4]);
-        assert!(matches!(
-            archive.read(".renrs/private.json"),
-            Err(ArchiveError::Missing(_))
-        ));
-
-        let extracted = temporary.path().join("extracted");
-        archive.extract(&extracted).unwrap();
-        assert_eq!(
-            fs::read(extracted.join("script.rns")).unwrap(),
-            b"label start:\n    return\n"
-        );
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn refuses_to_extract_through_an_existing_directory_symlink() {
-        use std::os::unix::fs::symlink;
-
-        let temporary = tempfile::tempdir().unwrap();
-        let root = temporary.path().join("game");
-        fs::create_dir_all(root.join("images")).unwrap();
-        fs::write(root.join("images/pixel.bin"), [1, 2, 3, 4]).unwrap();
-        let archive_path = temporary.path().join("game.renrs");
-        pack_project(&root, &archive_path).unwrap();
-
-        let destination = temporary.path().join("extracted");
-        let outside = temporary.path().join("outside");
-        fs::create_dir_all(&destination).unwrap();
-        fs::create_dir_all(&outside).unwrap();
-        symlink(&outside, destination.join("images")).unwrap();
-
-        let archive = ResourceArchive::open(&archive_path).unwrap();
-        assert!(matches!(
-            archive.extract(&destination),
-            Err(ArchiveError::Symlink(_))
-        ));
-        assert!(!outside.join("pixel.bin").exists());
-    }
-}
+mod tests;

@@ -110,6 +110,7 @@ cargo run --bin renrs-i18n -- check game game/locales/zh-Hans.json
 
 ```sh
 cargo run --bin renrs-pack -- game game.renrs
+cargo run --bin renrs-pack -- game.renrs normalized.renrs
 cargo run --bin renrs-unpack -- game.renrs extracted-game
 cargo run --bin renrs-check -- game.renrs
 ```
@@ -117,6 +118,10 @@ cargo run --bin renrs-check -- game.renrs
 `.renrs` 包含版本化 JSON 清单和连续资源 payload。每项记录规范相对路径、偏移、长度和 SHA-256；
 读取与解包拒绝越界路径、重复路径、越界数据和校验失败。隐藏目录不会打包；解包不会覆盖已有文件，
 也拒绝目标目录、父目录或输出文件中的符号链接。
+
+`renrs-pack` 的输入是目录时执行打包；输入是 `.renrs` 文件时执行 repack，按归档内的
+`resources.json` 规则只重写可见条目，输出清单按路径排序、payload 连续并逐条校验。
+对打开时被规则过滤的第三方归档，repack 可生成无隐藏条目的规范化归档。
 
 归档不是只用于解包的容器。播放器、检查器、本地化工具和构建器都可直接读取它；播放器归档模式
 不启用热重载。
@@ -232,11 +237,16 @@ cargo test --offline --workspace --all-targets
 
 上述 core 门禁还会检查 Biome、demo、脚手架路线、产品和第一方参考 fixture、Web/Launcher 单测，
 以及 Web、VS Code 与 Launcher 的 strict TypeScript 和生产构建。它也运行各 Node 工作区的
-生产依赖审计和 `cargo audit --deny warnings`，因此本机需安装 `cargo-audit`。当前精确豁免
-`RUSTSEC-2025-0035` 和 `RUSTSEC-2026-0192`：它们来自 Macroquad soundness 以及经 Macroquad/
-ab_glyph 引入的无维护 ttf-parser，当前均无可直接升级的修复版本。原生 shaping 已迁移到维护中的
-HarfRust，因此不再豁免 rustybuzz advisory。
-豁免不代表风险消失；升级或替换对应渲染、文本依赖时应复核并删除，任何新 advisory
+生产依赖审计和 `cargo audit --deny warnings`，因此本机需安装 `cargo-audit`。当前仅有以下精确豁免，
+均无可直接升级的修复版本：
+
+| Advisory | 负责人 | 下次复审 | 退出条件 |
+| --- | --- | --- | --- |
+| [`RUSTSEC-2025-0035`](https://rustsec.org/advisories/RUSTSEC-2025-0035) | 原生渲染 | 2027-02-09 | 升级到不受影响的 Macroquad，或完成渲染层迁移 |
+| [`RUSTSEC-2026-0192`](https://rustsec.org/advisories/RUSTSEC-2026-0192) | 原生文本 | 2027-02-09 | 从 Macroquad/fontdue 与 ab_glyph 依赖链移除 ttf-parser |
+
+原生 shaping 已迁移到维护中的 HarfRust，因此不再豁免 rustybuzz advisory。豁免不代表风险消失；
+每次升级或替换对应渲染、文本依赖时必须复核并删除，逾期后审计会输出复审警告，任何新 advisory
 仍会使门禁失败。
 默认审计模式会刷新 npm/Cargo advisory 数据并需要网络；`RENRS_AUDIT_OFFLINE=1` 或
 `node scripts/audit-local.mjs --offline` 使用本地缓存，适合离线重跑，但不会绕过缓存缺失或

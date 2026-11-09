@@ -3,6 +3,7 @@ pub mod compile_cache;
 mod extensions;
 mod layered_images;
 pub mod project;
+pub(crate) mod resource_budget;
 pub mod resource_reader;
 pub mod resources;
 pub mod screens;

@@ -67,7 +67,7 @@ async function action(app: PlayerApp, command: string): Promise<unknown> {
     app.closeModal();
     return app.render();
   }
-  if (command === 'quick_save') return app.save('quick-1');
+  if (command === 'quick_save') return app.save('quick');
   if (command === 'rollback') {
     app.closeModal();
     return app.act('rollback');
@@ -249,6 +249,7 @@ export async function customScreen(
             app.engine.apply_expression(widget.variable, widget.expression),
             app.state,
           );
+          app.markProgressDirty();
           app.syncProfile();
           await app.render();
         } else if (widget.action) {
@@ -265,6 +266,7 @@ export async function customScreen(
           app.engine.apply_expression(widget.variable, widget.expression),
           app.state,
         );
+        app.markProgressDirty();
         app.syncProfile();
         if (app.$('modal').open) await app.openPanel(kind);
         else await app.render();
@@ -311,6 +313,7 @@ export async function customScreen(
           app.engine.set_variable(widget.variable ?? '', JSON.stringify(input.value)),
           app.state,
         );
+        app.markProgressDirty();
         app.syncProfile();
       });
       label.append(input);

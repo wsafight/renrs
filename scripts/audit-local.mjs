@@ -30,18 +30,38 @@ for (const directory of ['.', 'web', 'launcher', 'site', 'editors/vscode-renrs']
     );
   }
 }
-// No patched release exists for these transitive or renderer advisories. Keep the
-// exception list exact so every new RustSec advisory still fails the local gate.
+// No patched release exists for these renderer advisories. Keep each exception exact,
+// owned and time-bounded so every new RustSec advisory still fails the local gate.
 const acceptedRustAdvisories = [
-  'RUSTSEC-2025-0035', // macroquad soundness; replacement requires a renderer migration
-  'RUSTSEC-2026-0192', // ttf-parser via macroquad and ab_glyph
+  {
+    id: 'RUSTSEC-2025-0035',
+    owner: 'native renderer',
+    reviewBy: '2027-02-09',
+    url: 'https://rustsec.org/advisories/RUSTSEC-2025-0035',
+    exit: 'Upgrade Macroquad past the advisory or complete the renderer migration.',
+  },
+  {
+    id: 'RUSTSEC-2026-0192',
+    owner: 'native text stack',
+    reviewBy: '2027-02-09',
+    url: 'https://rustsec.org/advisories/RUSTSEC-2026-0192',
+    exit: 'Remove ttf-parser from Macroquad/fontdue and ab_glyph dependency chains.',
+  },
 ];
+const today = new Date().toISOString().slice(0, 10);
+for (const advisory of acceptedRustAdvisories) {
+  if (advisory.reviewBy < today) {
+    console.warn(
+      `RustSec exception review overdue: ${advisory.id} (${advisory.owner}); ${advisory.exit} ${advisory.url}`,
+    );
+  }
+}
 run('cargo', [
   'audit',
   ...(offline ? ['--no-fetch'] : []),
   '--deny',
   'warnings',
-  ...acceptedRustAdvisories.flatMap((advisory) => ['--ignore', advisory]),
+  ...acceptedRustAdvisories.flatMap(({ id }) => ['--ignore', id]),
 ]);
 console.log(
   `Local dependency advisory checks passed (${offline ? 'offline cache' : 'network'} mode).`,

@@ -23,9 +23,15 @@ pub fn load_project(game_root: &Path) -> Result<Script, Vec<Diagnostic>> {
     let files = collect_scripts(game_root)?;
     let mut sources = Vec::new();
     let mut diagnostics = Vec::new();
+    let mut total_bytes = 0;
     for path in files {
         let source_name = renrs_shared::path::relative_name(game_root, &path);
-        match fs::read_to_string(&path) {
+        let result = fs::File::open(&path)
+            .and_then(|file| {
+                crate::resource_budget::read_limited(file, crate::resource_budget::SCRIPT_BYTES)
+            })
+            .and_then(|bytes| crate::resource_budget::decode_script(bytes, &mut total_bytes));
+        match result {
             Ok(source) => sources.push((source_name, source)),
             Err(error) => diagnostics.push(Diagnostic::new(
                 &source_name,
@@ -57,18 +63,22 @@ pub fn load_project_archive(archive: &ResourceArchive) -> Result<Script, Vec<Dia
     names.sort_unstable();
     let mut sources = Vec::with_capacity(names.len());
     let mut diagnostics = Vec::new();
+    let mut total_bytes = 0;
     for name in names {
-        match archive.read(name) {
-            Ok(bytes) => match String::from_utf8(bytes) {
-                Ok(source) => sources.push((name.to_owned(), source)),
-                Err(error) => diagnostics.push(Diagnostic::new(
-                    name,
-                    1,
-                    1,
-                    format!("script is not valid UTF-8: {error}"),
-                )),
-            },
-            Err(error) => diagnostics.push(Diagnostic::new(name, 1, 1, error.to_string())),
+        let result = archive
+            .read_limited(name, crate::resource_budget::SCRIPT_BYTES)
+            .and_then(|bytes| {
+                crate::resource_budget::decode_script(bytes, &mut total_bytes)
+                    .map_err(crate::archive::ArchiveError::Io)
+            });
+        match result {
+            Ok(source) => sources.push((name.to_owned(), source)),
+            Err(error) => diagnostics.push(Diagnostic::new(
+                name,
+                1,
+                1,
+                format!("could not read script: {error}"),
+            )),
         }
     }
     if !diagnostics.is_empty() {
@@ -326,137 +336,4 @@ fn at(span: &Span, message: impl Into<String>) -> Diagnostic {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn loads_sorted_scripts_as_one_project() {
-        let root = tempfile::tempdir().unwrap();
-        fs::create_dir(root.path().join("story")).unwrap();
-        fs::write(
-            root.path().join("script.rns"),
-            "config title \"Many Files\"\ndefine e = character \"Eileen\"\nlabel start:\n    call story_intro\n    return\n",
-        )
-        .unwrap();
-        fs::write(
-            root.path().join("story/intro.rns"),
-            "label story_intro:\n    e \"Hello\"\n    return\n",
-        )
-        .unwrap();
-
-        let script = load_project(root.path()).unwrap();
-        assert_eq!(script.title, "Many Files");
-        assert_eq!(script.labels.len(), 2);
-        assert_eq!(
-            script.labels["story_intro"][0].span.source,
-            "story/intro.rns"
-        );
-    }
-
-    #[test]
-    fn reports_cross_file_duplicate_declarations() {
-        let root = tempfile::tempdir().unwrap();
-        fs::write(
-            root.path().join("a.rns"),
-            "layer effects order 10\ndefine e = character \"First\"\nlabel start:\n    return\n",
-        )
-        .unwrap();
-        fs::write(
-            root.path().join("b.rns"),
-            "layer effects order 20\ndefine e = character \"Second\"\nlabel start:\n    return\n",
-        )
-        .unwrap();
-
-        let errors = load_project(root.path()).unwrap_err();
-        assert!(
-            errors
-                .iter()
-                .any(|error| error.message.contains("character `e`"))
-        );
-        assert!(
-            errors
-                .iter()
-                .any(|error| error.message.contains("label `start`"))
-        );
-        assert!(
-            errors
-                .iter()
-                .any(|error| error.message.contains("display layer `effects`"))
-        );
-        assert!(errors.iter().all(|error| error.file == "b.rns"));
-    }
-
-    #[test]
-    fn loads_scripts_from_resource_archive() {
-        let temporary = tempfile::tempdir().unwrap();
-        let root = temporary.path().join("game");
-        fs::create_dir_all(root.join("story")).unwrap();
-        fs::write(
-            root.join("script.rns"),
-            "label start:\n    call chapter\n    return\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("story/chapter.rns"),
-            "label chapter:\n    \"Archived\"\n    return\n",
-        )
-        .unwrap();
-        let archive_path = temporary.path().join("game.renrs");
-        crate::archive::pack_project(&root, &archive_path).unwrap();
-        let archive = ResourceArchive::open(archive_path).unwrap();
-
-        let script = load_project_archive(&archive).unwrap();
-        assert!(script.labels.contains_key("start"));
-        assert!(script.labels.contains_key("chapter"));
-        assert_eq!(script.labels["chapter"][0].span.source, "story/chapter.rns");
-    }
-}
-
-#[cfg(test)]
-mod source_coverage_tests {
-    use crate::source::{ProjectSource, ProjectSourceError};
-    use std::fs;
-
-    #[test]
-    fn open_read_limit_and_screens_validation_cover_source_edges() {
-        assert!(matches!(
-            ProjectSource::open("missing-path"),
-            Err(ProjectSourceError::InvalidPath(_))
-        ));
-        let root = tempfile::tempdir().unwrap();
-        fs::write(root.path().join("script.rns"), "label start:\n    return\n").unwrap();
-        fs::write(root.path().join("big.bin"), vec![0_u8; 32]).unwrap();
-        fs::write(
-            root.path().join("screens.json"),
-            br#"{"hud":{"bounds":{"x":0,"y":0,"width":300,"height":80},"root":{"type":"image","path":"missing.png"}}}"#,
-        )
-        .unwrap();
-        let source = ProjectSource::open(root.path()).unwrap();
-        assert!(source.watch_root().is_some());
-        assert!(source.path().ends_with(root.path().file_name().unwrap()));
-        assert!(source.read_limited("big.bin", 8).is_err());
-        assert!(source.read_limited("big.bin", 64).is_ok());
-        assert!(
-            source
-                .validate_support_files()
-                .iter()
-                .any(|item| item.message.contains("missing") || item.file == "screens.json")
-        );
-        let script = crate::parse_script(
-            "define e = character \"Eileen\" color \"red\" image missing\nlabel start:\n    return",
-            "script.rns",
-        )
-        .unwrap();
-        let found = crate::validator::validate(&script, root.path());
-        assert!(
-            found
-                .iter()
-                .any(|item| item.message.contains("character color"))
-        );
-        assert!(
-            found
-                .iter()
-                .any(|item| item.message.contains("unknown image"))
-        );
-    }
-}
+mod tests;

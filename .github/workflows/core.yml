@@ -87,6 +87,47 @@ jobs:
       - name: Dependency advisories
         run: node scripts/audit-local.mjs
 
+  javascript-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            launcher/package-lock.json
+            editors/vscode-renrs/package-lock.json
+      - run: npm ci
+        working-directory: launcher
+      - run: npm run check
+        working-directory: launcher
+      - run: npm ci
+        working-directory: editors/vscode-renrs
+      - run: npm run build
+        working-directory: editors/vscode-renrs
+
+  vscode-host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: editors/vscode-renrs/package-lock.json
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Install extension host display
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: cargo build --bin renrs-check --bin renrs-lsp
+      - run: npm ci
+        working-directory: editors/vscode-renrs
+      - run: xvfb-run -a npm run test:host
+        working-directory: editors/vscode-renrs
+
   web:
     runs-on: ubuntu-latest
     steps:

@@ -46,22 +46,79 @@ export const listSaves = (project: string): Promise<SaveSummary[]> =>
   transaction<SaveSummary[]>('readonly', (_, summaries) =>
     summaries.index('project').getAll(project),
   ).then((items) => items.sort((a, b) => b.time - a.time));
+export type SaveRotation = { prefix: 'quick' | 'auto'; count: number };
+
+let writeQueue: Promise<unknown> = Promise.resolve();
+function enqueueWrite<Result>(action: () => Promise<Result>): Promise<Result> {
+  const result = writeQueue.then(action);
+  writeQueue = result.catch(() => undefined);
+  return result;
+}
+
 export const deleteSave = (id: string): Promise<undefined> =>
-  transaction<undefined>('readwrite', (store, summaries) => {
-    summaries.delete(id);
-    return store.delete(id) as IDBRequest<undefined>;
-  });
+  enqueueWrite(() =>
+    transaction<undefined>('readwrite', (store, summaries) => {
+      summaries.delete(id);
+      return store.delete(id) as IDBRequest<undefined>;
+    }),
+  );
 const checksum = async (value: string): Promise<string> =>
   Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
-export async function writeSave(save: Omit<SaveRecord, 'checksum'>): Promise<SaveRecord> {
-  const data = { ...save, checksum: await checksum(save.snapshot) };
-  await transaction('readwrite', (store, summaries) => {
-    summaries.put(summary(data));
-    return store.put(data);
+
+function rotatedSlot(slot: string, prefix: string): number | null {
+  if (slot === prefix) return 1;
+  const match = new RegExp(`^${prefix}-(\\d+)$`).exec(slot);
+  return match ? Number(match[1]) : null;
+}
+
+export function writeSave(
+  save: Omit<SaveRecord, 'checksum'>,
+  rotation?: SaveRotation,
+): Promise<SaveRecord> {
+  const input = rotation
+    ? {
+        ...save,
+        id: `${save.project}:${rotation.prefix}-1`,
+        slot: `${rotation.prefix}-1`,
+      }
+    : save;
+  return enqueueWrite(async () => {
+    const data = { ...input, checksum: await checksum(input.snapshot) };
+    if (!rotation) {
+      await transaction('readwrite', (store, summaries) => {
+        summaries.put(summary(data));
+        return store.put(data);
+      });
+      return data;
+    }
+    await transaction<SaveRecord[]>('readwrite', (store, summaries) => {
+      const request = store.getAll() as IDBRequest<SaveRecord[]>;
+      request.onsuccess = () => {
+        const existing = request.result
+          .map((record) => ({ record, index: rotatedSlot(record.slot, rotation.prefix) }))
+          .filter(
+            (item): item is { record: SaveRecord; index: number } =>
+              item.record.project === data.project && item.index !== null,
+          )
+          .sort((a, b) => b.index - a.index || a.record.time - b.record.time);
+        for (const { record, index } of existing) {
+          summaries.delete(record.id);
+          store.delete(record.id);
+          if (index >= rotation.count) continue;
+          const slot = `${rotation.prefix}-${index + 1}`;
+          const moved = { ...record, id: `${record.project}:${slot}`, slot };
+          summaries.put(summary(moved));
+          store.put(moved);
+        }
+        summaries.put(summary(data));
+        store.put(data);
+      };
+      return request;
+    });
+    return data;
   });
-  return data;
 }
 export async function validateSave(
   save: SaveSummary | SaveRecord | undefined,

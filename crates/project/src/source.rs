@@ -88,7 +88,7 @@ impl ProjectSource {
         for instruction in &program.instructions {
             if let renrs_model::InstructionKind::Video { path, seconds } = &instruction.kind {
                 let result = self
-                    .read(path)
+                    .read_limited(path, crate::resource_budget::VIDEO_MANIFEST_BYTES)
                     .map_err(|error| error.to_string())
                     .and_then(|bytes| crate::video::VideoClip::from_slice(&bytes))
                     .and_then(|clip| {
@@ -123,7 +123,10 @@ impl ProjectSource {
         }
         if self.contains(crate::progress::PROGRESS_FILE) {
             let result = self
-                .read(crate::progress::PROGRESS_FILE)
+                .read_limited(
+                    crate::progress::PROGRESS_FILE,
+                    crate::resource_budget::CONFIG_BYTES,
+                )
                 .map_err(|error| error.to_string())
                 .and_then(|bytes| {
                     serde_json::from_slice::<crate::progress::ProgressConfig>(&bytes)
@@ -257,34 +260,10 @@ impl ProjectSource {
         }
         match self {
             Self::Directory(root) => {
-                use std::io::Read;
                 let file = fs::File::open(crate::resources::resource_path(root, path)?)?;
-                if file.metadata()?.len() > limit as u64 {
-                    return Err(
-                        std::io::Error::other("encoded resource exceeds byte budget").into(),
-                    );
-                }
-                let mut bytes = Vec::new();
-                file.take(limit as u64 + 1).read_to_end(&mut bytes)?;
-                if bytes.len() > limit {
-                    return Err(
-                        std::io::Error::other("encoded resource exceeds byte budget").into(),
-                    );
-                }
-                Ok(bytes)
+                Ok(crate::resource_budget::read_limited(file, limit)?)
             }
-            Self::Archive(archive) => {
-                if archive
-                    .entries()
-                    .iter()
-                    .any(|entry| entry.path == path && entry.length > limit as u64)
-                {
-                    return Err(
-                        std::io::Error::other("encoded resource exceeds byte budget").into(),
-                    );
-                }
-                Ok(archive.read(path)?)
-            }
+            Self::Archive(archive) => Ok(archive.read_limited(path, limit)?),
         }
     }
 
@@ -311,7 +290,7 @@ impl ProjectSource {
             return;
         }
         let theme = self
-            .read(THEME_FILE)
+            .read_limited(THEME_FILE, crate::resource_budget::CONFIG_BYTES)
             .map_err(|error| error.to_string())
             .and_then(|bytes| {
                 Theme::from_slice(&bytes, THEME_FILE).map_err(|error| error.to_string())
@@ -337,7 +316,7 @@ impl ProjectSource {
             return;
         }
         match self
-            .read(path)
+            .read_limited(path, crate::resource_budget::CONFIG_BYTES)
             .map_err(|error| error.to_string())
             .and_then(|bytes| crate::screens::Screens::from_slice(&bytes))
         {
@@ -373,7 +352,7 @@ impl ProjectSource {
                     .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
         }) {
             let catalog = self
-                .read(&path)
+                .read_limited(&path, crate::resource_budget::CATALOG_BYTES)
                 .map_err(|error| error.to_string())
                 .and_then(|bytes| {
                     TranslationCatalog::from_reader(std::io::Cursor::new(bytes))

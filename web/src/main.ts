@@ -24,7 +24,7 @@ import { ReadStore } from './read-store';
 import { setupReading } from './reading';
 import { customScreen, storyScreens } from './screens';
 import { renderStage, resizeStage } from './stage';
-import { writeSave } from './storage';
+import { type SaveRotation, writeSave } from './storage';
 import type {
   AppElement,
   EffectMap,
@@ -72,6 +72,34 @@ let engineConstructorValue: EngineConstructor | undefined;
 let projectValue: ProjectData | undefined;
 let readValue: ReadStore | undefined;
 let readingValue: ReadingController | undefined;
+let progressRevision = 0;
+let savedRevision = 0;
+let autoSavePending = false;
+let playTimeMs = 0;
+let lastPlayTimeTick = performance.now();
+let wasPlaying = false;
+
+function markProgressDirty(): void {
+  progressRevision += 1;
+}
+
+function playTimeActive(): boolean {
+  return Boolean(
+    engineValue &&
+      stateValue &&
+      !app.inTitle &&
+      !document.hidden &&
+      !app.$('modal').open &&
+      !app.state.debug.paused,
+  );
+}
+
+function updatePlayTime(): void {
+  const now = performance.now();
+  if (wasPlaying) playTimeMs += Math.min(1000, Math.max(0, now - lastPlayTimeTick));
+  wasPlaying = playTimeActive();
+  lastPlayTimeTick = now;
+}
 
 function clearAppTimer(): void {
   if (app.timer !== null) clearTimeout(app.timer);
@@ -225,6 +253,7 @@ export const app: PlayerApp = {
     if (command === 'next' && app.state.waiting === 'Dialogue' && app.reading.finish()) return;
     clearAppTimer();
     app.state = parseRuntimeState(app.engine.action(command, index), stateValue);
+    markProgressDirty();
     app.reading.reset();
     app.pausedRemaining = null;
     app.trackRead();
@@ -239,6 +268,7 @@ export const app: PlayerApp = {
     app.wasRead = Boolean(id && app.read.has(id));
     if (id && app.state.waiting === 'Dialogue') app.read.add(id);
   },
+  markProgressDirty,
   remaining(): number {
     const video = waitingObject(app.state.waiting).Effect?.effect?.Video;
     if (video && (app.clipAudio || app.streamingVideo)) {
@@ -247,30 +277,47 @@ export const app: PlayerApp = {
     return app.pausedRemaining ?? Math.max(0, app.deadline - performance.now());
   },
   async save(slot: string, note = '') {
+    updatePlayTime();
     app.read.flush();
-    return writeSave({
-      version: 1,
-      id: `${app.data.program.project_id}:${slot}`,
-      project: app.data.program.project_id,
-      slot,
-      time: Date.now(),
-      note,
-      chapter: app.state.debug.label ?? '',
-      text: app.state.stage.dialogue?.text || '',
-      thumbnail: app.state.stage.background || '',
-      snapshot: app.engine.snapshot(),
-      remaining: app.remaining(),
-      presentation: {
-        dialogue_page: 0,
-        visible_characters: app.reading.clock.visible,
-        sprite_elapsed_ms: Math.round(app.layerTime || 0),
+    const revision = progressRevision;
+    const rotation: SaveRotation | undefined =
+      slot === 'quick' || slot === 'auto'
+        ? { prefix: slot, count: slot === 'quick' ? 3 : 5 }
+        : undefined;
+    const saved = await writeSave(
+      {
+        version: 1,
+        id: `${app.data.program.project_id}:${slot}`,
+        project: app.data.program.project_id,
+        slot,
+        time: Date.now(),
+        note,
+        chapter: app.state.debug.label ?? '',
+        text: app.state.stage.dialogue?.text || '',
+        thumbnail: app.state.stage.background || '',
+        snapshot: app.engine.snapshot(),
+        remaining: app.remaining(),
+        play_time_seconds: Math.floor(playTimeMs / 1000),
+        presentation: {
+          dialogue_page: 0,
+          visible_characters: app.reading.clock.visible,
+          sprite_elapsed_ms: Math.round(app.layerTime || 0),
+        },
       },
-    });
+      rotation,
+    );
+    savedRevision = Math.max(savedRevision, revision);
+    return saved;
   },
   async restore(save: SaveRecord): Promise<void> {
     const next = parseRuntimeState(app.engine.restore(save.snapshot), stateValue);
+    updatePlayTime();
+    playTimeMs =
+      Math.max(0, save.play_time_seconds ?? 0, (save.presentation?.sprite_elapsed_ms ?? 0) / 1000) *
+      1000;
     app.layerTime = save.presentation?.sprite_elapsed_ms || 0;
     app.state = next;
+    markProgressDirty();
     app.route = [];
     clearAppTimer();
     app.pausedRemaining = save.remaining;
@@ -286,6 +333,7 @@ export const app: PlayerApp = {
   },
   async newGame(): Promise<void> {
     app.layerTime = 0;
+    playTimeMs = 0;
     audio.reset();
     app.profileRevision = null;
     engineValue?.free();
@@ -470,8 +518,18 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 window.addEventListener('pagehide', () => readValue?.flush());
+setInterval(updatePlayTime, 1000);
 setInterval(() => {
-  if (engineValue && stateValue && !app.state.debug.paused) app.save('auto').catch(app.notify);
+  updatePlayTime();
+  if (!autoSavePending && playTimeActive() && progressRevision !== savedRevision) {
+    autoSavePending = true;
+    app
+      .save('auto')
+      .catch(app.notify)
+      .finally(() => {
+        autoSavePending = false;
+      });
+  }
 }, 30000);
 
 try {

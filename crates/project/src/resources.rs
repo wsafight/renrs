@@ -21,12 +21,21 @@ impl ResourceRules {
     /// # Errors
     /// Returns invalid JSON, unsafe rules or filesystem errors.
     pub fn load(root: &Path) -> io::Result<Self> {
-        let path = root.join(RESOURCE_RULES_FILE);
-        let rules: Self = match fs::read(path) {
-            Ok(bytes) => serde_json::from_slice(&bytes).map_err(io::Error::other)?,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => Self::default(),
-            Err(error) => return Err(error),
-        };
+        match fs::File::open(root.join(RESOURCE_RULES_FILE)) {
+            Ok(file) => {
+                let bytes = crate::resource_budget::read_limited(
+                    file,
+                    crate::resource_budget::RESOURCE_RULES_BYTES,
+                )?;
+                Self::from_slice(&bytes)
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Self::default()),
+            Err(error) => Err(error),
+        }
+    }
+
+    pub(crate) fn from_slice(bytes: &[u8]) -> io::Result<Self> {
+        let rules: Self = serde_json::from_slice(bytes).map_err(io::Error::other)?;
         for rule in rules.include.iter().chain(&rules.exclude) {
             if !safe_path(rule.trim_end_matches('/')) || rule.contains(['*', '?']) {
                 return Err(io::Error::other(format!(

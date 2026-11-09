@@ -448,6 +448,7 @@ export interface PlayerApp {
   openPanel(kind: string): Promise<void>;
   act(command: string, index?: number): Promise<void>;
   trackRead(): void;
+  markProgressDirty(): void;
   remaining(): number;
   save(slot: string, note?: string): Promise<SaveSummary>;
   restore(save: SaveRecord): Promise<void>;

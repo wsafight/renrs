@@ -71,6 +71,7 @@ export async function dataControl(
       ),
       app.state,
     );
+    app.markProgressDirty();
     app.syncProfile();
     if (app.$('modal').open) await app.openPanel(kind);
     else await app.render();
@@ -88,6 +89,7 @@ export async function dataControl(
         ),
         app.state,
       );
+      app.markProgressDirty();
       app.syncProfile();
       if (app.$('modal').open) await app.openPanel(kind);
       else await app.render();
