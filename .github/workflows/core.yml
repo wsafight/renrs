@@ -151,10 +151,11 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen@0.2.129
-      # tsc imports types from the generated web/public/engine bindings.
-      - run: node scripts/build-web.mjs
       - run: npm ci
         working-directory: web
+      # tsc imports types from the generated web/public/engine bindings;
+      # build-web also runs vite, so it needs web/node_modules installed.
+      - run: node scripts/build-web.mjs
       - run: npm run check
         working-directory: web
 
